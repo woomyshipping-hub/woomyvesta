@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>우마이직구 배송 조회</title>
+<meta name="description" content="우마이직구 일본 배송대행 주문의 출항·부산 도착·통관·국내 배송 단계를 확인하세요.">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+  <div class="brand"><span class="mark">W</span>우마이직구 배송 조회</div>
+  <h1>내 물건, 지금 어디쯤 왔을까요?</h1>
+  <p class="muted">주문번호(GR로 시작) 또는 운송장번호와, 받는 분 휴대폰 번호 뒤 4자리를 넣어 주세요.</p>
+
+  <form class="card" id="lookup" autocomplete="on">
+    <label for="ref">주문번호 또는 운송장번호</label>
+    <input id="ref" name="ref" placeholder="예: GR261020_12_34_56 또는 597312345678" required autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <label for="last4">받는 분 휴대폰 번호 뒤 4자리</label>
+    <input id="last4" name="last4" inputmode="numeric" pattern="\d{4}" maxlength="4" placeholder="1234" required autocomplete="off">
+    <button class="btn primary" id="go">조회하기</button>
+    <div class="error" id="err" role="alert"></div>
+  </form>
+
+  <section class="card hidden" id="result" aria-live="polite">
+    <ol class="steps" id="steps"></ol>
+    <div class="headline" id="headline"></div>
+    <p class="muted" id="explain"></p>
+    <div class="dates" id="dates"></div>
+    <div id="notes"></div>
+    <div class="courier hidden" id="courier"></div>
+  </section>
+
+  <section class="card">
+    <h2>자주 묻는 질문</h2>
+    <details><summary>일본에서 언제 출발하나요?</summary><p>일본 창고에서 출고 준비가 끝나면 오사카에서 부산으로 가는 배(팬스타)에 실립니다. 대부분 주문 다음 날 출항하고, 주말·연휴에는 2~4일 걸릴 수 있어요.</p></details>
+    <details><summary>배를 타면 며칠 걸리나요?</summary><p>오사카에서 출항한 다음 날 부산항에 도착합니다.</p></details>
+    <details><summary>부산에 도착했는데 왜 아직 안 오나요?</summary><p>부산 도착 후에는 세관 통관을 마치고 택배사에 넘겨져 배송이 시작됩니다. 통관이 끝나면 운송장번호로 택배사에서 위치를 확인할 수 있어요. 세관 검사 대상으로 선별되면 통관에 시간이 더 걸릴 수 있습니다.</p></details>
+    <details><summary>정보가 조회되지 않아요</summary><p>주문번호나 운송장번호를 띄어쓰기 없이 다시 입력해 주세요. 휴대폰 번호는 받는 분 번호의 뒤 4자리입니다. 그래도 안 되면 카카오톡 채널 '우마이직구'로 주문번호를 알려 주세요.</p></details>
+  </section>
+  <footer id="updated">조회 정보를 불러오는 중…</footer>
+</main>
+<script src="lookup.js"></script>
+</body>
+</html>
