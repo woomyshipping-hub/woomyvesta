@@ -20,26 +20,26 @@ function render(e){
   const stages=data.stages;
   $('#steps').innerHTML=stages.map((s,i)=>`<li class="${i<e.s?'done':i===e.s?'now':''}">${esc(s)}</li>`).join('');
   const since=daysSince(e.ar);
+  // 배송 중 covers the one-day ferry crossing too; the arrival date tells which part of it the parcel is in.
+  const onShip=e.s===1&&!(since>=0);
   const headline=[
     '주문이 접수되어 일본에서 출고를 준비하고 있어요',
-    e.ar&&daysSince(e.ar)<0?`배를 타고 부산으로 가고 있어요 · ${fmt(e.ar)} 도착 예정`:'배를 타고 부산으로 가고 있어요',
-    '부산에 도착해 통관과 국내 배송이 진행 중이에요',
+    onShip?(e.ar?`배를 타고 부산으로 가고 있어요 · ${fmt(e.ar)} 도착 예정`:'배를 타고 부산으로 가고 있어요'):'부산에 도착해 통관과 국내 배송이 진행 중이에요',
     '배송이 완료됐어요'][e.s];
   const explain=[
     '오사카에서 부산으로 가는 배에 실릴 준비를 하고 있어요. 대부분 주문 다음 날 출항하고, 주말·연휴에는 며칠 더 걸릴 수 있어요.',
-    '오사카에서 출항한 다음 날 부산항에 도착해요.',
-    '세관 통관이 끝나면 택배사로 넘어가 배송이 시작돼요. 아래 운송장번호로 택배사에서 현재 위치를 확인할 수 있어요.',
+    onShip?'오사카에서 출항한 다음 날 부산항에 도착해요. 도착 후 세관 통관을 거쳐 택배사로 넘어가요.':'세관 통관이 끝나면 택배사로 넘어가 배송이 시작돼요. 아래 운송장번호로 택배사에서 현재 위치를 확인할 수 있어요.',
     '받지 못하셨다면 카카오톡 채널 \'우마이직구\'로 주문번호와 함께 알려 주세요.'][e.s];
   $('#headline').textContent=headline;$('#explain').textContent=explain;
   $('#dates').innerHTML=[['주문',e.od],['일본 출항',e.ob],['부산 도착',e.ar]].map(([k,v])=>`<div><span class="small muted">${k}</span><b>${fmt(v)}</b></div>`).join('');
   const notes=[];
-  if(e.f.includes('inspect')&&e.s<3)notes.push(['warn','세관 검사 대상으로 선별되어 통관에 시간이 더 걸릴 수 있어요. 검사가 끝나면 바로 배송이 시작돼요.']);
+  if(e.f.includes('inspect')&&e.s<2)notes.push(['warn','세관 검사 대상으로 선별되어 통관에 시간이 더 걸릴 수 있어요. 검사가 끝나면 바로 배송이 시작돼요.']);
   if(e.late)notes.push(['bad',`부산 도착 후 ${since}일이 지났어요. 평소보다 오래 걸리고 있어 담당자가 확인하고 있어요. 급하시면 카카오톡 채널 '우마이직구'로 주문번호를 알려 주세요.`]);
-  else if(e.s===2)notes.push(['info','통관이 끝나야 택배사 조회에 배송 정보가 나타나요. 아직 조회되지 않아도 정상 진행 중일 수 있어요.']);
-  if(e.s===3)notes.push(['good','배송이 완료된 주문이에요.']);
+  else if(e.s===1&&!onShip)notes.push(['info','통관이 끝나야 택배사 조회에 배송 정보가 나타나요. 아직 조회되지 않아도 정상 진행 중일 수 있어요.']);
+  if(e.s===2)notes.push(['good','배송이 완료된 주문이에요.']);
   $('#notes').innerHTML=notes.map(([k,t])=>`<div class="note ${k}">${esc(t)}</div>`).join('');
   const c=$('#courier');
-  if(e.n&&e.s>=2){const link=TRACK[e.c];
+  if(e.n&&e.s>=1&&!onShip){const link=TRACK[e.c];
     const nos=e.n.split(/\s+/);
     c.innerHTML=`<div><span class="small muted">${esc(e.c||'택배사')} 운송장번호${nos.length>1?` (${nos.length}개 상자)`:''}</span><br><b>${nos.map(esc).join('<br>')}</b></div>${link?nos.map((n,i)=>`<a class="btn" href="${link(n)}" target="_blank" rel="noopener">택배사에서 조회${nos.length>1?' '+(i+1):''} ↗</a>`).join(''):''}`;
     c.classList.remove('hidden')}else c.classList.add('hidden');

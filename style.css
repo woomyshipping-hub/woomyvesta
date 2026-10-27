@@ -22,7 +22,7 @@ input:focus{outline:2px solid var(--blue);outline-offset:-1px}
 .btn.primary{background:var(--blue);border-color:var(--blue);color:#fff;width:100%;margin-top:18px;padding:13px}
 .btn:disabled{opacity:.6}
 .error{color:var(--bad);font-size:13px;min-height:20px;margin-top:10px}
-.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:18px 0 6px;list-style:none;padding:0}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:18px 0 6px;list-style:none;padding:0}
 .steps li{position:relative;text-align:center;font-size:12.5px;color:var(--muted);padding-top:30px}
 .steps li::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);width:16px;height:16px;border-radius:50%;background:var(--line);z-index:1}
 .steps li::after{content:'';position:absolute;top:15px;left:-50%;width:100%;height:3px;background:var(--line)}
@@ -41,7 +41,7 @@ summary{cursor:pointer;font-weight:650}details p{margin-top:8px;color:var(--mute
 footer{margin-top:26px;font-size:12px;color:var(--muted);text-align:center}
 .hidden{display:none!important}
 /* staff */
-.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-top:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
 .kpi span{font-size:12.5px;color:var(--muted)}.kpi b{display:block;font-size:26px;letter-spacing:-.03em;margin-top:6px}
 .kpi.alert b{color:var(--bad)}
@@ -53,7 +53,7 @@ th{text-align:left;font-weight:600;color:var(--muted);font-size:12.5px;padding:1
 td{padding:11px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 td.num{white-space:nowrap}
 .pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--bg);white-space:nowrap}
-.pill.s0{background:var(--bg)}.pill.s1{background:var(--blue-soft)}.pill.s2{background:var(--warn-soft)}.pill.s3{background:var(--good-soft)}
+.pill.s0{background:var(--bg)}.pill.s1{background:var(--warn-soft)}.pill.s2{background:var(--good-soft)}
 .alertline{color:var(--bad);font-size:12.5px}
 .gate{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);padding:16px;z-index:10}
 .gate form{width:min(380px,100%)}

@@ -25,7 +25,7 @@ function row(o){
   const link=TRACK[o.courier];
   // Multi-box shipments carry several space-separated waybills; link each one.
   const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n)).join(' '):'—';
-  const since=o.sinceArrival!=null&&o.stage<3?`${o.sinceArrival}일`:'';
+  const since=o.sinceArrival!=null&&o.stage<2?`${o.sinceArrival}일`:'';
   const alerts=o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
   <td>${o.hbl?`<button class="mini" data-hbl="${esc(o.hbl)}" title="운송장번호 복사 후 유니패스 열기">통관조회</button>`:''}</td>
