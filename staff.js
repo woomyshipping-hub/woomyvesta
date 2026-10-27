@@ -27,7 +27,7 @@ function row(o){
   const alerts=o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
   <td>${o.hbl?`<button class="mini" data-hbl="${esc(o.hbl)}" title="운송장번호 복사 후 유니패스 열기">통관조회</button>`:''}</td>
-  <td class="mono">${esc(o.order)}</td><td>${esc(o.name)}</td><td class="clip" title="${esc(o.item)}">${esc(o.item)}</td>
+  <td class="mono">${esc(o.order)}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}</td><td>${esc(o.name)}</td><td class="clip" title="${esc(o.item)}">${esc(o.item)}</td>
   <td><span class="pill s${o.stage}" title="ERP: ${esc(o.erp)}">${esc(D.stages[o.stage])}</span></td>
   <td class="clip alertline" title="${esc(alerts)}">${esc(alerts)}</td>
   <td class="num">${md(o.orderDate)}</td><td class="num">${md(o.obDate)}</td><td class="num">${md(o.arDate)}</td><td class="num">${since}</td>
@@ -63,9 +63,9 @@ function render(){
   $('#stage').innerHTML='<option value="">전체 단계</option>'+D.stages.map((s,i)=>`<option value="${i}">${esc(s)}</option>`).join('');
   renderList();
 }
-async function unlock(pw){D=await open(pw);try{sessionStorage.setItem(SS,pw)}catch{}$('#gate').remove();$('#app').classList.remove('hidden');render()}
+async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render()}
 $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disabled=true;b.textContent='확인 중…';$('#pwErr').textContent='';
-  try{await unlock($('#pw').value)}catch{$('#pwErr').textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};
+  try{await unlock($('#pw').value)}catch{const e=$('#pwErr');if(e)e.textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};
 $('#gq').addEventListener('input',()=>{renderAlerts();renderList()});
 ['#stage','#flag'].forEach(s=>$(s).addEventListener('input',renderList));
 try{const pw=sessionStorage.getItem(SS);if(pw)unlock(pw).catch(()=>sessionStorage.removeItem(SS))}catch{}
