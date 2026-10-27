@@ -17,18 +17,18 @@ async function open(pw){
 const TRACK={'CJ대한통운':n=>`https://trace.cjlogistics.com/next/tracking.html?wblNo=${encodeURIComponent(n)}`,
  '경동택배':n=>`https://kdexp.com/service/delivery/etc/delivery.do?barcode=${encodeURIComponent(n)}`,
  '일양로지스':n=>`https://www.ilyanglogis.com/functionality/card_form_waybill.asp?hawb_no=${encodeURIComponent(n)}`};
-const md=s=>s?s.slice(5).replace('-','/'):'—';
+const md=s=>s?`${s.slice(5,10).replace('-','/')}(${'일월화수목금토'[new Date(s.slice(0,10)+'T00:00:00+09:00').getDay()]})`:'—';
 let D=null;
 // UNIPASS opens 수입화물 진행정보 for an H B/L directly when the menu and number are in the address.
 const unipass=o=>`https://unipass.customs.go.kr/csp/index.do?tgMenuId=MYC_MNU_00000450&hblNo=${encodeURIComponent(o.hbl)}&blYy=${encodeURIComponent(o.blYy||'')}`;
-const KIND={customs:['통관 미완료','k-customs'],handover:['통관완료 · 택배 이첩 지연','k-handover'],unknown:['확인 전','k-unknown'],
+const KIND={customs:['통관 미완료','k-customs'],handover:['택배 인계 지연','k-handover'],unknown:['확인 전','k-unknown'],
   domestic:['국내배송 진행중','k-domestic'],delivered:['국내배송 완료 · ERP 미반영','k-delivered']};
 let kindFilter='';
 // One spreadsheet-like line per order; multi-box waybills stack one per line. Long text is cut with … (full text on hover).
 function row(o){
   const link=TRACK[o.courier];
   const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n)).join('<br>'):'—';
-  const since=o.sinceDeparture!=null&&o.stage<2?`${o.sinceDeparture}일`:'';
+  const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
   const alerts=o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
   <td>${o.hbl?`<a class="mini" href="${unipass(o)}" target="_blank" rel="noopener" title="유니패스 수입화물 진행정보 바로 보기">통관조회</a>`:''}</td>
@@ -39,7 +39,7 @@ function row(o){
   <td class="num">${md(o.orderDate)}</td><td class="num">${md(o.obDate)}</td><td class="num">${md(o.arDate)}</td><td class="num">${since}</td>
   <td>${esc(o.courier||'미정')}</td></tr>`;
 }
-const HEAD='<thead><tr><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th>상품</th><th>단계</th><th>확인할 점</th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 날">경과</th><th>택배사</th></tr></thead>';
+const HEAD='<thead><tr><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th></tr></thead>';
 const matches=(o,q)=>!q||[o.order,o.hbl,o.courierNo,o.item,o.name,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
 function renderAlerts(){
   const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>o.alerts.length),shown=al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
@@ -59,7 +59,7 @@ function render(){
   $('#updated').textContent=`· ${new Date(D.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${D.range[0]} ~ ${D.range[1]} 주문`;
   $('#kpis').innerHTML=D.stages.map(s=>`<div class="kpi"><span>${esc(s)}</span><b>${(D.summary[s]||0).toLocaleString()}</b></div>`).join('')+
     `<div class="kpi alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></div>`;
-  $('#rules').textContent=`기준: 해운 출발 후 ${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
+  $('#rules').textContent=`기준: 해운 출발 후 영업일로 +${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (+1일까지는 정상, 주말·공휴일 제외, ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
   renderAlerts();
   $('#batches').innerHTML='<thead><tr><th>주문일</th>'+D.stages.map(s=>`<th>${esc(s)}</th>`).join('')+'<th>합계</th></tr></thead><tbody>'+
     D.batches.map(b=>`<tr><td class="num">${esc(b.orderDate)}</td>${D.stages.map(s=>`<td class="num">${b[s]||''}</td>`).join('')}<td class="num">${D.stages.reduce((a,s)=>a+(b[s]||0),0)}</td></tr>`).join('')+'</tbody>';
