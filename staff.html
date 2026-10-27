@@ -22,15 +22,18 @@
   </form>
 </div>
 <main class="wrap wide hidden" id="app">
-  <div class="toolbar" style="justify-content:space-between">
+  <header class="topbar">
     <div class="brand"><span class="mark flame">V</span>우마이 베스타 <span class="small muted" id="updated" style="font-weight:400"></span></div>
-    <a class="btn" href="./" target="_blank" rel="noopener">고객 조회 화면 ↗</a>
-  </div>
+    <div class="topsearch">
+      <input id="gq" type="search" placeholder="주문번호 · 운송장 · 상품 · 받는 분 · 택배사 검색" spellcheck="false" aria-label="전체 검색">
+      <a class="btn" href="./" target="_blank" rel="noopener">고객 조회 ↗</a>
+    </div>
+  </header>
   <div class="kpis" id="kpis"></div>
   <section class="card">
     <h2>먼저 확인할 주문 <span class="muted small" id="alertCount"></span></h2>
     <p class="muted small" id="rules"></p>
-    <div class="tablewrap"><table id="alerts"></table></div>
+    <div class="tablewrap sheet"><table class="sheet" id="alerts"></table></div>
   </section>
   <section class="card">
     <h2>주문일별 진행</h2>
@@ -38,13 +41,14 @@
   </section>
   <section class="card">
     <div class="toolbar">
-      <input id="q" placeholder="주문번호 · 운송장번호 · 상품명 · 받는 분(가린 이름) 검색" spellcheck="false">
+      <h2 style="margin:0;flex:1">전체 주문</h2>
       <select id="stage"><option value="">전체 단계</option></select>
       <select id="flag"><option value="">전체</option><option value="alert">확인 필요만</option><option value="inspect">세관 검사·선별</option></select>
     </div>
     <p class="muted small" id="count" style="margin-top:10px"></p>
-    <div class="tablewrap"><table id="orders"></table></div>
+    <div class="tablewrap sheet"><table class="sheet" id="orders"></table></div>
   </section>
+  <div class="toast hidden" id="toast" role="status"></div>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
 <script src="staff.js"></script>
