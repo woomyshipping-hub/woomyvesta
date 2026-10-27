@@ -7,7 +7,7 @@
 <title>우마이 베스타</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=31200a60">
+<link rel="stylesheet" href="style.css?v=e248dbe7">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -23,7 +23,7 @@
 </div>
 <main class="wrap wide hidden" id="app">
   <header class="topbar">
-    <div class="brand"><span class="mark flame">V</span>우마이 베스타 <span class="small muted" id="updated" style="font-weight:400"></span></div>
+    <div class="brand"><a class="home" href="staff.html" title="처음 화면으로"><span class="mark flame">V</span>우마이 베스타</a> <span class="small muted" id="updated" style="font-weight:400"></span></div>
     <div class="topsearch">
       <input id="gq" type="search" placeholder="주문번호 · 운송장 · 상품 · 받는 분 · 택배사 검색" spellcheck="false" aria-label="전체 검색">
       <a class="btn" href="./" target="_blank" rel="noopener">고객 조회 ↗</a>
@@ -35,7 +35,7 @@
     <p>로마 신화의 여신 베스타는 집과 나라의 화덕을 지킵니다. 신전의 성화는 밤에도 낮에도 꺼진 적이 없었고, 사람들은 그 불이 살아 있는 한 모두가 무사하다고 믿었습니다. 우마이 베스타도 그렇게, 바다를 건너 문 앞에 닿을 때까지 모든 주문 곁에 불을 밝혀 둡니다.</p>
   </section>
   <div class="kpis" id="kpis"></div>
-  <section class="card">
+  <section class="card" id="alertSec">
     <h2>먼저 확인할 주문 <span class="muted small" id="alertCount"></span></h2>
     <p class="muted small" id="rules"></p>
     <div class="chips" id="kindChips"></div>
@@ -45,7 +45,7 @@
     <h2>주문일별 진행</h2>
     <div class="tablewrap"><table id="batches"></table></div>
   </section>
-  <section class="card">
+  <section class="card" id="listSec">
     <div class="toolbar">
       <h2 style="margin:0;flex:1">전체 주문</h2>
       <select id="stage"><option value="">전체 단계</option></select>
@@ -57,6 +57,6 @@
   <div class="toast hidden" id="toast" role="status"></div>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
-<script src="staff.js?v=31200a60"></script>
+<script src="staff.js?v=e248dbe7"></script>
 </body>
 </html>
