@@ -6,7 +6,8 @@ let data=null;
 const fmt=s=>{if(!s)return'—';const d=new Date(s+'T00:00:00+09:00');return `${d.getMonth()+1}월 ${d.getDate()}일`};
 const daysSince=s=>s?Math.floor((Date.now()-new Date(s+'T00:00:00+09:00'))/864e5):null;
 async function sha(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return Array.from(new Uint8Array(b),x=>x.toString(16).padStart(2,'0')).join('')}
-const TRACK={'CJ대한통운':n=>`https://trace.cjlogistics.com/next/tracking.html?wblNo=${encodeURIComponent(n)}`};
+const TRACK={'CJ대한통운':n=>`https://trace.cjlogistics.com/next/tracking.html?wblNo=${encodeURIComponent(n)}`,
+ '경동택배':n=>`https://kdexp.com/service/delivery/etc/delivery.do?barcode=${encodeURIComponent(n)}`};
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 async function load(){
@@ -39,7 +40,8 @@ function render(e){
   $('#notes').innerHTML=notes.map(([k,t])=>`<div class="note ${k}">${esc(t)}</div>`).join('');
   const c=$('#courier');
   if(e.n&&e.s>=2){const link=TRACK[e.c];
-    c.innerHTML=`<div><span class="small muted">${esc(e.c||'택배사')} 운송장번호</span><br><b>${esc(e.n)}</b></div>${link?`<a class="btn" href="${link(e.n)}" target="_blank" rel="noopener">택배사에서 조회 ↗</a>`:''}`;
+    const nos=e.n.split(/\s+/);
+    c.innerHTML=`<div><span class="small muted">${esc(e.c||'택배사')} 운송장번호${nos.length>1?` (${nos.length}개 상자)`:''}</span><br><b>${nos.map(esc).join('<br>')}</b></div>${link?nos.map((n,i)=>`<a class="btn" href="${link(n)}" target="_blank" rel="noopener">택배사에서 조회${nos.length>1?' '+(i+1):''} ↗</a>`).join(''):''}`;
     c.classList.remove('hidden')}else c.classList.add('hidden');
   $('#result').classList.remove('hidden');$('#result').scrollIntoView({behavior:'smooth',block:'start'});
 }

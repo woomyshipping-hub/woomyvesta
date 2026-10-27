@@ -14,7 +14,8 @@ async function open(pw){
   const ak=await crypto.subtle.importKey('raw',bits.slice(0,32),'AES-CBC',false,['decrypt']);
   return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-CBC',iv},ak,ct)));
 }
-const TRACK={'CJ대한통운':n=>`https://trace.cjlogistics.com/next/tracking.html?wblNo=${encodeURIComponent(n)}`};
+const TRACK={'CJ대한통운':n=>`https://trace.cjlogistics.com/next/tracking.html?wblNo=${encodeURIComponent(n)}`,
+ '경동택배':n=>`https://kdexp.com/service/delivery/etc/delivery.do?barcode=${encodeURIComponent(n)}`};
 const md=s=>s?s.slice(5).replace('-','/'):'—';
 let D=null;
 // UNIPASS has no URL that pre-fills a waybill, so the 통관조회 button copies the H B/L number and opens UNIPASS.
@@ -22,7 +23,8 @@ const UNIPASS='https://unipass.customs.go.kr/csp/index.do';
 // One compact spreadsheet-like line per order; long text is cut with … and shown in full on hover.
 function row(o){
   const link=TRACK[o.courier];
-  const no=o.courierNo?(link?`<a href="${link(o.courierNo)}" target="_blank" rel="noopener">${esc(o.courierNo)}</a>`:esc(o.courierNo)):'—';
+  // Multi-box shipments carry several space-separated waybills; link each one.
+  const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n)).join(' '):'—';
   const since=o.sinceArrival!=null&&o.stage<3?`${o.sinceArrival}일`:'';
   const alerts=o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
