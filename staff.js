@@ -3,7 +3,7 @@
 const $=s=>document.querySelector(s);
 const enc=new TextEncoder(),b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const SS='woomytrack-pw';
+const SS='woomyvesta-pw';
 async function open(pw){
   const v=await (await fetch('data/staff-vault.json',{cache:'no-store'})).json();
   const base=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']);
