@@ -7,7 +7,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font
 button,input,select{font:inherit;color:inherit}
 a{color:var(--blue)}
 .wrap{max-width:640px;margin:0 auto;padding:28px 16px 48px}
-.wide{max-width:1240px}
+.wide{max-width:none;padding-left:clamp(16px,2.5vw,40px);padding-right:clamp(16px,2.5vw,40px)}  /* staff: use the whole monitor */
 .brand{display:flex;align-items:center;gap:10px;font-weight:750;font-size:18px;letter-spacing:-.02em}
 .mark{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:10px;background:var(--blue);color:#fff;font-weight:800}
 .mark.flame{background:linear-gradient(160deg,#f7b733,#e2552b)}
@@ -66,14 +66,14 @@ td.num{white-space:nowrap}
 .topsearch{display:flex;gap:8px;align-items:center;flex:1;justify-content:flex-end;min-width:260px}
 .topsearch input{max-width:380px;padding:10px 14px}
 /* staff: spreadsheet-like order tables — one compact line per order */
-.tablewrap.sheet{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
+.tablewrap.sheet{max-height:clamp(320px,calc(100vh - 200px),1600px);overflow:auto;border:1px solid var(--line);border-radius:10px}
 table.sheet{font-size:12.5px}
 table.sheet th{padding:8px 8px;font-size:12px;border-bottom:1px solid var(--line);z-index:1}
 table.sheet td{padding:6px 8px;white-space:nowrap;vertical-align:middle;line-height:1.35}
 table.sheet tbody tr:nth-child(even){background:color-mix(in srgb,var(--bg) 55%,transparent)}
 table.sheet tbody tr:hover{background:var(--blue-soft)}
-table.sheet td.clip{max-width:180px;overflow:hidden;text-overflow:ellipsis}
-table.sheet td.alertline{max-width:260px}
+table.sheet td.clip{max-width:clamp(140px,14vw,380px);overflow:hidden;text-overflow:ellipsis}
+table.sheet td.alertline{max-width:clamp(220px,26vw,620px)}
 table.sheet td.waybill{white-space:nowrap;line-height:1.5}
 table.sheet .pill{font-size:11.5px;padding:1px 7px}
 .mono{font-variant-numeric:tabular-nums;letter-spacing:-.01em}
