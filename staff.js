@@ -315,7 +315,7 @@ function kSend(id,text){text=(text||'').trim();
   const go=async()=>{bar.classList.add('hidden');const at=new Date().toISOString();
     try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'send',chat:id,text,at})})).json();
       if(!r.ok)throw Error(r.error);const all=ksends();all[id]={at,text,status:'대기',since:Date.now()};try{localStorage.setItem(KSEND,JSON.stringify(all))}catch{}
-      toast('발송 요청했어요. 보내지면 이 줄에 발송완료로 표시돼요.');renderKakao();watchSends()}
+      toast('발송 요청했어요. 보통 1분 안에 보내지고, 이 줄에 발송완료로 표시돼요.');renderKakao();watchSends()}
     catch{toast('발송 요청을 보내지 못했어요. 잠시 뒤 다시 시도하거나 카카오에서 직접 보내 주세요.')}};
   kUndo={t:setTimeout(go,5000)};
   bar.querySelector('.ku-cancel').onclick=()=>{clearTimeout(kUndo.t);bar.classList.add('hidden');toast('보내기를 취소했어요.')};
@@ -325,7 +325,7 @@ function watchSends(){clearTimeout(sTimer);const all=ksends(),open=Object.entrie
   if(!open.length||!D.smsIntake)return;
   sTimer=setTimeout(async()=>{let changed=false;for(const [id,r] of open){try{const s=(await (await fetch(`${D.smsIntake}?action=sendStatus&at=${encodeURIComponent(r.at)}`)).json()).status;
       if(s&&s!==r.status){r.status=s;changed=true;if(s==='발송완료')toast(`${itemOf(id)?.name||'상담'}에 보냈어요.`)}}catch{}}
-    if(changed){try{localStorage.setItem(KSEND,JSON.stringify(all))}catch{}renderKakao()}watchSends()},15e3)}
+    if(changed){try{localStorage.setItem(KSEND,JSON.stringify(all))}catch{}renderKakao()}watchSends()},4e3)}
 const bubble=m=>`<div class="kb ${m.who==='S'?'me':m.who==='B'||m.who==='CB'?'bot':'you'}${m.unread?' unread':''}"><div class="kb-meta">${m.who==='S'?esc(m.staff||'직원'):m.who==='B'?'챗봇·자동':m.who==='CB'?'고객 → 챗봇':'고객'} · ${esc(new Date(m.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}))}${m.unread?' · 아직 안 읽음(미리보기)':''}</div><div class="kb-text">${esc(m.text)}</div></div>`;
 let kDlgChat=null;
 function openChat(id){const x=itemOf(id),th=(D.kakaoThreads||{})[id];if(!x)return;kDlgChat=id;
