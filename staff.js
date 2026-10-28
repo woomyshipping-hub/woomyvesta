@@ -125,22 +125,26 @@ function message(o){
 const REQ='woomyvesta-sms-req';
 const reqAll=()=>{try{return JSON.parse(localStorage.getItem(REQ)||'{}')}catch{return {}}};
 const when=iso=>new Date(iso).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
-const pendingOf=o=>{const r=reqAll()[o.order];return r&&(!o.smsSent||new Date(o.smsSent.at)<new Date(r.at))?r.at:null};
+// Results seen live in this browser (from the 접수창구 status) until the published data catches up.
+const DONE='woomyvesta-sms-done';
+const doneAll=()=>{try{return JSON.parse(localStorage.getItem(DONE)||'{}')}catch{return {}}};
+const sentOf=o=>{const d=doneAll()[o.order];return d&&(!o.smsSent||new Date(o.smsSent.at)<new Date(d.at))?d:o.smsSent};
+const pendingOf=o=>{const r=reqAll()[o.order],s=sentOf(o);return r&&(!s||new Date(s.at)<new Date(r.at))?r.at:null};
 function msgCell(o){
   if(!o.alerts.length)return '';
   if(!o.writer)return '<button class="mini" disabled title="작성자를 찾지 못한 주문이라 보낼 대상이 없어요">문자</button>';
   const p=pendingOf(o);
   return `<button class="mini" data-msg="${esc(o.order)}" title="작성자에게 지연 안내 문자">문자</button>`+
     (p?` <span class="pendmark" title="${esc(when(p))} 발송 요청 · Claude가 보내면 발송완료로 바뀌어요">발송 대기</span>`:
-     o.smsSent?` <span class="sentmark" title="${esc(o.smsSent.text)}">발송완료 ${esc(when(o.smsSent.at))}</span>`:'')}
+     sentOf(o)?` <span class="sentmark" title="${esc(sentOf(o).text)}">발송완료 ${esc(when(sentOf(o).at))}</span>`:'')}
 let msgOrder=null;
 function openMsg(order){
   const o=D.orders.find(x=>x.order===order);if(!o||!o.writer)return;
   // Already sent or requested: one red warning (when, who, what) is the only step, then it goes out as before.
   const prev=pendingOf(o)?`${when(pendingOf(o))}에 이미 발송을 요청했어요. 아직 처리 중일 수 있어요.`:
-    o.smsSent?`${when(o.smsSent.at)}에 이미 발송이 완료됐고, 문제없이 발송됐어요.`:'';
-  if(prev){const text=o.smsSent&&!pendingOf(o)?o.smsSent.text:message(o);msgOrder=order;$('#msgText').value=text;
-    $('#reWhen').textContent=when(pendingOf(o)||o.smsSent.at);
+    sentOf(o)?`${when(sentOf(o).at)}에 이미 발송이 완료됐고, 문제없이 발송됐어요.`:'';
+  if(prev){const text=sentOf(o)&&!pendingOf(o)?sentOf(o).text:message(o);msgOrder=order;$('#msgText').value=text;
+    $('#reWhen').textContent=when(pendingOf(o)||sentOf(o).at);
     $('#reWhat').textContent=pendingOf(o)?'이미 발송을 요청했어요 (아직 처리 중일 수 있어요)':'이미 발송이 완료됐고, 문제없이 발송됐어요';
     $('#reTo').textContent=`${o.writer.name}(${o.writer.box})`;$('#reText').textContent=text;$('#reDlg').showModal();return}
   msgOrder=order;
@@ -150,19 +154,29 @@ function openMsg(order){
 function countBytes(){const n=bytes($('#msgText').value);$('#msgBytes').textContent=`${n} / 90 byte${n>90?' · 90byte를 넘으면 보낼 수 없어요. 줄여 주세요.':''}`;$('#msgBytes').className=n>90?'small k-handover':'small muted'}
 const copy=async t=>{try{await navigator.clipboard.writeText(t);toast('복사했어요.')}catch{toast('복사하지 못했어요. 직접 선택해서 복사해 주세요.')}};
 document.addEventListener('click',e=>{const m=e.target.closest('[data-msg]');if(m)openMsg(m.dataset.msg)});
+// After [발송]: ask the 접수창구 every 3 s how that request went, and show it on the row as soon as Claude marks it.
+async function watchSend(req){
+  for(let i=0;i<100;i++){await new Promise(r=>setTimeout(r,3000));
+    let st='';try{st=(await (await fetch(`${D.smsIntake}?action=status&at=${encodeURIComponent(req.at)}`)).json()).status||''}catch{continue}
+    if(!st||st==='대기')continue;
+    if(st.startsWith('발송완료')){const d=doneAll();d[req.order]={at:new Date().toISOString(),to:req.to,text:req.text};
+      try{localStorage.setItem(DONE,JSON.stringify(d))}catch{}renderAlerts();renderList();toast(`${req.order} 발송완료 ✓`)}
+    else{const all=reqAll();delete all[req.order];try{localStorage.setItem(REQ,JSON.stringify(all))}catch{}
+      renderAlerts();renderList();toast(`${req.order} 발송 안 됨 — ${st}`)}
+    return}}
 async function goSend(){
   const o=D.orders.find(x=>x.order===msgOrder);if(!o)return;const text=$('#msgText').value.trim();
   if(bytes(text)>90){toast('90byte를 넘어서 보낼 수 없어요. 문구를 줄여 주세요.');return}
   if(!text.includes(o.order)){toast('문구에 주문번호가 있어야 해요.');return}
   // The dialog itself (받는 사람 + 문구 + [발송]) is the final check, so no second browser confirm here.
-  const all=reqAll();all[o.order]={v:1,order:o.order,to:o.writer.id,text,resend:!!o.smsSent||!!pendingOf(o),at:new Date().toISOString()};
+  const all=reqAll();all[o.order]={v:1,order:o.order,to:o.writer.id,text,resend:!!sentOf(o)||!!pendingOf(o),at:new Date().toISOString()};
   try{localStorage.setItem(REQ,JSON.stringify(all))}catch{toast('이 브라우저에 요청을 저장하지 못했어요.');return}
   $('#msgDlg').close();renderAlerts();renderList();
   // Shared 접수창구 (append-only Apps Script, URL inside the encrypted data): works from any staff PC; Claude on the
   // sending Mac picks it up. text/plain keeps it a simple request (no CORS preflight).
   try{if(!D.smsIntake)throw Error('no intake');
     const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(all[o.order])})).json();
-    if(!r.ok)throw Error(r.error);toast('발송 요청을 전달했어요. 보내고 나면 발송완료로 바뀌어요.')}
+    if(!r.ok)throw Error(r.error);toast('발송 중이에요. 결과가 나오면 이 줄에 바로 표시돼요.');watchSend(all[o.order])}
   catch{toast('발송 요청을 전달하지 못해 이 브라우저에 발송 대기로 남겨 뒀어요. 관리자에게 알려 주세요.')}}
 // 열 너비: drag a column border to resize; click it (like Excel's double-click) to fit the widest content.
 // Widths are remembered per table in this browser and re-applied whenever a table is redrawn.
