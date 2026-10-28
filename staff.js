@@ -299,6 +299,33 @@ $('#kiTopics').addEventListener('click',e=>{const r=e.target.closest('[data-ti]'
 $('#kCount').addEventListener('click',e=>{if(e.target.id==='kTopicClear'){kTopic=null;renderKakao()}});
 $('#kTable').addEventListener('click',e=>{const b=e.target.closest('[data-kd]');if(b){const id=b.dataset.kd;kOpen.has(id)?kOpen.delete(id):kOpen.add(id);renderKakao();return}
   const c=e.target.closest('[data-copy]');if(c){const d=(D.kakaoDrafts||{})[c.dataset.copy];if(d){copy(d.reply)}}});
+// [새로고침]: reload the latest published vault now, and ask the Mac to fetch Kakao again (same 접수창구 as 문자 요청).
+// The request is just {kind:'refresh', at}; the page then polls its status and reloads itself when the new data is live.
+const RREQ='woomyvesta-krefresh';
+const rmsg=t=>{$('#kRefreshMsg').textContent=t};
+async function reloadData(){let pw=null;try{pw=sessionStorage.getItem(SS)}catch{}
+  if(!pw){location.reload();return false}const d=await open(pw);D=d;render();return true}
+let rTimer=null;
+function watchRefresh(req){clearTimeout(rTimer);
+  const tick=async()=>{if(Date.now()-req.since>40*60e3){rmsg('새로고침이 오래 걸리고 있어요. 관리자에게 알려 주세요.');try{localStorage.removeItem(RREQ)}catch{}return}
+    try{const r=await (await fetch(`${D.smsIntake}?action=refreshStatus&at=${encodeURIComponent(req.at)}`)).json();const st=r.status||'';
+      if(st==='완료'){try{localStorage.removeItem(RREQ)}catch{}await reloadData();rmsg('');toast('카카오 누락 목록을 새로 가져왔어요.');return}
+      if(st.startsWith('실패')){try{localStorage.removeItem(RREQ)}catch{}rmsg(`새로고침 실패 · ${st.replace(/^실패:?\s*/,'')}`);return}
+      rmsg(st==='진행 중'?'카카오에서 가져오고 분석하는 중이에요…':'새로고침 요청됨 · 곧 시작해요');
+    }catch{rmsg('상태를 확인하지 못했어요. 잠시 뒤 다시 확인해요.')}
+    rTimer=setTimeout(tick,20e3)};
+  tick()}
+$('#kRefresh').onclick=async()=>{const b=$('#kRefresh');b.disabled=true;rmsg('최신 데이터 불러오는 중…');
+  try{await reloadData()}catch{rmsg('데이터를 다시 불러오지 못했어요.');b.disabled=false;return}
+  let req=null;try{req=JSON.parse(localStorage.getItem(RREQ)||'null')}catch{}
+  if(req&&Date.now()-req.since<40*60e3){watchRefresh(req);b.disabled=false;return}
+  if(!D.smsIntake){rmsg('최신 공개 데이터로 다시 불러왔어요.');b.disabled=false;return}
+  try{const at=new Date().toISOString();
+    const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'refresh',at})})).json();
+    if(!r.ok)throw Error(r.error);req={at:r.at||at,since:Date.now()};try{localStorage.setItem(RREQ,JSON.stringify(req))}catch{}
+    rmsg(r.joined?'이미 요청된 새로고침이 있어요 · 진행 상황을 보여 드릴게요':'새로고침 요청됨 · 곧 시작해요');watchRefresh(req)}
+  catch{rmsg('새로고침 요청을 보내지 못했어요. 지금 화면은 최신 공개 데이터예요.')}
+  finally{b.disabled=false}};
 $('#kChips').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(!b)return;kFilter=b.dataset.k;renderKakao()});
 function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
@@ -307,7 +334,8 @@ function setTab(t,push){
 }
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)setTab(b.dataset.tab,true)});
 setTab(new URLSearchParams(location.search).get('tab')==='kakao'?'kakao':'ship');
-async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render()}
+async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render();
+  try{const req=JSON.parse(localStorage.getItem(RREQ)||'null');if(req&&D.smsIntake&&Date.now()-req.since<40*60e3)watchRefresh(req)}catch{}}
 $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disabled=true;b.textContent='확인 중…';$('#pwErr').textContent='';
   try{await unlock($('#pw').value)}catch{const e=$('#pwErr');if(e)e.textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};
 $('#gq').addEventListener('input',()=>{renderAlerts();renderList();renderKakao()});
