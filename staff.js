@@ -248,7 +248,8 @@ document.addEventListener('click',e=>{const c=e.target.closest('[data-copy]');if
 const KTYPE={unread:['안 읽음','k-customs','아직 아무도 읽지 않은 상담'],noReply:['읽고 답 없음','k-handover','읽었지만 고객 메시지에 아무도 답하지 않은 상담'],
   pending:['확인 후 안내 대기','k-domestic','"확인해 보겠습니다"라고 답한 뒤 추가 안내가 없는 상담'],
   bot:['챗봇만 응대','k-unknown','마지막 대화 뒤 고객이 챗봇 메뉴만 눌렀고 직원 답이 없는 상담']};
-let kFilter='',kTopic=null;
+let kFilter='',kTopic=null;const kOpen=new Set();
+const hl=t=>esc(t).replace(/\[([^\]]+)\]/g,'<mark class="kd-fill">[$1]</mark>');
 const waited=at=>{const h=(Date.now()-new Date(at))/36e5;return h<1?`${Math.max(1,Math.round(h*60))}분`:h<48?`${Math.floor(h)}시간`:`${Math.floor(h/24)}일`};
 function renderKakao(){
   const K=D.kakao;
@@ -262,7 +263,8 @@ function renderKakao(){
   $('#kChips').innerHTML=`<button class="chip${kFilter?'':' on'}" data-k="">전체 ${all.length}</button>`+
     Object.entries(KTYPE).map(([k,[label,cls,tip]])=>`<button class="chip ${cls}${kFilter===k?' on':''}" data-k="${k}" title="${esc(tip)}">${esc(label)} ${cnt(k)}</button>`).join('');
   const TIER=[['결제 고객','k-delivered'],['견적 받음','k-domestic']],fmtD=d=>d?d.slice(2).replace(/-/g,'/'):'';
-  const rows=shown.map(x=>{const [label,cls]=KTYPE[x.type],h=x.hist,t=h&&TIER[h.tier];
+  const drafts=D.kakaoDrafts||{};
+  const rows=shown.map(x=>{const [label,cls]=KTYPE[x.type],h=x.hist,t=h&&TIER[h.tier],dr=drafts[x.id]&&drafts[x.id].at===x.at?drafts[x.id]:null;
     return `<tr class="${x.late?'late':''}"><td><span class="pill ${cls}">${esc(label)}</span></td>`+
       `<td><b>${esc(x.name)}</b>${t?` <span class="pill ${t[1]}">${t[0]}</span>`:''}${h&&h.ctype?` <span class="pill">${h.ctype}</span>`:''}</td>`+
       `<td title="${esc(new Date(x.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}">${waited(x.at)}${x.late?' <span class="pill k-customs">늦음</span>':''}${x.viaBot?' <span class="pill k-unknown" title="고객 질문 뒤에 챗봇 대화가 이어져 목록에서 놓치기 쉬운 상담">챗봇 뒤에 묻힘</span>':''}</td>`+
@@ -270,7 +272,11 @@ function renderKakao(){
       (h?`<td>${esc(h.stage||'')}</td><td>${esc(h.service||'')}</td></td>`
         :'<td colspan="2" class="muted small">새 상담 · 기록 없음</td>')+`<td>${fmtD((x.created||'').slice(0,10))}${h&&h.msgs?`<span class="muted small"> · ${h.msgs.toLocaleString()}개</span>`:''}</td>`+
       `<td>${esc(x.staff||'')}</td>`+
-      `<td><a class="mini" href="https://business.kakao.com/_xdetxmG/chats/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" title="열면 읽음 처리돼요. 직접 응대할 때만 여세요.">열기 ↗</a></td></tr>`});
+      `<td class="kact">${dr?`<button class="mini kd-btn${kOpen.has(x.id)?' on':''}" data-kd="${esc(x.id)}">답변 제안</button> `:''}<a class="mini" href="https://business.kakao.com/_xdetxmG/chats/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" title="열면 읽음 처리돼요. 직접 응대할 때만 여세요.">열기 ↗</a></td></tr>`+
+      (dr&&kOpen.has(x.id)?`<tr class="kd-row"><td colspan="9"><div class="kd"><div class="kd-head"><b>AI 답변 제안</b><span class="muted small">대괄호 [ ]는 직원이 확인해서 채울 부분이에요</span>`+
+        `<button class="mini kd-copy" data-copy="${esc(x.id)}">문구 복사</button></div><div class="kd-text">${hl(dr.reply)}</div>`+
+        (dr.check&&dr.check.length?`<div class="kd-check"><b>보내기 전 확인</b><ul>${dr.check.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`:'')+
+        (dr.basis?`<div class="muted small">근거: ${esc(dr.basis)}</div>`:'')+`</div></td></tr>`:'')});
   $('#kTable').innerHTML='<thead><tr><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th><th></th></tr></thead><tbody>'+
     (rows.join('')||'<tr><td colspan="9" class="muted">누락된 상담이 없어요.</td></tr>')+'</tbody>';
   $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. 결제 고객 = 이전에 결제·배송까지 간 고객. `:'')+`늦음 기준: 안 읽음 ${K.lateHours.unread}시간, 읽고 답 없음 ${K.lateHours.noReply}시간, 확인 후 안내 대기 ${K.lateHours.pending}시간, 챗봇만 응대 ${K.lateHours.bot||24}시간 이상 (주말 포함 실제 경과 시간).`;
@@ -291,6 +297,8 @@ function renderInsight(){
 $('#kiTopics').addEventListener('click',e=>{const r=e.target.closest('[data-ti]');if(!r)return;const t=D.kakaoInsight.topics[+r.dataset.ti];
   kTopic=kTopic&&kTopic.name===t.name?null:t;kFilter='';renderKakao();if(kTopic)$('#tabKakao').scrollIntoView({behavior:'smooth'})});
 $('#kCount').addEventListener('click',e=>{if(e.target.id==='kTopicClear'){kTopic=null;renderKakao()}});
+$('#kTable').addEventListener('click',e=>{const b=e.target.closest('[data-kd]');if(b){const id=b.dataset.kd;kOpen.has(id)?kOpen.delete(id):kOpen.add(id);renderKakao();return}
+  const c=e.target.closest('[data-copy]');if(c){const d=(D.kakaoDrafts||{})[c.dataset.copy];if(d){copy(d.reply)}}});
 $('#kChips').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(!b)return;kFilter=b.dataset.k;renderKakao()});
 function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));

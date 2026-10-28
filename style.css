@@ -225,3 +225,16 @@ table.ki-topics td:last-child{min-width:260px}
   table.ki-topics td:nth-child(4){grid-row:1;grid-column:2}
   table.ki-topics td.num{grid-row:2;grid-column:1}
 }
+
+/* AI suggested replies */
+td.kact{white-space:nowrap}
+.kd-btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+tr.kd-row td{background:var(--blue-soft);white-space:normal}
+.kd{position:sticky;left:8px;width:min(860px,calc(100vw - 110px));padding:6px 4px 10px;text-align:left}
+tr.kd-row td{text-align:left}
+.kd-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.kd-head .kd-copy{margin-left:auto}
+.kd-text{white-space:pre-wrap;line-height:1.6;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px}
+mark.kd-fill{background:color-mix(in srgb,var(--warn) 22%,transparent);color:inherit;border-radius:4px;padding:0 2px}
+.kd-check{margin-top:10px;font-size:12.5px}
+.kd-check ul{margin:4px 0 6px;padding-left:18px}
