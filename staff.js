@@ -149,7 +149,7 @@ async function goSend(){
   const o=D.orders.find(x=>x.order===msgOrder);if(!o)return;const text=$('#msgText').value.trim();
   if(bytes(text)>90){toast('90byte를 넘어서 보낼 수 없어요. 문구를 줄여 주세요.');return}
   if(!text.includes(o.order)){toast('문구에 주문번호가 있어야 해요.');return}
-  if(!confirm(`${o.writer.name} (사서함 ${o.writer.box} · 아이디 ${o.writer.id})님께\n아래 문구로 문자를 발송할까요?\n\n${text}`))return;
+  // The dialog itself (받는 사람 + 문구 + [발송]) is the final check, so no second browser confirm here.
   const all=reqAll();all[o.order]={v:1,order:o.order,to:o.writer.id,text,resend:!!o.smsSent||!!pendingOf(o),at:new Date().toISOString()};
   try{localStorage.setItem(REQ,JSON.stringify(all))}catch{toast('이 브라우저에 요청을 저장하지 못했어요.');return}
   $('#msgDlg').close();renderAlerts();renderList();
