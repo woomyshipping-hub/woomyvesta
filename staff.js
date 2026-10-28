@@ -101,8 +101,8 @@ function message(o){
   const why=SMS_REASON[o.kind]||'배송 지연',n=o.sinceDeparture??'';
   const full=`${o.order}건 ${o.name}님의 상품이 ${why} 사유로 ${n}일 지연되고 있습니다.`;
   return bytes(full)<=90?full:`${o.order}건 ${o.name}님 상품이 ${why}로 ${n}일째 지연 중입니다.`}
-// 발송: staff confirm here and the request is kept in this browser (localStorage woomyvesta-sms-req). Claude reads it
-// from the open page when asked, sends it from the 우마이직구 admin and records it — so 발송완료 (o.smsSent) comes back
+// 발송: staff confirm here; the request is kept in this browser (localStorage woomyvesta-sms-req) and handed to the
+// Claude session on this Mac through sms_relay.py, which sends it from the 우마이직구 admin and records it — so 발송완료 (o.smsSent) comes back
 // in the data for every PC after the next publish. Until then the row shows 발송 대기.
 const REQ='woomyvesta-sms-req';
 const reqAll=()=>{try{return JSON.parse(localStorage.getItem(REQ)||'{}')}catch{return {}}};
@@ -134,7 +134,11 @@ async function goSend(){
   if(!confirm(`${o.writer.name} (사서함 ${o.writer.box} · 아이디 ${o.writer.id})님께\n아래 문구로 문자를 발송할까요?\n\n${text}`))return;
   const all=reqAll();all[o.order]={v:1,order:o.order,to:o.writer.id,text,resend:!!o.smsSent||!!pendingOf(o),at:new Date().toISOString()};
   try{localStorage.setItem(REQ,JSON.stringify(all))}catch{toast('이 브라우저에 요청을 저장하지 못했어요.');return}
-  $('#msgDlg').close();renderAlerts();renderList();toast('발송 대기에 올렸어요. Claude에게 "베스타 문자 보내줘"라고 하면 보내요.')}
+  $('#msgDlg').close();renderAlerts();renderList();
+  // Hand it straight to Claude on this Mac (sms_relay.py on 127.0.0.1:8799); if Claude isn't listening it stays 발송 대기.
+  try{const r=await fetch('http://127.0.0.1:8799/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(all[o.order])});
+    if(!r.ok)throw Error();toast('발송 요청을 Claude에게 전달했어요. 보내고 나면 발송완료로 바뀌어요.')}
+  catch{toast('Claude가 지금 연결돼 있지 않아 발송 대기로 남겨 뒀어요. Claude에게 "베스타 문자 보내줘"라고 하면 보내요.')}}
 // 열 너비: drag a column border to resize; click it (like Excel's double-click) to fit the widest content.
 // Widths are remembered per table in this browser and re-applied whenever a table is redrawn.
 const COLW='woomyvesta-colw';
