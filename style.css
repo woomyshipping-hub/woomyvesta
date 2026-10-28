@@ -103,3 +103,5 @@ button.mini:disabled{color:var(--muted);cursor:not-allowed}
 .msgdlg::backdrop{background:#0006}.msgdlg h3{margin:0 0 8px}
 .msgdlg textarea{width:100%;box-sizing:border-box;font:inherit;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);resize:vertical}
 .steps-help{padding-left:18px;margin:10px 0}.dlgbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.btn.send{background:var(--blue);border-color:var(--blue);color:#fff}
+button.mini.sent{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
