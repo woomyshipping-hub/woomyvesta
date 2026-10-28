@@ -135,8 +135,10 @@ async function goSend(){
   const all=reqAll();all[o.order]={v:1,order:o.order,to:o.writer.id,text,resend:!!o.smsSent||!!pendingOf(o),at:new Date().toISOString()};
   try{localStorage.setItem(REQ,JSON.stringify(all))}catch{toast('이 브라우저에 요청을 저장하지 못했어요.');return}
   $('#msgDlg').close();renderAlerts();renderList();
-  // Hand it straight to Claude on this Mac (sms_relay.py on 127.0.0.1:8799); if Claude isn't listening it stays 발송 대기.
-  try{const r=await fetch('http://127.0.0.1:8799/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(all[o.order])});
+  // Opened from Claude's Mac (sms_relay.py at 127.0.0.1:8799), the request goes straight to Claude; elsewhere, or if
+  // Claude isn't listening, it stays 발송 대기 until someone asks Claude to send it.
+  try{if(location.port!=='8799')throw Error('not local');
+    const r=await fetch('/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(all[o.order])});
     if(!r.ok)throw Error();toast('발송 요청을 Claude에게 전달했어요. 보내고 나면 발송완료로 바뀌어요.')}
   catch{toast('Claude가 지금 연결돼 있지 않아 발송 대기로 남겨 뒀어요. Claude에게 "베스타 문자 보내줘"라고 하면 보내요.')}}
 // 열 너비: drag a column border to resize; click it (like Excel's double-click) to fit the widest content.
