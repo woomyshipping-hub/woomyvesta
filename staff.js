@@ -97,6 +97,7 @@ const bytes=s=>[...s].reduce((n,c)=>n+(c.charCodeAt(0)>127?2:1),0);
 function message(o){return `${o.order}건 ${o.name}님의 상품이 ${o.alerts.join(' · ')} 사유로 ${o.sinceDeparture??''}일 지연되고 있습니다.`}
 function openMsg(order){
   const o=D.orders.find(x=>x.order===order);if(!o||!o.writer)return;
+  $('#msgTo').dataset.id=o.writer.id;
   $('#msgTo').innerHTML=`<b>${esc(o.writer.name)}</b> <span class="muted">· 사서함 ${esc(o.writer.box)} · 아이디 ${esc(o.writer.id)}</span>`;
   $('#msgText').value=message(o);countBytes();$('#msgDlg').showModal()}
 function countBytes(){const n=bytes($('#msgText').value);$('#msgBytes').textContent=`${n} byte${n>90?' · 90byte 넘으면 SMS 한 통에 다 안 들어갈 수 있어요':''}`;$('#msgBytes').className=n>90?'small k-handover':'small muted'}
@@ -110,6 +111,7 @@ $('#xlsxBtn').onclick=downloadExcel;
 $('#msgText').addEventListener('input',countBytes);
 $('#msgCopy').onclick=()=>copy($('#msgText').value);
 $('#msgName').onclick=()=>{const o=$('#msgTo b');if(o)copy(o.textContent)};
+$('#msgId').onclick=()=>{const id=$('#msgTo').dataset.id;if(id)copy(id)};
 ['#stage','#flag'].forEach(s=>$(s).addEventListener('input',renderList));
 try{const pw=sessionStorage.getItem(SS);if(pw)unlock(pw).catch(()=>sessionStorage.removeItem(SS))}catch{}
 })();
