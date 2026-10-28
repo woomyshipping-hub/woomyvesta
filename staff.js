@@ -256,7 +256,7 @@ document.addEventListener('click',e=>{const c=e.target.closest('[data-copy]');if
 const KTYPE={unread:['안 읽음','k-customs','아직 아무도 읽지 않은 상담'],noReply:['읽고 답 없음','k-handover','읽었지만 고객 메시지에 아무도 답하지 않은 상담'],
   pending:['확인 후 안내 대기','k-domestic','"확인해 보겠습니다"라고 답한 뒤 추가 안내가 없는 상담'],
   bot:['챗봇만 응대','k-unknown','마지막 대화 뒤 고객이 챗봇 메뉴만 눌렀고 직원 답이 없는 상담']};
-let kFilter='',kTopic=null;const kOpen=new Set();
+let kFilter='',kTopic=null;
 // [처리완료]: staff tick a row to set it aside until the customer writes again (the mark is tied to the message time
 // it answers). Marks are shared through the 접수창구 (sheet 처리완료); this browser's own ticks show at once and win
 // for a few minutes until the shared list has them. Chats answered in Kakao itself arrive as K.resolved.
@@ -299,16 +299,13 @@ function renderKakao(){
     return `<tr class="${x.late&&!fin?'late':''}"><td class="kdone">${chk}</td><td><span class="pill ${cls}">${esc(label)}</span>${x.auto?'<div class="muted small">카카오에서 처리됨</div>':''}</td>`+
       `<td><b>${esc(x.name)}</b>${t?` <span class="pill ${t[1]}">${t[0]}</span>`:''}${h&&h.ctype?` <span class="pill">${h.ctype}</span>`:''}${st?` <span class="pill ${st.cls}" title="${esc(st.text)}">${esc(st.label)}</span>`:''}</td>`+
       `<td title="${esc(new Date(x.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}">${x.auto?`<span class="muted small">처리 ${waited(x.resolvedAt)} 전</span>`:waited(x.at)}${x.late&&!fin?' <span class="pill k-customs">늦음</span>':''}${x.viaBot?' <span class="pill k-unknown" title="고객 질문 뒤에 챗봇 대화가 이어져 목록에서 놓치기 쉬운 상담">챗봇 뒤에 묻힘</span>':''}</td>`+
-      `<td class="kmsg kclick" data-chat="${esc(x.id)}" title="눌러서 지난 대화 보기">${x.type==='bot'?'<span class="muted small">챗봇 메뉴: </span>':''}${esc(x.last||'')}${x.viaBot?`<div class="muted small">↳ 이후 챗봇만 사용${x.botTaps?`: ${esc(x.botTaps)}`:''}</div>`:''}${x.context?`<div class="muted small">↳ 그 전 마지막 대화 — ${esc(x.context)}</div>`:''}${x.reply?`<div class="small kreply">↳ ${esc(x.by||'직원')}: ${esc(x.reply)}</div>`:''}</td>`+
-      `<td>${dr?`<button class="mini kctx-btn" data-ctx="${esc(x.id)}">맥락 이해하기</button>`:''}</td>`+
-      `<td>${dr?`<button class="mini krec-btn${kOpen.has(x.id)?' on':''}" data-rec="${esc(x.id)}">추천 답변</button>`:''}</td>`+
+      `<td class="kmsg kclick" data-chat="${esc(x.id)}" title="눌러서 지난 대화 · 맥락 요약 · 추천 답변 보기">${x.type==='bot'?'<span class="muted small">챗봇 메뉴: </span>':''}${esc(x.last||'')}${x.viaBot?`<div class="muted small">↳ 이후 챗봇만 사용${x.botTaps?`: ${esc(x.botTaps)}`:''}</div>`:''}${x.context?`<div class="muted small">↳ 그 전 마지막 대화 — ${esc(x.context)}</div>`:''}${x.reply?`<div class="small kreply">↳ ${esc(x.by||'직원')}: ${esc(x.reply)}</div>`:''}</td>`+
       (h?`<td>${esc(h.stage||'')}</td><td>${esc(h.service||'')}</td>`
         :'<td colspan="2" class="muted small">새 상담 · 기록 없음</td>')+`<td>${fmtD((x.created||'').slice(0,10))}${h&&h.msgs?`<span class="muted small"> · ${h.msgs.toLocaleString()}개</span>`:''}</td>`+
       `<td>${esc(x.staff||'')}</td>`+
-      `<td class="kact"><a class="mini" href="https://business.kakao.com/_xdetxmG/chats/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" title="열면 읽음 처리돼요. 직접 응대할 때만 여세요.">열기 ↗</a></td></tr>`+
-      (dr&&kOpen.has(x.id)?`<tr class="kd-row"><td colspan="12"><div class="kd"><div class="kd-head"><b>추천 답변</b><span class="muted small">누르면 5초 뒤 이 문구 그대로 카카오로 보내요 (그 사이 취소 가능)</span></div>${optButtons(x.id,dr)}</div></td></tr>`:'')});
-  $('#kTable').innerHTML='<thead><tr><th title="처리완료">완료</th><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th>맥락</th><th>추천 답변</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th><th></th></tr></thead><tbody>'+
-    (rows.join('')||`<tr><td colspan="12" class="muted">${kFilter==='done'?'처리완료로 옮긴 상담이 없어요.':'누락된 상담이 없어요.'}</td></tr>`)+'</tbody>';
+      `<td class="kact"><a class="mini" href="https://business.kakao.com/_xdetxmG/chats/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" title="열면 읽음 처리돼요. 직접 응대할 때만 여세요.">열기 ↗</a></td></tr>`});
+  $('#kTable').innerHTML='<thead><tr><th title="처리완료">완료</th><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th><th></th></tr></thead><tbody>'+
+    (rows.join('')||`<tr><td colspan="10" class="muted">${kFilter==='done'?'처리완료로 옮긴 상담이 없어요.':'누락된 상담이 없어요.'}</td></tr>`)+'</tbody>';
   $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. 결제 고객 = 이전에 결제·배송까지 간 고객. `:'')+`늦음: 기다린 시간 2시간부터 (주말 포함 실제 경과 시간).`;
   renderInsight();
 }
@@ -391,8 +388,6 @@ function briefHtml(d){
     (d.check&&d.check.length?sec('보내기 전 확인',`<ul>${d.check.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`):'')}
 $('#kTable').addEventListener('click',e=>{
   const c=e.target.closest('[data-chat]');if(c&&!e.target.closest('a,button')){openChat(c.dataset.chat);return}
-  const x=e.target.closest('[data-ctx]');if(x){openChat(x.dataset.ctx);return}
-  const r=e.target.closest('[data-rec]');if(r){const id=r.dataset.rec;kOpen.has(id)?kOpen.delete(id):kOpen.add(id);renderKakao();return}
   const o=e.target.closest('[data-send]');if(o){const d=draftOf(itemOf(o.dataset.send));if(d)kSend(o.dataset.send,d.options[+o.dataset.opt])}});
 $('#kTable').addEventListener('change',e=>{const c=e.target.closest('[data-done]');if(!c)return;
   const x=(D.kakao?.items||[]).find(i=>i.id===c.dataset.done);if(x)setDone(x,c.checked)});
