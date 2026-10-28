@@ -41,7 +41,7 @@ function row(o){
   <td class="clip alertline ${o.kind?KIND[o.kind][1]:''}" title="${esc(alerts)}">${esc(alerts)}</td>
   <td class="num">${md(o.orderDate)}</td><td class="num">${md(o.obDate)}</td><td class="num">${md(o.arDate)}</td><td class="num">${since}</td>
   <td>${esc(o.courier||'미정')}</td>
-  <td>${!o.alerts.length?'':o.writer?(sentOf(o.order)?`<button class="mini sent" data-msg="${esc(o.order)}" title="${esc(sentAt(o.order))} 발송 완료 · 누르면 다시 보낼지 물어봐요">발송완료 ✓</button>`:`<button class="mini" data-msg="${esc(o.order)}" title="작성자에게 보낼 지연 안내 문자">문자</button>`):'<button class="mini" disabled title="작성자를 찾지 못한 주문이라 보낼 대상이 없어요">문자</button>'}</td></tr>`;
+  <td class="msgcell">${msgCell(o)}</td></tr>`;
 }
 const HEAD='<thead><tr><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="작성자에게 지연 안내 문자 (우마이직구 관리자에서 발송)">문자</th></tr></thead>';
 const matches=(o,q)=>!q||[o.order,o.hbl,o.courierNo,o.item,o.name,o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
@@ -101,33 +101,47 @@ function message(o){
   const why=SMS_REASON[o.kind]||'배송 지연',n=o.sinceDeparture??'';
   const full=`${o.order}건 ${o.name}님의 상품이 ${why} 사유로 ${n}일 지연되고 있습니다.`;
   return bytes(full)<=90?full:`${o.order}건 ${o.name}님 상품이 ${why}로 ${n}일째 지연 중입니다.`}
-// 발송 기록: kept in this browser (localStorage) — the static page has no server to share it between PCs.
-const SENT='woomyvesta-sent';
-const sentAll=()=>{try{return JSON.parse(localStorage.getItem(SENT)||'{}')}catch{return {}}};
-const sentOf=order=>sentAll()[order];
-const sentAt=order=>{const s=sentOf(order);return s?new Date(s.at).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}):''};
-function markSent(o,text){const all=sentAll();all[o.order]={at:new Date().toISOString(),to:o.writer.id,text};try{localStorage.setItem(SENT,JSON.stringify(all))}catch{}}
+// 발송: staff confirm here, the request goes to Slack (webhook inside the encrypted vault), and Claude sends it from
+// the 우마이직구 admin and records it — so 발송완료 (o.smsSent) comes back in the data for every PC after the next
+// publish. Until then this browser shows 발송 대기 for requests it made.
+const REQ='woomyvesta-sms-req';
+const reqAll=()=>{try{return JSON.parse(localStorage.getItem(REQ)||'{}')}catch{return {}}};
+const when=iso=>new Date(iso).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+const pendingOf=o=>{const r=reqAll()[o.order];return r&&(!o.smsSent||o.smsSent.at<r)?r:null};
+function msgCell(o){
+  if(!o.alerts.length)return '';
+  if(!o.writer)return '<button class="mini" disabled title="작성자를 찾지 못한 주문이라 보낼 대상이 없어요">문자</button>';
+  const p=pendingOf(o);
+  return `<button class="mini" data-msg="${esc(o.order)}" title="작성자에게 지연 안내 문자">문자</button>`+
+    (p?` <span class="pendmark" title="${esc(when(p))} 발송 요청 · Claude가 보내면 발송완료로 바뀌어요">발송 대기</span>`:
+     o.smsSent?` <span class="sentmark" title="${esc(o.smsSent.text)}">발송완료 ${esc(when(o.smsSent.at))}</span>`:'')}
 let msgOrder=null;
 function openMsg(order){
   const o=D.orders.find(x=>x.order===order);if(!o||!o.writer)return;
-  if(sentOf(order)&&!confirm(`이 주문은 ${sentAt(order)}에 이미 발송 완료됐어요.\n문제없이 발송됐는데, 한 번 더 보내는 게 맞나요?`))return;
-  msgOrder=order;msgStep(1);
+  if(pendingOf(o)&&!confirm(`이 주문은 ${when(pendingOf(o))}에 이미 발송을 요청했어요. 아직 처리 중일 수 있어요.\n한 번 더 요청할까요?`))return;
+  if(!pendingOf(o)&&o.smsSent&&!confirm(`이 주문은 ${when(o.smsSent.at)}에 이미 발송이 완료됐고, 문제없이 발송됐어요.\n다시 한 번 보내는 게 맞나요?`))return;
+  msgOrder=order;
   $('#msgTo').dataset.id=o.writer.id;
   $('#msgTo').innerHTML=`<b>${esc(o.writer.name)}</b> <span class="muted">· 사서함 ${esc(o.writer.box)} · 아이디 ${esc(o.writer.id)}</span>`;
   $('#msgText').value=message(o);countBytes();$('#msgDlg').showModal()}
-function countBytes(){const n=bytes($('#msgText').value);$('#msgBytes').textContent=`${n} / 90 byte${n>90?' · 90byte를 넘는 부분은 잘려서 도착해요. 줄여 주세요.':''}`;$('#msgBytes').className=n>90?'small k-handover':'small muted'}
+function countBytes(){const n=bytes($('#msgText').value);$('#msgBytes').textContent=`${n} / 90 byte${n>90?' · 90byte를 넘으면 보낼 수 없어요. 줄여 주세요.':''}`;$('#msgBytes').className=n>90?'small k-handover':'small muted'}
 const copy=async t=>{try{await navigator.clipboard.writeText(t);toast('복사했어요.')}catch{toast('복사하지 못했어요. 직접 선택해서 복사해 주세요.')}};
 document.addEventListener('click',e=>{const m=e.target.closest('[data-msg]');if(m)openMsg(m.dataset.msg)});
-// Step 1: check the text → confirm → copy it and open the admin SMS screen. Step 2: after [추가] there, mark it sent.
-function msgStep(n){$('#msgStep1').classList.toggle('hidden',n!==1);$('#msgStep2').classList.toggle('hidden',n!==2)}
-function goSend(){
+async function goSend(){
   const o=D.orders.find(x=>x.order===msgOrder);if(!o)return;const text=$('#msgText').value.trim();
-  if(bytes(text)>90&&!confirm('90byte를 넘어서 뒷부분이 잘려서 도착해요. 그래도 진행할까요?'))return;
-  if(!confirm(`${o.writer.name} (사서함 ${o.writer.box} · 아이디 ${o.writer.id})님께\n아래 문구로 문자를 보낼까요?\n\n${text}`))return;
-  copy(text);window.open('https://woomyshipping.com/elpisadm/a_member_13.php','vesta-sms');msgStep(2)}
-function doneSend(){
-  const o=D.orders.find(x=>x.order===msgOrder);if(!o)return;
-  markSent(o,$('#msgText').value.trim());$('#msgDlg').close();renderAlerts();renderList();toast(`${o.order} 발송 완료로 표시했어요.`)}
+  if(bytes(text)>90){toast('90byte를 넘어서 보낼 수 없어요. 문구를 줄여 주세요.');return}
+  if(!text.includes(o.order)){toast('문구에 주문번호가 있어야 해요.');return}
+  if(!D.smsHook){toast('발송 요청 통로(슬랙)가 아직 연결되지 않았어요. 관리자에게 알려 주세요.');return}
+  if(!confirm(`${o.writer.name} (사서함 ${o.writer.box} · 아이디 ${o.writer.id})님께\n아래 문구로 문자를 발송할까요?\n\n${text}`))return;
+  const resend=!!o.smsSent||!!pendingOf(o),at=new Date().toISOString();
+  const req={v:1,order:o.order,to:o.writer.id,text,resend,at};
+  const slack=`📨 베스타 문자 발송 요청 · ${o.order} → ${o.writer.name} (${o.writer.box})${resend?' · 재발송':''}\n\`VESTA_SMS ${JSON.stringify(req)}\``;
+  const b=$('#msgSend');b.disabled=true;
+  try{await fetch(D.smsHook,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'payload='+encodeURIComponent(JSON.stringify({text:slack}))});
+    const all=reqAll();all[o.order]=at;try{localStorage.setItem(REQ,JSON.stringify(all))}catch{}
+    $('#msgDlg').close();renderAlerts();renderList();toast('발송 요청을 보냈어요. 보내고 나면 발송완료로 바뀌어요 (10분 안팎).')}
+  catch{toast('발송 요청을 보내지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.')}finally{b.disabled=false}}
 // 열 너비: drag a column border to resize; click it (like Excel's double-click) to fit the widest content.
 // Widths are remembered per table in this browser and re-applied whenever a table is redrawn.
 const COLW='woomyvesta-colw';
@@ -163,9 +177,9 @@ $('#gq').addEventListener('input',()=>{renderAlerts();renderList()});
 $('#xlsxBtn').onclick=downloadExcel;
 $('#msgText').addEventListener('input',countBytes);
 $('#msgCopy').onclick=()=>copy($('#msgText').value);
-$('#msgSend').onclick=goSend;$('#msgDone').onclick=doneSend;$('#msgBack').onclick=()=>msgStep(1);
+$('#msgSend').onclick=goSend;
 $('#msgName').onclick=()=>{const o=$('#msgTo b');if(o)copy(o.textContent)};
-$('#msgId').onclick=$('#msgId2').onclick=()=>{const id=$('#msgTo').dataset.id;if(id)copy(id)};
+$('#msgId').onclick=()=>{const id=$('#msgTo').dataset.id;if(id)copy(id)};
 ['#stage','#flag'].forEach(s=>$(s).addEventListener('input',renderList));
 try{const pw=sessionStorage.getItem(SS);if(pw)unlock(pw).catch(()=>sessionStorage.removeItem(SS))}catch{}
 })();

@@ -111,3 +111,4 @@ th{position:sticky}.colgrip{position:absolute;top:0;right:-4px;width:8px;height:
 th:hover .colgrip::after{background:var(--line)}.colgrip:hover::after{background:var(--blue)!important}
 table.sized{width:max-content;min-width:0}table.sized td,table.sized th{overflow:hidden;text-overflow:ellipsis}
 body.resizing{cursor:col-resize;user-select:none}
+.sentmark,.pendmark{font-size:11.5px;font-weight:600;white-space:nowrap}.sentmark{color:var(--good)}.pendmark{color:var(--warn)}

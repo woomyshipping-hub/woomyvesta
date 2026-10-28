@@ -7,7 +7,7 @@
 <title>우마이 베스타</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=0cbebdcd">
+<link rel="stylesheet" href="style.css?v=40f04269">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -62,28 +62,14 @@
       <p class="small">받는 사람(요청서 작성자): <span id="msgTo"></span> <button type="button" class="mini" id="msgName">이름 복사</button> <button type="button" class="mini" id="msgId">아이디 복사</button></p>
       <textarea id="msgText" rows="5"></textarea>
       <p id="msgBytes" class="small muted"></p>
-      <div id="msgStep1">
-        <p class="small muted">문구를 확인하고 <b>발송하기</b>를 누르면, 한 번 더 확인한 뒤 문구를 복사하고 관리자 문자 화면을 열어요.</p>
-        <div class="dlgbtns"><button type="button" class="btn" id="msgCopy">문구만 복사</button>
-          <button class="btn" value="close">닫기</button>
-          <button type="button" class="btn send" id="msgSend">발송하기</button></div>
-      </div>
-      <div id="msgStep2" class="hidden">
-        <ol class="small steps-help">
-          <li>열린 관리자 화면의 <b>아이디</b> 칸에 아이디를 넣어요 (<button type="button" class="mini" id="msgId2">아이디 복사</button>).</li>
-          <li><b>내용</b> 칸에 붙여넣기 (문구는 이미 복사돼 있어요).</li>
-          <li>받는 사람을 확인하고 <b>[추가]</b>를 눌러 보내요.</li>
-          <li class="k-customs">[전체회원]은 누르지 마세요. 모든 회원에게 발송돼요.</li>
-        </ol>
-        <p class="small"><b>관리자에서 [추가]까지 눌러 보냈나요?</b></p>
-        <div class="dlgbtns"><button type="button" class="btn" id="msgBack">← 문구로 돌아가기</button>
-          <button class="btn" value="close">아직 안 보냄</button>
-          <button type="button" class="btn send" id="msgDone">발송 완료로 표시</button></div>
-      </div>
+      <p class="small muted">문구를 확인하고 <b>발송</b>을 누르면 한 번 더 확인한 뒤 발송을 요청해요. 실제 발송은 Claude가 우마이직구 관리자에서 하고, 끝나면 이 줄에 발송완료가 표시돼요.</p>
+      <div class="dlgbtns"><button type="button" class="btn" id="msgCopy">문구 복사</button>
+        <button class="btn" value="close">닫기</button>
+        <button type="button" class="btn send" id="msgSend">발송</button></div>
     </form>
   </dialog>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
-<script src="staff.js?v=0cbebdcd"></script>
+<script src="staff.js?v=40f04269"></script>
 </body>
 </html>
