@@ -123,3 +123,31 @@ th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[da
 .custable td{border:1px solid var(--line);padding:8px 10px}
 .copybtn{margin-left:4px;padding:0 4px;font-size:11px;line-height:16px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;vertical-align:1px}
 .copybtn:hover{color:var(--blue);border-color:var(--blue)}.copybtn.ok{color:var(--good);border-color:var(--good)}
+/* staff: spacing & type rhythm (8 · 12 · 16 · 20 · 24) for long reading sessions */
+#app{padding-top:24px;padding-bottom:56px;line-height:1.65;letter-spacing:-.003em}
+#app .topbar{margin-bottom:20px;row-gap:12px}
+#app .brand{font-size:19px}#app #updated{line-height:1.5}
+#app .vesta-myth{margin:0 0 20px;padding:20px 24px;border-radius:16px}
+#app .vesta-myth h2{font-size:18px;line-height:1.4;margin:10px 0 8px;letter-spacing:-.02em}
+#app .vesta-myth p{font-size:13px;line-height:1.8;max-width:78ch;text-wrap:pretty}
+#app .kpis{gap:14px;margin-top:0}
+#app .kpi{padding:18px 20px;border-radius:16px}
+#app .kpi span{font-size:13px;letter-spacing:0}#app .kpi b{font-size:28px;line-height:1.2;margin-top:8px}
+#app .card{margin-top:20px;padding:24px 26px;border-radius:18px}
+#app .card h2{font-size:17px;line-height:1.4;letter-spacing:-.02em;margin-bottom:0}
+#app .card h2 .small{font-size:13px;font-weight:500;margin-left:4px}
+#app .cardhead{margin-bottom:8px}
+#app #rules,#app #count{font-size:13px;line-height:1.75;max-width:130ch;margin-top:8px;text-wrap:pretty}
+#app .chips{gap:8px;margin-top:16px}#app .chip{padding:6px 13px;line-height:1.4}
+#app .tablewrap{margin-top:16px}
+#app table.sheet{font-size:13px}
+#app table.sheet th{padding:10px 12px;font-size:12px;line-height:1.4;letter-spacing:0}
+#app table.sheet td{padding:9px 12px;line-height:1.45}
+#app table.sheet td.waybill{line-height:1.55}
+#app .thnote{margin-top:3px;line-height:1.4}
+#app #batches th{padding:10px 12px}#app #batches td{padding:10px 12px;line-height:1.45}
+#app .toolbar{gap:12px}#app .toolbar select{padding:9px 12px}
+#app footer{margin-top:32px;line-height:1.7}
+.msgdlg{padding:24px 26px;line-height:1.65}.msgdlg h3{font-size:18px;margin-bottom:12px}.msgdlg p{margin:6px 0}
+.msgdlg textarea{line-height:1.6;margin-top:8px}.dlgbtns{margin-top:16px}
+@media(max-width:720px){#app .card{padding:18px 16px}#app .vesta-myth{padding:16px 18px}#app .kpi{padding:14px 16px}#app .kpi b{font-size:24px}}
