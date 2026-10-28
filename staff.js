@@ -217,19 +217,28 @@ function gripTable(table){
     th.append(g)})}
 for(const id of ['alerts','orders','batches']){const t=document.getElementById(id);if(!t)continue;
   new MutationObserver(()=>gripTable(t)).observe(t,{childList:true})}
-// 통관조회: the UNIPASS reading Vesta keeps for this order, in a window on the page (Esc or 닫기 to close).
+// 통관조회: the UNIPASS reading Vesta keeps for this order, in a window on the page (Esc or 닫기 to close):
+// 처리단계 timeline first, then the must-check facts as cards, then every UNIPASS field under 더보기.
 const dt=s=>s?s.replace('T',' ').slice(0,16):'—';
 function openCus(order){
   const o=D.orders.find(x=>x.order===order);if(!o)return;const u=o.unipass||{};
   $('#cusHead').innerHTML=`<b>${esc(adm(o))}</b>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''} <span class="muted">· H B/L ${esc(o.hbl)} · ${esc(o.name)}</span>`;
-  const cells=[['진행상태',u.cargo],['통관진행상태',u.customs],['처리일시',dt(u.customsAt)],['입항일',u.arrival],
-    ['수입신고수리',dt(u.clearedAt)],['반출신고',dt(u.releasedAt)],['관리대상검사',u.inspect==='Y'?'검사 대상':u.inspect==='N'?'아님':u.inspect],
-    ['해운 출발',md(o.obDate)],['국내 도착',md(o.arDate)],['확인할 점',o.alerts.join(' · ')||'—']];
-  $('#cusBody').innerHTML=o.unipass?cells.map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v||'—')}</td></tr>`).join(''):
-    `<tr><td colspan="2" class="muted">아직 유니패스 조회 기록이 없어요. 해운 출발 후 영업일 +2일이 지나 확인 대상이 되면 다음 갱신 때 조회돼요.</td></tr>`+
-    cells.slice(7).map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v||'—')}</td></tr>`).join('');
+  const steps=u.steps||[];
+  $('#cusSteps').innerHTML=steps.length?steps.map((s,i)=>`<li class="${i===0?'now':''}"><div class="st-head"><b>${esc(s.step||'—')}</b><span class="muted">${esc(dt(s.at))}</span></div>`+
+      `${s.placeName||s.inOut?`<div class="small muted">${esc([s.placeName,s.inOut].filter(Boolean).join(' · '))}</div>`:''}`+
+      `${s.note?`<div class="small st-note">${esc(s.note)}</div>`:''}</li>`).join(''):
+    `<li class="muted small">${o.unipass?'처리단계 기록이 아직 없어요. 다음 갱신 때 함께 가져와요.':'아직 유니패스 조회 기록이 없어요. 해운 출발 후 영업일 +2일이 지나 확인 대상이 되면 다음 갱신 때 조회돼요.'}</li>`;
+  const key=[['진행상태',u.cargo],['통관진행상태',u.customs],['처리일시',dt(u.customsAt)],['입항일',u.arrival],
+    ['수입신고수리',dt(u.clearedAt)],['반출신고',dt(u.releasedAt)],['관리대상검사',u.inspect==='Y'?'검사 대상':u.inspect==='N'?'아님':u.inspect],['확인할 점',o.alerts.join(' · ')]];
+  $('#cusCards').innerHTML=key.map(([k,v])=>`<div class="cus-card${k==='확인할 점'?' wide':''}"><span>${esc(k)}</span><b>${esc(v||'—')}</b></div>`).join('');
+  const info=u.info||[];
+  $('#cusMore').classList.toggle('hidden',!info.length&&!steps.length);$('#cusMore').open=false;
+  // 더보기 grid: short values sit 2-3 to a row, long ones (품명, B/L, step details) take the full width.
+  const cell=(k,v)=>`<div class="mi${String(v||'').length>26?' full':''}"><span>${esc(k)}</span><b>${esc(v||'—')}</b></div>`;
+  $('#cusInfo').innerHTML=info.map(([k,v])=>cell(k,v)).join('')+
+    (steps.length?`<div class="mi-sub">처리단계 상세</div>`+steps.map(s=>`<div class="mi full"><span>${esc(s.step)} · ${esc(dt(s.at))}</span><b>${esc([s.placeName&&`장치장 ${s.placeName}${s.place?` (${s.place})`:''}`,s.pkg&&`포장 ${s.pkg}`,s.weight&&s.weight!=='KG'&&`중량 ${s.weight}`,s.inOutAt&&`반출입 ${s.inOutAt}`,s.inOut,s.declNo&&`신고번호 ${s.declNo}`,s.basisNo&&`근거 ${s.basisNo}`].filter(Boolean).join(' · ')||'—')}</b></div>`).join(''):'');
   $('#cusAt').textContent=u.checkedAt?`유니패스 조회: ${when(u.checkedAt)} 기준`:'';
-  $('#cusLink').href=unipass(o);$('#cusDlg').showModal()}
+  $('#cusLink').href=unipass(o);const d=$('#cusDlg');d.showModal();d.scrollTop=0;d.querySelector('h3').focus({preventScroll:true})}  // open at the top
 document.addEventListener('click',e=>{const c=e.target.closest('[data-cus]');if(c)openCus(c.dataset.cus)});
 document.addEventListener('click',e=>{const c=e.target.closest('[data-copy]');if(!c)return;e.stopPropagation();
   navigator.clipboard.writeText(c.dataset.copy).then(()=>{c.textContent='✓';c.classList.add('ok');toast(`${c.dataset.copy} 복사했어요.`);
