@@ -136,8 +136,12 @@ function msgCell(o){
 let msgOrder=null;
 function openMsg(order){
   const o=D.orders.find(x=>x.order===order);if(!o||!o.writer)return;
-  if(pendingOf(o)&&!confirm(`이 주문은 ${when(pendingOf(o))}에 이미 발송을 요청했어요. 아직 처리 중일 수 있어요.\n한 번 더 요청할까요?`))return;
-  if(!pendingOf(o)&&o.smsSent&&!confirm(`이 주문은 ${when(o.smsSent.at)}에 이미 발송이 완료됐고, 문제없이 발송됐어요.\n다시 한 번 보내는 게 맞나요?`))return;
+  // Already sent or requested: this one confirm (with who and what) is the only step, then it goes out as before.
+  const prev=pendingOf(o)?`${when(pendingOf(o))}에 이미 발송을 요청했어요. 아직 처리 중일 수 있어요.`:
+    o.smsSent?`${when(o.smsSent.at)}에 이미 발송이 완료됐고, 문제없이 발송됐어요.`:'';
+  if(prev){const text=o.smsSent&&!pendingOf(o)?o.smsSent.text:message(o);
+    if(!confirm(`이 주문은 ${prev}\n${o.writer.name}(${o.writer.box})님께 아래 문구로 다시 한 번 보내는 게 맞나요?\n\n${text}`))return;
+    msgOrder=order;$('#msgText').value=text;goSend();return}
   msgOrder=order;
   $('#msgTo').dataset.id=o.writer.id;
   $('#msgTo').innerHTML=`<b>${esc(o.writer.name)}</b> <span class="muted">· 사서함 ${esc(o.writer.box)} · 아이디 ${esc(o.writer.id)}</span>`;
