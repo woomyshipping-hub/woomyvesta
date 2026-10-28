@@ -7,7 +7,7 @@
 <title>우마이 베스타</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=751f2220">
+<link rel="stylesheet" href="style.css?v=034465c8">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -36,7 +36,8 @@
   </section>
   <div class="kpis" id="kpis"></div>
   <section class="card" id="alertSec">
-    <h2>먼저 확인할 주문 <span class="muted small" id="alertCount"></span></h2>
+    <div class="cardhead"><h2>먼저 확인할 주문 <span class="muted small" id="alertCount"></span></h2>
+      <button class="btn small-btn" id="xlsxBtn" title="지금 보이는 목록(필터·검색 반영)을 엑셀 파일로 내려받기">⬇ 엑셀 다운로드</button></div>
     <p class="muted small" id="rules"></p>
     <div class="chips" id="kindChips"></div>
     <div class="tablewrap sheet"><table class="sheet" id="alerts"></table></div>
@@ -55,8 +56,24 @@
     <div class="tablewrap sheet"><table class="sheet" id="orders"></table></div>
   </section>
   <div class="toast hidden" id="toast" role="status"></div>
+  <dialog id="msgDlg" class="msgdlg">
+    <form method="dialog">
+      <h3>지연 안내 문자</h3>
+      <p class="small">받는 사람(요청서 작성자): <span id="msgTo"></span> <button type="button" class="mini" id="msgName">이름 복사</button></p>
+      <textarea id="msgText" rows="5"></textarea>
+      <p id="msgBytes" class="small muted"></p>
+      <ol class="small muted steps-help">
+        <li>아래 <b>관리자 문자 화면 열기</b> → 회원관리 › SMS및알림톡내역 › 직접문자전송</li>
+        <li>[회원검색]에서 작성자 <b>이름</b>으로 검색 → <b>사서함번호가 같은 회원</b>을 선택</li>
+        <li>내용에 문구를 붙여넣고 내용 확인 후 [추가]로 보내요</li>
+      </ol>
+      <div class="dlgbtns"><button type="button" class="btn" id="msgCopy">문구 복사</button>
+        <a class="btn" id="msgAdmin" href="https://woomyshipping.com/elpisadm/" target="_blank" rel="noopener">관리자 문자 화면 열기 ↗</a>
+        <button class="btn" value="close">닫기</button></div>
+    </form>
+  </dialog>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
-<script src="staff.js?v=751f2220"></script>
+<script src="staff.js?v=034465c8"></script>
 </body>
 </html>
