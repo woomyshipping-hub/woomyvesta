@@ -115,3 +115,6 @@ body.resizing{cursor:col-resize;user-select:none}
 /* staff: sortable columns */
 th.sortable{cursor:pointer;user-select:none}th.sortable:hover{color:var(--ink)}
 th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[data-sort="desc"]::before{content:'▼ ';font-size:9px;color:var(--blue)}
+.redwarn{color:var(--bad)}.redlg{border-color:color-mix(in srgb,var(--bad) 55%,var(--line))}
+.retext{margin:10px 0;padding:10px 12px;border-left:3px solid var(--bad);background:var(--bad-soft);border-radius:6px;font-size:13.5px}
+.btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}

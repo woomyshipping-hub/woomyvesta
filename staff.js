@@ -136,12 +136,13 @@ function msgCell(o){
 let msgOrder=null;
 function openMsg(order){
   const o=D.orders.find(x=>x.order===order);if(!o||!o.writer)return;
-  // Already sent or requested: this one confirm (with who and what) is the only step, then it goes out as before.
+  // Already sent or requested: one red warning (when, who, what) is the only step, then it goes out as before.
   const prev=pendingOf(o)?`${when(pendingOf(o))}에 이미 발송을 요청했어요. 아직 처리 중일 수 있어요.`:
     o.smsSent?`${when(o.smsSent.at)}에 이미 발송이 완료됐고, 문제없이 발송됐어요.`:'';
-  if(prev){const text=o.smsSent&&!pendingOf(o)?o.smsSent.text:message(o);
-    if(!confirm(`이 주문은 ${prev}\n${o.writer.name}(${o.writer.box})님께 아래 문구로 다시 한 번 보내는 게 맞나요?\n\n${text}`))return;
-    msgOrder=order;$('#msgText').value=text;goSend();return}
+  if(prev){const text=o.smsSent&&!pendingOf(o)?o.smsSent.text:message(o);msgOrder=order;$('#msgText').value=text;
+    $('#reWhen').textContent=when(pendingOf(o)||o.smsSent.at);
+    $('#reWhat').textContent=pendingOf(o)?'이미 발송을 요청했어요 (아직 처리 중일 수 있어요)':'이미 발송이 완료됐고, 문제없이 발송됐어요';
+    $('#reTo').textContent=`${o.writer.name}(${o.writer.box})`;$('#reText').textContent=text;$('#reDlg').showModal();return}
   msgOrder=order;
   $('#msgTo').dataset.id=o.writer.id;
   $('#msgTo').innerHTML=`<b>${esc(o.writer.name)}</b> <span class="muted">· 사서함 ${esc(o.writer.box)} · 아이디 ${esc(o.writer.id)}</span>`;
@@ -199,7 +200,7 @@ $('#gq').addEventListener('input',()=>{renderAlerts();renderList()});
 $('#xlsxBtn').onclick=downloadExcel;
 $('#msgText').addEventListener('input',countBytes);
 $('#msgCopy').onclick=()=>copy($('#msgText').value);
-$('#msgSend').onclick=goSend;
+$('#msgSend').onclick=goSend;$('#reSend').onclick=()=>{$('#reDlg').close();goSend()};
 $('#msgName').onclick=()=>{const o=$('#msgTo b');if(o)copy(o.textContent)};
 $('#msgId').onclick=()=>{const id=$('#msgTo').dataset.id;if(id)copy(id)};
 ['#stage','#flag'].forEach(s=>$(s).addEventListener('input',renderList));
