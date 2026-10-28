@@ -121,3 +121,5 @@ th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[da
 .cusdlg{width:min(640px,calc(100% - 32px))}.custable{width:100%;margin:8px 0;font-size:13.5px}
 .custable th{position:static;width:34%;background:var(--bg);color:var(--muted);font-weight:600;border:1px solid var(--line);padding:8px 10px}
 .custable td{border:1px solid var(--line);padding:8px 10px}
+.copybtn{margin-left:4px;padding:0 4px;font-size:11px;line-height:16px;border:1px solid var(--line);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;vertical-align:1px}
+.copybtn:hover{color:var(--blue);border-color:var(--blue)}.copybtn.ok{color:var(--good);border-color:var(--good)}
