@@ -290,3 +290,25 @@ td.kclick:hover{background:var(--blue-soft);text-decoration:underline dotted}
 .kmove.on{opacity:1}
 .kdlg-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .kopen{font-size:12px;font-weight:500;text-decoration:none;white-space:nowrap}
+/* 대화 + 맥락 합친 카드: 왼쪽 지난 대화, 오른쪽 맥락·추천 답변·직접 입력 */
+.kmerge{width:min(1200px,96vw)}
+.kmerge .kdlg-head{gap:8px 12px;margin-bottom:6px}
+.kmerge .kdlg-head h3{margin:0;text-align:left}
+.kmerge #kcSub{flex:1 1 200px}
+.kx-close{margin-left:auto;border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:4px 8px;border-radius:8px}
+.kx-close:hover{background:var(--line);color:var(--ink)}
+.kmerge-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.kmerge .kclog{max-height:min(74vh,760px);margin:0}
+.kmerge-right{max-height:min(74vh,760px);overflow:auto;padding-right:4px}
+.kmerge-right .cus-sec:first-child{margin-top:0}
+.kmerge-right textarea{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);resize:vertical}
+.kmerge .dlgbtns{justify-content:flex-end;margin-top:10px}
+.kbrief{background:var(--blue-soft);border-radius:12px;padding:12px 14px;font-size:13.5px;line-height:1.65}
+.kbrief ol,.kbrief ul{margin:4px 0 0;padding-left:20px}
+.kbrief p{margin:0}
+.kb-p{white-space:pre-wrap}
+.kb-ask p{font-size:14.5px}
+.kb-dash{border:0;border-top:2px dashed color-mix(in srgb,var(--blue) 45%,var(--line));margin:12px 0}
+.kb-sec{margin-top:10px}
+.kb-sec>b{display:block;color:var(--blue);font-size:12.5px;margin-bottom:2px}
+@media (max-width:860px){.kmerge-grid{grid-template-columns:1fr}.kmerge .kclog{max-height:40vh}.kmerge-right{max-height:none;overflow:visible}}

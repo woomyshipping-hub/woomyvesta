@@ -335,8 +335,8 @@ const ksends=()=>{try{return JSON.parse(localStorage.getItem(KSEND)||'{}')}catch
 const SSTAT={'대기':['발송 대기','k-handover'],'발송 중':['발송 중','k-domestic'],'발송완료':['발송완료','k-delivered']};
 function sendState(id){const r=ksends()[id];if(!r||Date.now()-r.since>6*36e5)return null;
   const [label,cls]=SSTAT[r.status]||(String(r.status).startsWith('실패')?[r.status,'k-customs']:['발송 대기','k-handover']);return {label,cls,text:r.text}}
-const optButtons=(id,dr)=>`<div class="kopts">${dr.options.map((o,i)=>`<button class="kopt" data-send="${esc(id)}" data-opt="${i}"><span class="kopt-n">${i+1}</span>${esc(o)}</button>`).join('')}</div>`+
-  (dr.check&&dr.check.length?`<div class="kd-check"><b>보내기 전 확인</b><ul>${dr.check.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`:'');
+const optButtons=(id,dr,withCheck=true)=>`<div class="kopts">${dr.options.map((o,i)=>`<button type="button" class="kopt" data-send="${esc(id)}" data-opt="${i}"><span class="kopt-n">${i+1}</span>${esc(o)}</button>`).join('')}</div>`+
+  (withCheck&&dr.check&&dr.check.length?`<div class="kd-check"><b>보내기 전 확인</b><ul>${dr.check.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`:'');
 let kUndo=null;
 function kSend(id,text){text=(text||'').trim();
   if(!text){toast('보낼 문구를 입력해 주세요.');return false}
@@ -377,34 +377,56 @@ const kakaoUrl=id=>`https://business.kakao.com/_xdetxmG/chats/${encodeURICompone
 function openChat(id){const x=itemOf(id),th=(D.kakaoThreads||{})[id];if(!x)return;kDlgChat=id;
   $('#kcName').textContent=x.name;$('#kcOpen').href=kakaoUrl(id);$('#kcSub').textContent=[x.hist?.stage,x.hist?.service,`기다린 시간 ${waited(x.at)}`].filter(Boolean).join(' · ');
   $('#kcLog').innerHTML=(th&&th.more?'<p class="muted small center">더 이전 대화는 카카오에서 확인해 주세요.</p>':'')+((th?.messages||[]).map(bubble).join('')||'<p class="muted">저장된 대화가 없어요. 안 읽은 새 상담이면 카카오에서 열어 확인해 주세요.</p>');
-  $('#kcText').value='';const d=$('#kChatDlg');d.showModal();const log=$('#kcLog');log.scrollTop=log.scrollHeight;fillPhotos()}
-function openCtx(id){const x=itemOf(id),dr=draftOf(x||{});if(!x||!dr)return;kDlgChat=id;
-  $('#kxName').textContent=x.name;$('#kxOpen').href=kakaoUrl(id);$('#kxSum').textContent=dr.summary;$('#kxOpts').innerHTML=optButtons(id,dr);$('#kxText').value='';$('#kCtxDlg').showModal()}
+  const dr=draftOf(x);$('#kcBrief').innerHTML=briefHtml(dr);$('#kcOpts').innerHTML=dr?optButtons(id,dr,false):'<p class="muted small">추천 답변이 아직 없어요. 직접 입력해서 보내 주세요.</p>';
+  $('#kcText').value='';const d=$('#kChatDlg');d.showModal();$('#kcBrief').closest('.kmerge-right').scrollTop=0;const log=$('#kcLog');log.scrollTop=log.scrollHeight;fillPhotos()}
+// 맥락 brief in the staff's handover style (kakao_drafts.py): what to do, a dashed line, then the sections.
+function briefHtml(d){
+  if(!d)return '<p class="muted">아직 맥락 요약이 없어요. 다음 전체 업데이트(매시 정각) 때 만들어져요.</p>';
+  if(!d.situation)return `<p class="kb-p">${esc(d.summary||'')}</p>`;   // older drafts
+  const ol=a=>`<ol>${a.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>`,sec=(t,b)=>`<div class="kb-sec"><b>(${t})</b>${b}</div>`;
+  return `<div class="kb-ask"><p><b>${esc(d.ask)}</b></p>${ol(d.todo)}</div><hr class="kb-dash">`+
+    sec('현재 상황',`<p class="kb-p">${esc(d.situation)}</p>`)+sec('고객에게 필요한 것',ol(d.needs))+
+    sec('답변 직원의 역할',`<p class="kb-p">${esc(d.role)}</p>`)+sec('지금 해야 할 것',ol(d.now))+
+    (d.note?sec('오해 소지·보충 설명',`<p class="kb-p">${esc(d.note)}</p>`):'')+
+    (d.check&&d.check.length?sec('보내기 전 확인',`<ul>${d.check.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`):'')}
 $('#kTable').addEventListener('click',e=>{
   const c=e.target.closest('[data-chat]');if(c&&!e.target.closest('a,button')){openChat(c.dataset.chat);return}
-  const x=e.target.closest('[data-ctx]');if(x){openCtx(x.dataset.ctx);return}
+  const x=e.target.closest('[data-ctx]');if(x){openChat(x.dataset.ctx);return}
   const r=e.target.closest('[data-rec]');if(r){const id=r.dataset.rec;kOpen.has(id)?kOpen.delete(id):kOpen.add(id);renderKakao();return}
   const o=e.target.closest('[data-send]');if(o){const d=draftOf(itemOf(o.dataset.send));if(d)kSend(o.dataset.send,d.options[+o.dataset.opt])}});
 $('#kTable').addEventListener('change',e=>{const c=e.target.closest('[data-done]');if(!c)return;
   const x=(D.kakao?.items||[]).find(i=>i.id===c.dataset.done);if(x)setDone(x,c.checked)});
-$('#kCtxDlg').addEventListener('click',e=>{const o=e.target.closest('[data-send]');if(o){const d=draftOf(itemOf(o.dataset.send));if(d&&kSend(o.dataset.send,d.options[+o.dataset.opt]))$('#kCtxDlg').close()}});
-$('#kxSend').onclick=()=>{if(kSend(kDlgChat,$('#kxText').value))$('#kCtxDlg').close()};
+$('#kChatDlg').addEventListener('click',e=>{const o=e.target.closest('[data-send]');if(o){const d=draftOf(itemOf(o.dataset.send));if(d&&kSend(o.dataset.send,d.options[+o.dataset.opt]))$('#kChatDlg').close()}});
 $('#kcSend').onclick=()=>{if(kSend(kDlgChat,$('#kcText').value))$('#kChatDlg').close()};
-$('#kxChat').onclick=()=>{$('#kCtxDlg').close();openChat(kDlgChat)};
 // [새로고침]: reload the latest published vault now, and ask the Mac to fetch Kakao again (same 접수창구 as 문자 요청).
 // The request is just {kind:'refresh', at}; the page then polls its status and reloads itself when the new data is live.
 const RREQ='woomyvesta-krefresh';
 const rmsg=t=>{$('#kRefreshMsg').textContent=t};
 async function reloadData(){let pw=null;try{pw=sessionStorage.getItem(SS)}catch{}
   if(!pw){location.reload();return false}const d=await open(pw);D=d;render();return true}
-let rTimer=null;
+let rTimer=null,rCount=null;
+// The Mac picks requests up every 5 minutes from 9:00 to 21:55 KST (task vesta-kakao-refresh), so a waiting request
+// shows a countdown to the next pick-up instead of "곧".
+function nextPickup(now=Date.now()){
+  const kst=new Date(now+9*36e5),h=kst.getUTCHours(),m=kst.getUTCMinutes(),base=now-(kst.getUTCMinutes()*6e4+kst.getUTCSeconds()*1e3+kst.getUTCMilliseconds());
+  if(h>=9&&h<22){const t=base+Math.ceil((m*6e4+kst.getUTCSeconds()*1e3+kst.getUTCMilliseconds()+1)/3e5)*3e5;if(new Date(t+9*36e5).getUTCHours()<22)return t}
+  return base-h*36e5+(h<9?9:33)*36e5}   // 오전 9시 (오늘 또는 내일)
+// The target is kept until 3 minutes past it (a run takes a moment to pick the request up), then moves to the next one.
+let rTarget=0;
+function waitMsg(){const now=Date.now();if(!rTarget||now>rTarget+3*6e4)rTarget=nextPickup(now);
+  const s=Math.ceil((rTarget-now)/1e3);
+  if(s<=2)return '새로고침 요청됨 · 곧 시작해요';
+  if(s>3600){const t=new Date(rTarget+9*36e5),today=new Date(now+9*36e5).getUTCDate()===t.getUTCDate();return `새로고침 요청됨 · ${today?'오늘':'내일'} 오전 9시에 시작해요`}
+  return `새로고침 요청됨 · ${s>=60?`${Math.floor(s/60)}분 `:''}${s%60}초 후 시작해요`}
+function countdown(on){if(on&&rCount)return;clearInterval(rCount);rCount=null;if(on){rTarget=0;rmsg(waitMsg());rCount=setInterval(()=>rmsg(waitMsg()),1e3)}}
 function watchRefresh(req){clearTimeout(rTimer);
-  const tick=async()=>{if(Date.now()-req.since>40*60e3){rmsg('새로고침이 오래 걸리고 있어요. 관리자에게 알려 주세요.');try{localStorage.removeItem(RREQ)}catch{}return}
+  const tick=async()=>{if(Date.now()-req.since>40*60e3){countdown(false);rmsg('새로고침이 오래 걸리고 있어요. 관리자에게 알려 주세요.');try{localStorage.removeItem(RREQ)}catch{}return}
     try{const r=await (await fetch(`${D.smsIntake}?action=refreshStatus&at=${encodeURIComponent(req.at)}`)).json();const st=r.status||'';
+      countdown(st!=='진행 중'&&st!=='완료'&&!st.startsWith('실패'));
       if(st==='완료'){try{localStorage.removeItem(RREQ)}catch{}await reloadData();rmsg('');toast('카카오 누락 목록을 새로 가져왔어요.');return}
-      if(st.startsWith('실패')){try{localStorage.removeItem(RREQ)}catch{}rmsg(`새로고침 실패 · ${st.replace(/^실패:?\s*/,'')}`);return}
-      rmsg(st==='진행 중'?'카카오에서 가져오고 분석하는 중이에요…':'새로고침 요청됨 · 곧 시작해요');
-    }catch{rmsg('상태를 확인하지 못했어요. 잠시 뒤 다시 확인해요.')}
+      if(st.startsWith('실패')){try{localStorage.removeItem(RREQ)}catch{}countdown(false);rmsg(`새로고침 실패 · ${st.replace(/^실패:?\s*/,'')}`);return}
+      if(st==='진행 중')rmsg('카카오에서 가져오고 분석하는 중이에요…');
+    }catch{countdown(false);rmsg('상태를 확인하지 못했어요. 잠시 뒤 다시 확인해요.')}
     rTimer=setTimeout(tick,20e3)};
   tick()}
 $('#kRefresh').onclick=async()=>{const b=$('#kRefresh');b.disabled=true;rmsg('최신 데이터 불러오는 중…');
@@ -415,7 +437,7 @@ $('#kRefresh').onclick=async()=>{const b=$('#kRefresh');b.disabled=true;rmsg('�
   try{const at=new Date().toISOString();
     const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'refresh',at})})).json();
     if(!r.ok)throw Error(r.error);req={at:r.at||at,since:Date.now()};try{localStorage.setItem(RREQ,JSON.stringify(req))}catch{}
-    rmsg(r.joined?'이미 요청된 새로고침이 있어요 · 진행 상황을 보여 드릴게요':'새로고침 요청됨 · 곧 시작해요');watchRefresh(req)}
+    if(r.joined)rmsg('이미 요청된 새로고침이 있어요 · 진행 상황을 보여 드릴게요');else countdown(true);watchRefresh(req)}
   catch{rmsg('새로고침 요청을 보내지 못했어요. 지금 화면은 최신 공개 데이터예요.')}
   finally{b.disabled=false}};
 $('#kChips').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(!b)return;kFilter=b.dataset.k;renderKakao()});

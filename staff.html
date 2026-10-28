@@ -7,7 +7,7 @@
 <title>우마이 베스타</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=672f7eeb">
+<link rel="stylesheet" href="style.css?v=91d8fd40">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -85,30 +85,28 @@
   </div>
   <div class="toast hidden" id="toast" role="status"></div>
   <div class="kundo hidden" id="kUndo" role="status"><span class="ku-text"></span><button class="btn small-btn ku-cancel">취소</button></div>
-  <dialog id="kChatDlg" class="msgdlg kdlg">
+  <dialog id="kChatDlg" class="msgdlg kdlg kmerge">
     <form method="dialog">
-      <h3 class="kdlg-head"><span id="kcName"></span><a class="mini kopen" id="kcOpen" target="_blank" rel="noopener" title="카카오 상담 화면에서 이 대화를 열어요 (안 읽은 상담이면 읽음 처리돼요)">대화창 열기 ↗</a></h3><p class="small muted" id="kcSub"></p>
-      <div class="kclog" id="kcLog"></div>
-      <div class="kcompose"><textarea id="kcText" rows="3" placeholder="여기에 입력하면 이 상담 카카오 대화로 보내요"></textarea>
-        <div class="dlgbtns"><button class="btn" value="close">닫기</button><button type="button" class="btn send" id="kcSend">보내기</button></div></div>
+      <div class="kdlg-head"><h3 id="kcName"></h3><a class="mini kopen" id="kcOpen" target="_blank" rel="noopener" title="카카오 상담 화면에서 이 대화를 열어요 (안 읽은 상담이면 읽음 처리돼요)">대화창 열기 ↗</a>
+        <span class="small muted" id="kcSub"></span><button class="kx-close" value="close" aria-label="닫기">✕</button></div>
+      <div class="kmerge-grid">
+        <section class="kmerge-left" aria-label="지난 대화"><div class="kclog" id="kcLog"></div></section>
+        <section class="kmerge-right" aria-label="맥락과 답장">
+          <h4 class="cus-sec"><span class="ai-tag">AI</span> 맥락 이해하기</h4>
+          <div class="kbrief" id="kcBrief"></div>
+          <h4 class="cus-sec">추천 답변 <span class="muted small">누르면 5초 뒤 그대로 보내요 (취소 가능)</span></h4>
+          <div id="kcOpts"></div>
+          <h4 class="cus-sec">직접 입력</h4>
+          <textarea id="kcText" rows="3" placeholder="여기에 입력하면 이 상담 카카오 대화로 보내요"></textarea>
+          <div class="dlgbtns"><button class="btn" value="close">닫기</button><button type="button" class="btn send" id="kcSend">보내기</button></div>
+        </section>
+      </div>
     </form>
   </dialog>
   <dialog id="kImgDlg" class="kimgdlg" aria-label="사진 크게 보기">
     <img id="kiImg" alt="고객이 보낸 사진">
     <button type="button" class="ki-nav" id="kiPrev" aria-label="이전 사진">‹</button><button type="button" class="ki-nav next" id="kiNext" aria-label="다음 사진">›</button>
     <div class="ki-bar"><span id="kiCount"></span><button type="button" class="btn small-btn" id="kiClose">닫기</button></div>
-  </dialog>
-  <dialog id="kCtxDlg" class="msgdlg kdlg">
-    <form method="dialog">
-      <h3 class="kdlg-head"><span><span class="ai-tag">AI</span> <span id="kxName"></span> · 맥락 이해하기</span><a class="mini kopen" id="kxOpen" target="_blank" rel="noopener" title="카카오 상담 화면에서 이 대화를 열어요 (안 읽은 상담이면 읽음 처리돼요)">대화창 열기 ↗</a></h3>
-      <div class="kxsum" id="kxSum"></div>
-      <p class="small"><button type="button" class="mini" id="kxChat">지난 대화 전체 보기</button></p>
-      <h4 class="cus-sec">추천 답변 <span class="muted small">누르면 5초 뒤 그대로 보내요 (취소 가능)</span></h4>
-      <div id="kxOpts"></div>
-      <h4 class="cus-sec">직접 입력</h4>
-      <textarea id="kxText" rows="3" placeholder="직접 쓴 문구를 이 상담 카카오 대화로 보내요"></textarea>
-      <div class="dlgbtns"><button class="btn" value="close">닫기</button><button type="button" class="btn send" id="kxSend">보내기</button></div>
-    </form>
   </dialog>
   <dialog id="msgDlg" class="msgdlg">
     <form method="dialog">
@@ -149,6 +147,6 @@
   </dialog>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
-<script src="staff.js?v=672f7eeb"></script>
+<script src="staff.js?v=91d8fd40"></script>
 </body>
 </html>
