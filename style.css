@@ -246,3 +246,26 @@ mark.kd-fill{background:color-mix(in srgb,var(--warn) 22%,transparent);color:inh
 .krbtn{padding:5px 12px;font-size:12.5px;border-radius:999px;font-weight:600}
 .krmsg{margin-left:4px}
 .krmsg:empty{display:none}
+
+/* 카카오 답장: popups, options, undo bar */
+td.kclick{cursor:pointer}
+td.kclick:hover{background:var(--blue-soft);text-decoration:underline dotted}
+.kdlg{width:min(720px,94vw)}
+.kclog{max-height:min(56vh,560px);overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;margin:10px 0}
+.kb{max-width:82%;padding:8px 11px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:13.5px;line-height:1.5}
+.kb.you{align-self:flex-start}
+.kb.me{align-self:flex-end;background:var(--blue-soft);border-color:color-mix(in srgb,var(--blue) 30%,var(--line))}
+.kb.bot{align-self:center;max-width:90%;opacity:.7;font-size:12.5px}
+.kb.unread{border:1px dashed var(--bad)}
+.kb-meta{font-size:11px;color:var(--muted);margin-bottom:3px}
+.kb-text{white-space:pre-wrap;overflow-wrap:anywhere}
+.kcompose textarea,#kxText{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);resize:vertical}
+.kxsum{background:var(--blue-soft);border-radius:12px;padding:12px 14px;line-height:1.6;margin:10px 0}
+.kopts{display:flex;flex-direction:column;gap:6px}
+.kopt{display:flex;gap:10px;align-items:flex-start;text-align:left;font:inherit;font-size:13.5px;line-height:1.5;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);cursor:pointer;white-space:pre-wrap}
+.kopt:hover{border-color:var(--blue);background:var(--blue-soft)}
+.kopt-n{flex:none;width:20px;height:20px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;font-weight:700;display:grid;place-items:center;margin-top:1px}
+.krec-btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
+.kundo{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;display:flex;gap:12px;align-items:center;background:var(--ink);color:var(--bg);padding:10px 12px 10px 16px;border-radius:12px;box-shadow:0 8px 24px #0004;max-width:92vw}
+.kundo .ku-text{font-size:13px}
+.center{text-align:center}

@@ -249,8 +249,7 @@ const KTYPE={unread:['안 읽음','k-customs','아직 아무도 읽지 않은 �
   pending:['확인 후 안내 대기','k-domestic','"확인해 보겠습니다"라고 답한 뒤 추가 안내가 없는 상담'],
   bot:['챗봇만 응대','k-unknown','마지막 대화 뒤 고객이 챗봇 메뉴만 눌렀고 직원 답이 없는 상담']};
 let kFilter='',kTopic=null;const kOpen=new Set();
-const hl=t=>esc(t).replace(/\[([^\]]+)\]/g,'<mark class="kd-fill">[$1]</mark>');
-const waited=at=>{const h=(Date.now()-new Date(at))/36e5;return h<1?`${Math.max(1,Math.round(h*60))}분`:h<48?`${Math.floor(h)}시간`:`${Math.floor(h/24)}일`};
+const waited=at=>{const m=Math.max(1,Math.round((Date.now()-new Date(at))/6e4)),d=Math.floor(m/1440),h=Math.floor(m%1440/60);return d?`${d}일 ${h}시간`:h?`${h}시간 ${m%60}분`:`${m}분`};
 function renderKakao(){
   const K=D.kakao;
   if(!K){$('#kakaoBadge').textContent='';$('#kRules').textContent='아직 카카오 데이터가 없어요.';$('#kTable').innerHTML='';$('#kInsight').classList.add('hidden');return}
@@ -264,22 +263,21 @@ function renderKakao(){
     Object.entries(KTYPE).map(([k,[label,cls,tip]])=>`<button class="chip ${cls}${kFilter===k?' on':''}" data-k="${k}" title="${esc(tip)}">${esc(label)} ${cnt(k)}</button>`).join('');
   const TIER=[['결제 고객','k-delivered'],['견적 받음','k-domestic']],fmtD=d=>d?d.slice(2).replace(/-/g,'/'):'';
   const drafts=D.kakaoDrafts||{};
-  const rows=shown.map(x=>{const [label,cls]=KTYPE[x.type],h=x.hist,t=h&&TIER[h.tier],dr=drafts[x.id]&&drafts[x.id].at===x.at?drafts[x.id]:null;
+  const rows=shown.map(x=>{const [label,cls]=KTYPE[x.type],h=x.hist,t=h&&TIER[h.tier],dr=draftOf(x),st=sendState(x.id);
     return `<tr class="${x.late?'late':''}"><td><span class="pill ${cls}">${esc(label)}</span></td>`+
-      `<td><b>${esc(x.name)}</b>${t?` <span class="pill ${t[1]}">${t[0]}</span>`:''}${h&&h.ctype?` <span class="pill">${h.ctype}</span>`:''}</td>`+
+      `<td><b>${esc(x.name)}</b>${t?` <span class="pill ${t[1]}">${t[0]}</span>`:''}${h&&h.ctype?` <span class="pill">${h.ctype}</span>`:''}${st?` <span class="pill ${st.cls}" title="${esc(st.text)}">${esc(st.label)}</span>`:''}</td>`+
       `<td title="${esc(new Date(x.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}">${waited(x.at)}${x.late?' <span class="pill k-customs">늦음</span>':''}${x.viaBot?' <span class="pill k-unknown" title="고객 질문 뒤에 챗봇 대화가 이어져 목록에서 놓치기 쉬운 상담">챗봇 뒤에 묻힘</span>':''}</td>`+
-      `<td class="kmsg">${x.type==='bot'?'<span class="muted small">챗봇 메뉴: </span>':''}${esc(x.last||'')}${x.viaBot?`<div class="muted small">↳ 이후 챗봇만 사용${x.botTaps?`: ${esc(x.botTaps)}`:''}</div>`:''}${x.context?`<div class="muted small">↳ 그 전 마지막 대화 — ${esc(x.context)}</div>`:''}</td>`+
-      (h?`<td>${esc(h.stage||'')}</td><td>${esc(h.service||'')}</td></td>`
+      `<td class="kmsg kclick" data-chat="${esc(x.id)}" title="눌러서 지난 대화 보기">${x.type==='bot'?'<span class="muted small">챗봇 메뉴: </span>':''}${esc(x.last||'')}${x.viaBot?`<div class="muted small">↳ 이후 챗봇만 사용${x.botTaps?`: ${esc(x.botTaps)}`:''}</div>`:''}${x.context?`<div class="muted small">↳ 그 전 마지막 대화 — ${esc(x.context)}</div>`:''}</td>`+
+      `<td>${dr?`<button class="mini kctx-btn" data-ctx="${esc(x.id)}">맥락 이해하기</button>`:''}</td>`+
+      `<td>${dr?`<button class="mini krec-btn${kOpen.has(x.id)?' on':''}" data-rec="${esc(x.id)}">추천 답변</button>`:''}</td>`+
+      (h?`<td>${esc(h.stage||'')}</td><td>${esc(h.service||'')}</td>`
         :'<td colspan="2" class="muted small">새 상담 · 기록 없음</td>')+`<td>${fmtD((x.created||'').slice(0,10))}${h&&h.msgs?`<span class="muted small"> · ${h.msgs.toLocaleString()}개</span>`:''}</td>`+
       `<td>${esc(x.staff||'')}</td>`+
-      `<td class="kact">${dr?`<button class="mini kd-btn${kOpen.has(x.id)?' on':''}" data-kd="${esc(x.id)}">답변 제안</button> `:''}<a class="mini" href="https://business.kakao.com/_xdetxmG/chats/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" title="열면 읽음 처리돼요. 직접 응대할 때만 여세요.">열기 ↗</a></td></tr>`+
-      (dr&&kOpen.has(x.id)?`<tr class="kd-row"><td colspan="9"><div class="kd"><div class="kd-head"><b>AI 답변 제안</b><span class="muted small">대괄호 [ ]는 직원이 확인해서 채울 부분이에요</span>`+
-        `<button class="mini kd-copy" data-copy="${esc(x.id)}">문구 복사</button></div><div class="kd-text">${hl(dr.reply)}</div>`+
-        (dr.check&&dr.check.length?`<div class="kd-check"><b>보내기 전 확인</b><ul>${dr.check.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`:'')+
-        (dr.basis?`<div class="muted small">근거: ${esc(dr.basis)}</div>`:'')+`</div></td></tr>`:'')});
-  $('#kTable').innerHTML='<thead><tr><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th><th></th></tr></thead><tbody>'+
-    (rows.join('')||'<tr><td colspan="9" class="muted">누락된 상담이 없어요.</td></tr>')+'</tbody>';
-  $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. 결제 고객 = 이전에 결제·배송까지 간 고객. `:'')+`늦음 기준: 안 읽음 ${K.lateHours.unread}시간, 읽고 답 없음 ${K.lateHours.noReply}시간, 확인 후 안내 대기 ${K.lateHours.pending}시간, 챗봇만 응대 ${K.lateHours.bot||24}시간 이상 (주말 포함 실제 경과 시간).`;
+      `<td class="kact"><a class="mini" href="https://business.kakao.com/_xdetxmG/chats/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" title="열면 읽음 처리돼요. 직접 응대할 때만 여세요.">열기 ↗</a></td></tr>`+
+      (dr&&kOpen.has(x.id)?`<tr class="kd-row"><td colspan="11"><div class="kd"><div class="kd-head"><b>추천 답변</b><span class="muted small">누르면 5초 뒤 이 문구 그대로 카카오로 보내요 (그 사이 취소 가능)</span></div>${optButtons(x.id,dr)}</div></td></tr>`:'')});
+  $('#kTable').innerHTML='<thead><tr><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th>맥락</th><th>추천 답변</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th><th></th></tr></thead><tbody>'+
+    (rows.join('')||'<tr><td colspan="11" class="muted">누락된 상담이 없어요.</td></tr>')+'</tbody>';
+  $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. 결제 고객 = 이전에 결제·배송까지 간 고객. `:'')+`늦음: 기다린 시간 2시간부터 (주말 포함 실제 경과 시간).`;
   renderInsight();
 }
 const AUTOCLS={'높음':'k-delivered','중간':'k-handover','낮음':'k-unknown'};
@@ -297,8 +295,54 @@ function renderInsight(){
 $('#kiTopics').addEventListener('click',e=>{const r=e.target.closest('[data-ti]');if(!r)return;const t=D.kakaoInsight.topics[+r.dataset.ti];
   kTopic=kTopic&&kTopic.name===t.name?null:t;kFilter='';renderKakao();if(kTopic)$('#tabKakao').scrollIntoView({behavior:'smooth'})});
 $('#kCount').addEventListener('click',e=>{if(e.target.id==='kTopicClear'){kTopic=null;renderKakao()}});
-$('#kTable').addEventListener('click',e=>{const b=e.target.closest('[data-kd]');if(b){const id=b.dataset.kd;kOpen.has(id)?kOpen.delete(id):kOpen.add(id);renderKakao();return}
-  const c=e.target.closest('[data-copy]');if(c){const d=(D.kakaoDrafts||{})[c.dataset.copy];if(d){copy(d.reply)}}});
+// ── 카카오 답장: conversation popup, 맥락 card, 추천 답변, and sending through the 접수창구 (Claude on the Mac sends) ──
+const KSEND='woomyvesta-ksend';
+const draftOf=x=>{const d=(D.kakaoDrafts||{})[x.id];return d&&d.at===x.at&&d.options?d:null};
+const itemOf=id=>(D.kakao?.items||[]).find(x=>x.id===id);
+const ksends=()=>{try{return JSON.parse(localStorage.getItem(KSEND)||'{}')}catch{return {}}};
+const SSTAT={'대기':['발송 대기','k-handover'],'발송 중':['발송 중','k-domestic'],'발송완료':['발송완료','k-delivered']};
+function sendState(id){const r=ksends()[id];if(!r||Date.now()-r.since>6*36e5)return null;
+  const [label,cls]=SSTAT[r.status]||(String(r.status).startsWith('실패')?[r.status,'k-customs']:['발송 대기','k-handover']);return {label,cls,text:r.text}}
+const optButtons=(id,dr)=>`<div class="kopts">${dr.options.map((o,i)=>`<button class="kopt" data-send="${esc(id)}" data-opt="${i}"><span class="kopt-n">${i+1}</span>${esc(o)}</button>`).join('')}</div>`+
+  (dr.check&&dr.check.length?`<div class="kd-check"><b>보내기 전 확인</b><ul>${dr.check.map(c=>`<li>${esc(c)}</li>`).join('')}</ul></div>`:'');
+let kUndo=null;
+function kSend(id,text){text=(text||'').trim();
+  if(!text){toast('보낼 문구를 입력해 주세요.');return false}
+  if(/[\[\]]/.test(text)){toast('대괄호 [ ] 부분을 채운 뒤 보내 주세요.');return false}
+  if(!D.smsIntake){toast('발송 창구가 연결되지 않았어요. 관리자에게 알려 주세요.');return false}
+  const x=itemOf(id);clearTimeout(kUndo?.t);
+  const bar=$('#kUndo');bar.querySelector('.ku-text').textContent=`${x?x.name:'상담'}에 5초 뒤 보내요: “${text.length>40?text.slice(0,40)+'…':text}”`;bar.classList.remove('hidden');
+  const go=async()=>{bar.classList.add('hidden');const at=new Date().toISOString();
+    try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'send',chat:id,text,at})})).json();
+      if(!r.ok)throw Error(r.error);const all=ksends();all[id]={at,text,status:'대기',since:Date.now()};try{localStorage.setItem(KSEND,JSON.stringify(all))}catch{}
+      toast('발송 요청했어요. 보내지면 이 줄에 발송완료로 표시돼요.');renderKakao();watchSends()}
+    catch{toast('발송 요청을 보내지 못했어요. 잠시 뒤 다시 시도하거나 카카오에서 직접 보내 주세요.')}};
+  kUndo={t:setTimeout(go,5000)};
+  bar.querySelector('.ku-cancel').onclick=()=>{clearTimeout(kUndo.t);bar.classList.add('hidden');toast('보내기를 취소했어요.')};
+  return true}
+let sTimer=null;
+function watchSends(){clearTimeout(sTimer);const all=ksends(),open=Object.entries(all).filter(([,r])=>!(r.status==='발송완료'||String(r.status).startsWith('실패'))&&Date.now()-r.since<6*36e5);
+  if(!open.length||!D.smsIntake)return;
+  sTimer=setTimeout(async()=>{let changed=false;for(const [id,r] of open){try{const s=(await (await fetch(`${D.smsIntake}?action=sendStatus&at=${encodeURIComponent(r.at)}`)).json()).status;
+      if(s&&s!==r.status){r.status=s;changed=true;if(s==='발송완료')toast(`${itemOf(id)?.name||'상담'}에 보냈어요.`)}}catch{}}
+    if(changed){try{localStorage.setItem(KSEND,JSON.stringify(all))}catch{}renderKakao()}watchSends()},15e3)}
+const bubble=m=>`<div class="kb ${m.who==='S'?'me':m.who==='B'||m.who==='CB'?'bot':'you'}${m.unread?' unread':''}"><div class="kb-meta">${m.who==='S'?esc(m.staff||'직원'):m.who==='B'?'챗봇·자동':m.who==='CB'?'고객 → 챗봇':'고객'} · ${esc(new Date(m.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}))}${m.unread?' · 아직 안 읽음(미리보기)':''}</div><div class="kb-text">${esc(m.text)}</div></div>`;
+let kDlgChat=null;
+function openChat(id){const x=itemOf(id),th=(D.kakaoThreads||{})[id];if(!x)return;kDlgChat=id;
+  $('#kcName').textContent=x.name;$('#kcSub').textContent=[x.hist?.stage,x.hist?.service,`기다린 시간 ${waited(x.at)}`].filter(Boolean).join(' · ');
+  $('#kcLog').innerHTML=(th&&th.more?'<p class="muted small center">더 이전 대화는 카카오에서 확인해 주세요.</p>':'')+((th?.messages||[]).map(bubble).join('')||'<p class="muted">저장된 대화가 없어요. 안 읽은 새 상담이면 카카오에서 열어 확인해 주세요.</p>');
+  $('#kcText').value='';const d=$('#kChatDlg');d.showModal();const log=$('#kcLog');log.scrollTop=log.scrollHeight}
+function openCtx(id){const x=itemOf(id),dr=draftOf(x||{});if(!x||!dr)return;kDlgChat=id;
+  $('#kxName').textContent=x.name;$('#kxSum').textContent=dr.summary;$('#kxOpts').innerHTML=optButtons(id,dr);$('#kxText').value='';$('#kCtxDlg').showModal()}
+$('#kTable').addEventListener('click',e=>{
+  const c=e.target.closest('[data-chat]');if(c&&!e.target.closest('a,button')){openChat(c.dataset.chat);return}
+  const x=e.target.closest('[data-ctx]');if(x){openCtx(x.dataset.ctx);return}
+  const r=e.target.closest('[data-rec]');if(r){const id=r.dataset.rec;kOpen.has(id)?kOpen.delete(id):kOpen.add(id);renderKakao();return}
+  const o=e.target.closest('[data-send]');if(o){const d=draftOf(itemOf(o.dataset.send));if(d)kSend(o.dataset.send,d.options[+o.dataset.opt])}});
+$('#kCtxDlg').addEventListener('click',e=>{const o=e.target.closest('[data-send]');if(o){const d=draftOf(itemOf(o.dataset.send));if(d&&kSend(o.dataset.send,d.options[+o.dataset.opt]))$('#kCtxDlg').close()}});
+$('#kxSend').onclick=()=>{if(kSend(kDlgChat,$('#kxText').value))$('#kCtxDlg').close()};
+$('#kcSend').onclick=()=>{if(kSend(kDlgChat,$('#kcText').value))$('#kChatDlg').close()};
+$('#kxChat').onclick=()=>{$('#kCtxDlg').close();openChat(kDlgChat)};
 // [새로고침]: reload the latest published vault now, and ask the Mac to fetch Kakao again (same 접수창구 as 문자 요청).
 // The request is just {kind:'refresh', at}; the page then polls its status and reloads itself when the new data is live.
 const RREQ='woomyvesta-krefresh';
@@ -335,7 +379,7 @@ function setTab(t,push){
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)setTab(b.dataset.tab,true)});
 setTab(new URLSearchParams(location.search).get('tab')==='kakao'?'kakao':'ship');
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render();
-  try{const req=JSON.parse(localStorage.getItem(RREQ)||'null');if(req&&D.smsIntake&&Date.now()-req.since<40*60e3)watchRefresh(req)}catch{}}
+  try{const req=JSON.parse(localStorage.getItem(RREQ)||'null');if(req&&D.smsIntake&&Date.now()-req.since<40*60e3)watchRefresh(req)}catch{}watchSends()}
 $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disabled=true;b.textContent='확인 중…';$('#pwErr').textContent='';
   try{await unlock($('#pw').value)}catch{const e=$('#pwErr');if(e)e.textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};
 $('#gq').addEventListener('input',()=>{renderAlerts();renderList();renderKakao()});

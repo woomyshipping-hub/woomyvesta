@@ -7,7 +7,7 @@
 <title>우마이 베스타</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=3eae279f">
+<link rel="stylesheet" href="style.css?v=693cf2c9">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -83,6 +83,27 @@
     </section>
   </div>
   <div class="toast hidden" id="toast" role="status"></div>
+  <div class="kundo hidden" id="kUndo" role="status"><span class="ku-text"></span><button class="btn small-btn ku-cancel">취소</button></div>
+  <dialog id="kChatDlg" class="msgdlg kdlg">
+    <form method="dialog">
+      <h3 id="kcName"></h3><p class="small muted" id="kcSub"></p>
+      <div class="kclog" id="kcLog"></div>
+      <div class="kcompose"><textarea id="kcText" rows="3" placeholder="여기에 입력하면 이 상담 카카오 대화로 보내요"></textarea>
+        <div class="dlgbtns"><button class="btn" value="close">닫기</button><button type="button" class="btn send" id="kcSend">보내기</button></div></div>
+    </form>
+  </dialog>
+  <dialog id="kCtxDlg" class="msgdlg kdlg">
+    <form method="dialog">
+      <h3><span class="ai-tag">AI</span> <span id="kxName"></span> · 맥락 이해하기</h3>
+      <div class="kxsum" id="kxSum"></div>
+      <p class="small"><button type="button" class="mini" id="kxChat">지난 대화 전체 보기</button></p>
+      <h4 class="cus-sec">추천 답변 <span class="muted small">누르면 5초 뒤 그대로 보내요 (취소 가능)</span></h4>
+      <div id="kxOpts"></div>
+      <h4 class="cus-sec">직접 입력</h4>
+      <textarea id="kxText" rows="3" placeholder="직접 쓴 문구를 이 상담 카카오 대화로 보내요"></textarea>
+      <div class="dlgbtns"><button class="btn" value="close">닫기</button><button type="button" class="btn send" id="kxSend">보내기</button></div>
+    </form>
+  </dialog>
   <dialog id="msgDlg" class="msgdlg">
     <form method="dialog">
       <h3>지연 안내 문자</h3>
@@ -122,6 +143,6 @@
   </dialog>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
-<script src="staff.js?v=3eae279f"></script>
+<script src="staff.js?v=693cf2c9"></script>
 </body>
 </html>
