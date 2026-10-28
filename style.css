@@ -197,5 +197,5 @@ th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[da
 .tab.on{color:var(--ink);border-bottom-color:var(--ink)}
 .tabcount{display:inline-block;min-width:20px;padding:1px 7px;margin-left:4px;border-radius:999px;background:var(--bad);color:#fff;font-size:12px;font-weight:700}
 .tabcount:empty{display:none}
-td.kmsg{max-width:420px;white-space:pre-wrap;word-break:break-word}
+table.sheet td.kmsg{min-width:240px;max-width:clamp(260px,30vw,460px);white-space:normal;overflow-wrap:anywhere;line-height:1.45}
 tr.late td:first-child{box-shadow:inset 3px 0 var(--bad)}
