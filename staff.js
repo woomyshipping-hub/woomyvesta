@@ -4,16 +4,24 @@ const $=s=>document.querySelector(s);
 const enc=new TextEncoder(),b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SS='woomyvesta-pw';
-async function open(pw){
-  const v=await (await fetch('data/staff-vault.json',{cache:'no-store'})).json();
+// Keys are derived once per password + salt (600k PBKDF2 rounds); the photo vault shares the main vault's salt.
+const KEYS=new Map();let PW=null;
+async function keysFor(pw,v){const id=`${v.salt}|${v.iter}|${pw}`;if(KEYS.has(id))return KEYS.get(id);
   const base=await crypto.subtle.importKey('raw',enc.encode(pw),'PBKDF2',false,['deriveBits']);
   const bits=new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:b64(v.salt),iterations:v.iter},base,512));
+  const k={mk:await crypto.subtle.importKey('raw',bits.slice(32),{name:'HMAC',hash:'SHA-256'},false,['verify']),
+    ak:await crypto.subtle.importKey('raw',bits.slice(0,32),'AES-CBC',false,['decrypt'])};KEYS.set(id,k);return k}
+async function unseal(url,pw){
+  const v=await (await fetch(url,{cache:'no-store'})).json(),{mk,ak}=await keysFor(pw,v);
   const iv=b64(v.iv),ct=b64(v.ct),msg=new Uint8Array(iv.length+ct.length);msg.set(iv);msg.set(ct,iv.length);
-  const mk=await crypto.subtle.importKey('raw',bits.slice(32),{name:'HMAC',hash:'SHA-256'},false,['verify']);
-  if(!await crypto.subtle.verify('HMAC',mk,b64(v.mac),msg))throw Error('wrong');
-  const ak=await crypto.subtle.importKey('raw',bits.slice(0,32),'AES-CBC',false,['decrypt']);
+  if(!await crypto.subtle.verify('HMAC',mk,b64(v.mac),msg)){KEYS.delete(`${v.salt}|${v.iter}|${pw}`);throw Error('wrong')}
   return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-CBC',iv},ak,ct)));
 }
+async function open(pw){const d=await unseal('data/staff-vault.json',pw);PW=pw;PH=null;return d}
+// Photos shown in the conversation popup live in data/staff-photos.json ({id: {t: preview, l: large}} data URIs),
+// fetched the first time a popup needs them.
+let PH=null;
+const photosFor=()=>PH||(PH=PW?unseal('data/staff-photos.json',PW).catch(()=>{PH=null;return {}}):Promise.resolve({}));
 const TRACK={'CJ대한통운':n=>`https://trace.cjlogistics.com/next/tracking.html?wblNo=${encodeURIComponent(n)}`,
  '경동택배':n=>`https://kdexp.com/service/delivery/etc/delivery.do?barcode=${encodeURIComponent(n)}`,
  '일양로지스':n=>`https://www.ilyanglogis.com/functionality/card_form_waybill.asp?hawb_no=${encodeURIComponent(n)}`};
@@ -326,12 +334,25 @@ function watchSends(){clearTimeout(sTimer);const all=ksends(),open=Object.entrie
   sTimer=setTimeout(async()=>{let changed=false;for(const [id,r] of open){try{const s=(await (await fetch(`${D.smsIntake}?action=sendStatus&at=${encodeURIComponent(r.at)}`)).json()).status;
       if(s&&s!==r.status){r.status=s;changed=true;if(s==='발송완료')toast(`${itemOf(id)?.name||'상담'}에 보냈어요.`)}}catch{}}
     if(changed){try{localStorage.setItem(KSEND,JSON.stringify(all))}catch{}renderKakao()}watchSends()},4e3)}
-const bubble=m=>`<div class="kb ${m.who==='S'?'me':m.who==='B'||m.who==='CB'?'bot':'you'}${m.unread?' unread':''}"><div class="kb-meta">${m.who==='S'?esc(m.staff||'직원'):m.who==='B'?'챗봇·자동':m.who==='CB'?'고객 → 챗봇':'고객'} · ${esc(new Date(m.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}))}${m.unread?' · 아직 안 읽음(미리보기)':''}</div><div class="kb-text">${esc(m.text)}</div></div>`;
+const bubble=m=>`<div class="kb ${m.who==='S'?'me':m.who==='B'||m.who==='CB'?'bot':'you'}${m.unread?' unread':''}"><div class="kb-meta">${m.who==='S'?esc(m.staff||'직원'):m.who==='B'?'챗봇·자동':m.who==='CB'?'고객 → 챗봇':'고객'} · ${esc(new Date(m.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}))}${m.unread?' · 아직 안 읽음(미리보기)':''}</div>${m.imgs&&/^(photo|\d+ photos|사진)$/i.test(m.text||'')?'':`<div class="kb-text">${esc(m.text)}</div>`}${m.imgs?`<div class="kb-imgs">${m.imgs.map(i=>`<button type="button" class="kimg" data-img="${esc(i)}" aria-label="사진 크게 보기"><span>사진</span></button>`).join('')}</div>`:''}</div>`;
+// Fill the photo boxes once the photo vault is in; a photo Kakao no longer served when it was saved stays a label.
+async function fillPhotos(){const boxes=[...document.querySelectorAll('#kcLog .kimg[data-img]')];if(!boxes.length)return;
+  const ph=await photosFor();for(const b of boxes){const p=ph[b.dataset.img];
+    if(p){b.innerHTML=`<img src="${p.t}" alt="고객이 보낸 사진">`}else{b.classList.add('gone');b.innerHTML='<span>사진<br>카카오에서 보기</span>'}}}
+let kImgs=[],kImgAt=0;
+async function showImg(i){kImgAt=(i+kImgs.length)%kImgs.length;const ph=await photosFor(),p=ph[kImgs[kImgAt]];if(!p)return;
+  $('#kiImg').src=p.l;$('#kiCount').textContent=kImgs.length>1?`${kImgAt+1} / ${kImgs.length}`:'';
+  $('#kiPrev').hidden=$('#kiNext').hidden=kImgs.length<2;const d=$('#kImgDlg');if(!d.open)d.showModal()}
+$('#kcLog').addEventListener('click',e=>{const b=e.target.closest('.kimg[data-img]');if(!b||b.classList.contains('gone'))return;
+  kImgs=[...$('#kcLog').querySelectorAll('.kimg[data-img]:not(.gone)')].map(x=>x.dataset.img);showImg(kImgs.indexOf(b.dataset.img))});
+$('#kiPrev').onclick=()=>showImg(kImgAt-1);$('#kiNext').onclick=()=>showImg(kImgAt+1);
+$('#kImgDlg').addEventListener('click',e=>{if(e.target.id==='kImgDlg'||e.target.id==='kiImg'||e.target.id==='kiClose')$('#kImgDlg').close()});
+$('#kImgDlg').addEventListener('keydown',e=>{if(e.key==='ArrowLeft')showImg(kImgAt-1);if(e.key==='ArrowRight')showImg(kImgAt+1)});
 let kDlgChat=null;
 function openChat(id){const x=itemOf(id),th=(D.kakaoThreads||{})[id];if(!x)return;kDlgChat=id;
   $('#kcName').textContent=x.name;$('#kcSub').textContent=[x.hist?.stage,x.hist?.service,`기다린 시간 ${waited(x.at)}`].filter(Boolean).join(' · ');
   $('#kcLog').innerHTML=(th&&th.more?'<p class="muted small center">더 이전 대화는 카카오에서 확인해 주세요.</p>':'')+((th?.messages||[]).map(bubble).join('')||'<p class="muted">저장된 대화가 없어요. 안 읽은 새 상담이면 카카오에서 열어 확인해 주세요.</p>');
-  $('#kcText').value='';const d=$('#kChatDlg');d.showModal();const log=$('#kcLog');log.scrollTop=log.scrollHeight}
+  $('#kcText').value='';const d=$('#kChatDlg');d.showModal();const log=$('#kcLog');log.scrollTop=log.scrollHeight;fillPhotos()}
 function openCtx(id){const x=itemOf(id),dr=draftOf(x||{});if(!x||!dr)return;kDlgChat=id;
   $('#kxName').textContent=x.name;$('#kxSum').textContent=dr.summary;$('#kxOpts').innerHTML=optButtons(id,dr);$('#kxText').value='';$('#kCtxDlg').showModal()}
 $('#kTable').addEventListener('click',e=>{
