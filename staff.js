@@ -20,6 +20,10 @@ const TRACK={'CJ대한통운':n=>`https://trace.cjlogistics.com/next/tracking.ht
 const md=s=>s?`${s.slice(5,10).replace('-','/')}(${'일월화수목금토'[new Date(s.slice(0,10)+'T00:00:00+09:00').getDay()]})`:'—';
 let D=null;
 // UNIPASS opens 수입화물 진행정보 for an H B/L directly when the menu and number are in the address.
+// 주문번호 as the 우마이직구 admin writes it (ERP adds _ only to help when labelling boxes), so a copy pastes straight
+// into the admin search. A (B) box or _add (추가 상자) suffix is shown as a small tag next to it instead.
+const adm=o=>o.order.replace(/(_add)?(\(.*\))?$/i,'').replace(/_/g,'');
+const part=o=>{const m=o.order.match(/\((.*)\)$/);return m?`${m[1].toUpperCase()}상자`:/_add$/i.test(o.order)?'추가 상자':''};
 const unipass=o=>`https://unipass.customs.go.kr/csp/index.do?tgMenuId=MYC_MNU_00000450&hblNo=${encodeURIComponent(o.hbl)}&blYy=${encodeURIComponent(o.blYy||'')}`;
 const KIND={customs:['통관 미완료','k-customs'],handover:['택배 인계 지연','k-handover'],unknown:['확인 전','k-unknown'],
   domestic:['국내배송 진행중','k-domestic'],delivered:['국내배송 완료 · ERP 미반영','k-delivered']};
@@ -33,8 +37,8 @@ function row(o){
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
   const alerts=o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
-  <td>${o.hbl?`<a class="mini" href="${unipass(o)}" target="_blank" rel="noopener" title="유니패스 수입화물 진행정보 바로 보기">통관조회</a>`:''}</td>
-  <td class="mono">${esc(o.order)}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}</td>
+  <td>${o.hbl?`<button class="mini" data-cus="${esc(o.order)}" title="통관 진행정보 보기">통관조회</button>`:''}</td>
+  <td class="mono" title="ERP: ${esc(o.order)}">${esc(adm(o))}${part(o)?` <span class="tag">${esc(part(o))}</span>`:''}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}</td>
   <td class="mono waybill">${no}</td><td>${esc(o.name)}</td>
   <td class="clip" title="${o.writer?esc(`${o.writer.name} (${o.writer.id}) ${o.writer.box} · 신청 ${o.writer.app}`):o.writerMissing?'개별 업로드 주문이라 관리자에서 요청서를 찾을 수 없어요':''}">${o.writer?`${esc(o.writer.name)} <span class="muted small">${esc(o.writer.box)}</span>`:o.writerMissing?'<span class="k-handover">작성자 확인 필요</span>':''}</td><td class="clip" title="${esc(o.item)}">${esc(o.item)}</td>
   <td><span class="pill s${o.stage}" title="ERP: ${esc(o.erp)}">${esc(D.stages[o.stage])}</span></td>
@@ -44,10 +48,10 @@ function row(o){
   <td class="msgcell">${msgCell(o)}</td></tr>`;
 }
 const HEAD='<thead><tr><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="작성자에게 지연 안내 문자 (우마이직구 관리자에서 발송)">문자</th></tr></thead>';
-const matches=(o,q)=>!q||[o.order,o.hbl,o.courierNo,o.item,o.name,o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
+const matches=(o,q)=>!q||[o.order,adm(o),o.hbl,o.courierNo,o.item,o.name,o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
 // 정렬: click a column title (not its border) to sort ▲, again ▼, a third time back to the default order.
 const KORDER={customs:0,handover:1,unknown:2,domestic:3};
-const SORTKEY=[o=>o.hbl,o=>o.order,o=>o.courierNo,o=>o.name,o=>o.writer?o.writer.name:'',o=>o.item,o=>o.stage,
+const SORTKEY=[o=>o.hbl,o=>adm(o),o=>o.courierNo,o=>o.name,o=>o.writer?o.writer.name:'',o=>o.item,o=>o.stage,
   o=>(KORDER[o.kind]??9)*1000-(+(o.alerts.join(' ').match(/\+(\d+)일/)||[0,0])[1]),o=>o.orderDate,o=>o.obDate,o=>o.arDate,
   o=>o.sinceDeparture??-1,o=>o.courier,o=>o.smsSent?o.smsSent.at:''];
 const sortBy={alerts:null,orders:null};  // {col, dir: 1|-1}
@@ -93,18 +97,24 @@ function render(){
   $('#stage').innerHTML='<option value="">전체 단계</option>'+D.stages.map((s,i)=>`<option value="${i}">${esc(s)}</option>`).join('');
   renderList();
 }
+// 확인할 점 split for Excel: the customs part and the delivery (택배) part in their own columns.
+function issues(o){
+  const parts=o.alerts.join(' · ').split(' · ').filter(Boolean);
+  if(o.kind==='customs'||o.kind==='unknown')return {'통관 이슈':parts.join(' · '),'배송 이슈':''};
+  const i=parts.findIndex(p=>!p.startsWith('통관'));
+  return i<0?{'통관 이슈':parts.join(' · '),'배송 이슈':''}:{'통관 이슈':parts.slice(0,i).join(' · '),'배송 이슈':parts.slice(i).join(' · ')}}
 // Excel: the alert rows as currently filtered/searched. SheetJS is loaded only when the button is pressed.
 const XLSX_SRC='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
 const loadXlsx=()=>window.XLSX?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src=XLSX_SRC;s.onload=ok;s.onerror=()=>no(Error('xlsx'));document.head.append(s)});
 async function downloadExcel(){
   const b=$('#xlsxBtn');b.disabled=true;
   try{await loadXlsx();
-    const rows=shownAlerts.map(o=>({'주문번호':o.order,'운송장번호':o.courierNo,'택배사':o.courier,'받는 분':o.name,
+    const rows=shownAlerts.map(o=>({'주문번호':adm(o),'상자':part(o),'운송장번호':o.courierNo,'택배사':o.courier,'받는 분':o.name,
       '작성자':o.writer?o.writer.name:o.writerMissing?'작성자 확인 필요':'','작성자 아이디':o.writer?o.writer.id:'','사서함':o.writer?o.writer.box:'',
-      '상품':o.item,'단계':D.stages[o.stage],'확인할 점':o.alerts.join(' · '),'특송업체 픽업':o.orderDate||'','해운 출발':o.obDate||'',
+      '상품':o.item,'단계':D.stages[o.stage],...issues(o),'특송업체 픽업':o.orderDate||'','해운 출발':o.obDate||'',
       '국내 도착':o.arDate||'','경과(영업일)':o.sinceDeparture??''}));
     const ws=XLSX.utils.json_to_sheet(rows),wb=XLSX.utils.book_new();
-    ws['!cols']=[18,16,10,10,12,22,11,30,10,46,12,11,11,10].map(w=>({wch:w}));
+    ws['!cols']=[16,8,16,10,10,12,22,11,30,10,30,34,12,11,11,10].map(w=>({wch:w}));
     XLSX.utils.book_append_sheet(wb,ws,'확인 필요');
     const t=new Date(D.updatedAt),p=n=>String(n).padStart(2,'0');
     XLSX.writeFile(wb,`베스타_확인필요_${t.getFullYear()}${p(t.getMonth()+1)}${p(t.getDate())}_${p(t.getHours())}${p(t.getMinutes())}.xlsx`);
@@ -117,8 +127,8 @@ const bytes=s=>[...s].reduce((n,c)=>n+(c.charCodeAt(0)>127?2:1),0);
 const SMS_REASON={customs:'통관 미완료',handover:'택배 인계 지연',domestic:'국내배송 지연',unknown:'통관·배송 확인 중'};
 function message(o){
   const why=SMS_REASON[o.kind]||'배송 지연',n=o.sinceDeparture??'';
-  const full=`${o.order}건 ${o.name}님의 상품이 ${why} 사유로 ${n}일 지연되고 있습니다.`;
-  return bytes(full)<=90?full:`${o.order}건 ${o.name}님 상품이 ${why}로 ${n}일째 지연 중입니다.`}
+  const full=`${adm(o)}건 ${o.name}님의 상품이 ${why} 사유로 ${n}일 지연되고 있습니다.`;
+  return bytes(full)<=90?full:`${adm(o)}건 ${o.name}님 상품이 ${why}로 ${n}일째 지연 중입니다.`}
 // 발송: staff confirm here; the request is kept in this browser (localStorage woomyvesta-sms-req) and filed in the
 // shared 접수창구, from which Claude sends it from the 우마이직구 admin and records it — so 발송완료 (o.smsSent) comes back
 // in the data for every PC after the next publish. Until then the row shows 발송 대기.
@@ -160,14 +170,14 @@ async function watchSend(req){
     let st='';try{st=(await (await fetch(`${D.smsIntake}?action=status&at=${encodeURIComponent(req.at)}`)).json()).status||''}catch{continue}
     if(!st||st==='대기')continue;
     if(st.startsWith('발송완료')){const d=doneAll();d[req.order]={at:new Date().toISOString(),to:req.to,text:req.text};
-      try{localStorage.setItem(DONE,JSON.stringify(d))}catch{}renderAlerts();renderList();toast(`${req.order} 발송완료 ✓`)}
+      try{localStorage.setItem(DONE,JSON.stringify(d))}catch{}renderAlerts();renderList();toast(`${req.order.replace(/(_add)?(\(.*\))?$/i,'').replace(/_/g,'')} 발송완료 ✓`)}
     else{const all=reqAll();delete all[req.order];try{localStorage.setItem(REQ,JSON.stringify(all))}catch{}
-      renderAlerts();renderList();toast(`${req.order} 발송 안 됨 — ${st}`)}
+      renderAlerts();renderList();toast(`${req.order.replace(/(_add)?(\(.*\))?$/i,'').replace(/_/g,'')} 발송 안 됨 — ${st}`)}
     return}}
 async function goSend(){
   const o=D.orders.find(x=>x.order===msgOrder);if(!o)return;const text=$('#msgText').value.trim();
   if(bytes(text)>90){toast('90byte를 넘어서 보낼 수 없어요. 문구를 줄여 주세요.');return}
-  if(!text.includes(o.order)){toast('문구에 주문번호가 있어야 해요.');return}
+  if(!text.includes(o.order)&&!text.includes(adm(o))){toast('문구에 주문번호가 있어야 해요.');return}
   // The dialog itself (받는 사람 + 문구 + [발송]) is the final check, so no second browser confirm here.
   const all=reqAll();all[o.order]={v:1,order:o.order,to:o.writer.id,text,resend:!!sentOf(o)||!!pendingOf(o),at:new Date().toISOString()};
   try{localStorage.setItem(REQ,JSON.stringify(all))}catch{toast('이 브라우저에 요청을 저장하지 못했어요.');return}
@@ -207,6 +217,20 @@ function gripTable(table){
     th.append(g)})}
 for(const id of ['alerts','orders','batches']){const t=document.getElementById(id);if(!t)continue;
   new MutationObserver(()=>gripTable(t)).observe(t,{childList:true})}
+// 통관조회: the UNIPASS reading Vesta keeps for this order, in a window on the page (Esc or 닫기 to close).
+const dt=s=>s?s.replace('T',' ').slice(0,16):'—';
+function openCus(order){
+  const o=D.orders.find(x=>x.order===order);if(!o)return;const u=o.unipass||{};
+  $('#cusHead').innerHTML=`<b>${esc(adm(o))}</b>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''} <span class="muted">· H B/L ${esc(o.hbl)} · ${esc(o.name)}</span>`;
+  const cells=[['진행상태',u.cargo],['통관진행상태',u.customs],['처리일시',dt(u.customsAt)],['입항일',u.arrival],
+    ['수입신고수리',dt(u.clearedAt)],['반출신고',dt(u.releasedAt)],['관리대상검사',u.inspect==='Y'?'검사 대상':u.inspect==='N'?'아님':u.inspect],
+    ['해운 출발',md(o.obDate)],['국내 도착',md(o.arDate)],['확인할 점',o.alerts.join(' · ')||'—']];
+  $('#cusBody').innerHTML=o.unipass?cells.map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v||'—')}</td></tr>`).join(''):
+    `<tr><td colspan="2" class="muted">아직 유니패스 조회 기록이 없어요. 해운 출발 후 영업일 +2일이 지나 확인 대상이 되면 다음 갱신 때 조회돼요.</td></tr>`+
+    cells.slice(7).map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v||'—')}</td></tr>`).join('');
+  $('#cusAt').textContent=u.checkedAt?`유니패스 조회: ${when(u.checkedAt)} 기준`:'';
+  $('#cusLink').href=unipass(o);$('#cusDlg').showModal()}
+document.addEventListener('click',e=>{const c=e.target.closest('[data-cus]');if(c)openCus(c.dataset.cus)});
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render()}
 $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disabled=true;b.textContent='확인 중…';$('#pwErr').textContent='';
   try{await unlock($('#pw').value)}catch{const e=$('#pwErr');if(e)e.textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};

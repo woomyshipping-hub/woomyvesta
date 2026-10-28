@@ -118,3 +118,6 @@ th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[da
 .redwarn{color:var(--bad)}.redlg{border-color:color-mix(in srgb,var(--bad) 55%,var(--line))}
 .retext{margin:10px 0;padding:10px 12px;border-left:3px solid var(--bad);background:var(--bad-soft);border-radius:6px;font-size:13.5px}
 .btn.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+.cusdlg{width:min(640px,calc(100% - 32px))}.custable{width:100%;margin:8px 0;font-size:13.5px}
+.custable th{position:static;width:34%;background:var(--bg);color:var(--muted);font-weight:600;border:1px solid var(--line);padding:8px 10px}
+.custable td{border:1px solid var(--line);padding:8px 10px}

@@ -54,7 +54,11 @@ $('#lookup').onsubmit=async ev=>{
   if(last4.length!==4){$('#err').textContent='휴대폰 번호 뒤 4자리를 숫자로 입력해 주세요.';return}
   if(!data){await load();if(!data)return}
   const btn=$('#go');btn.disabled=true;btn.textContent='조회 중…';
-  try{const i=data.keys[await sha(`${ref}|${last4}`)];
+  // The 우마이직구 site shows order numbers without _ (GR261011256297); the data is keyed by the ERP form with _.
+  const forms=[ref];let m;
+  if((m=ref.match(/^(GR\d{6})(\d{2})(\d{2})(\d{2})$/)))forms.push(`${m[1]}_${m[2]}_${m[3]}_${m[4]}`);
+  if((m=ref.match(/^(GR\d{6})(\d{3})$/)))forms.push(`${m[1]}_${m[2]}`);
+  try{let i;for(const f of forms){i=data.keys[await sha(`${f}|${last4}`)];if(i!==undefined)break}
     if(i===undefined){$('#result').classList.add('hidden');$('#err').textContent='일치하는 주문을 찾지 못했어요. 번호와 휴대폰 뒤 4자리를 다시 확인해 주세요. 최근 45일 안의 주문만 조회돼요.';return}
     render(data.entries[i])}
   finally{btn.disabled=false;btn.textContent='조회하기'}
