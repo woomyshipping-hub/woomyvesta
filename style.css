@@ -105,3 +105,9 @@ button.mini:disabled{color:var(--muted);cursor:not-allowed}
 .steps-help{padding-left:18px;margin:10px 0}.dlgbtns{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .btn.send{background:var(--blue);border-color:var(--blue);color:#fff}
 button.mini.sent{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,var(--line))}
+/* staff: resizable columns */
+th{position:sticky}.colgrip{position:absolute;top:0;right:-4px;width:8px;height:100%;cursor:col-resize;z-index:3}
+.colgrip::after{content:'';position:absolute;left:3px;top:20%;height:60%;width:2px;border-radius:2px;background:transparent}
+th:hover .colgrip::after{background:var(--line)}.colgrip:hover::after{background:var(--blue)!important}
+table.sized{width:max-content;min-width:0}table.sized td,table.sized th{overflow:hidden;text-overflow:ellipsis}
+body.resizing{cursor:col-resize;user-select:none}

@@ -128,6 +128,34 @@ function goSend(){
 function doneSend(){
   const o=D.orders.find(x=>x.order===msgOrder);if(!o)return;
   markSent(o,$('#msgText').value.trim());$('#msgDlg').close();renderAlerts();renderList();toast(`${o.order} 발송 완료로 표시했어요.`)}
+// 열 너비: drag a column border to resize; click it (like Excel's double-click) to fit the widest content.
+// Widths are remembered per table in this browser and re-applied whenever a table is redrawn.
+const COLW='woomyvesta-colw';
+const colw=()=>{try{return JSON.parse(localStorage.getItem(COLW)||'{}')}catch{return {}}};
+function setCol(table,i,w){
+  for(const r of table.rows){const c=r.cells[i];if(!c)continue;
+    if(w==null){c.style.width=c.style.minWidth=c.style.maxWidth=''}else{c.style.width=c.style.minWidth=c.style.maxWidth=w+'px'}}}
+function saveCol(table,i,w){const all=colw(),t=all[table.id]||(all[table.id]={});if(w==null)delete t[i];else t[i]=w;
+  try{localStorage.setItem(COLW,JSON.stringify(all))}catch{}table.classList.toggle('sized',Object.keys(t).length>0)}
+function fitCol(table,i){
+  setCol(table,i,null);let w=40;
+  for(const r of table.rows){const c=r.cells[i];if(c&&c.colSpan===1)w=Math.max(w,c.scrollWidth+2)}
+  w=Math.min(w,900);setCol(table,i,w);saveCol(table,i,w)}
+function gripTable(table){
+  const head=table.tHead&&table.tHead.rows[0];if(!head)return;
+  const saved=colw()[table.id]||{};table.classList.toggle('sized',Object.keys(saved).length>0);
+  for(const [i,w] of Object.entries(saved))setCol(table,+i,w);
+  [...head.cells].forEach((th,i)=>{if(th.querySelector('.colgrip'))return;
+    const g=document.createElement('span');g.className='colgrip';g.title='드래그: 너비 조절 · 클릭: 내용에 맞추기';
+    g.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();
+      const x0=e.clientX,w0=th.getBoundingClientRect().width;let moved=false;
+      const move=ev=>{const dx=ev.clientX-x0;if(Math.abs(dx)>2)moved=true;if(moved)setCol(table,i,Math.max(40,Math.round(w0+dx)))};
+      const up=ev=>{document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);document.body.classList.remove('resizing');
+        if(moved)saveCol(table,i,Math.max(40,Math.round(w0+ev.clientX-x0)));else fitCol(table,i)};
+      document.body.classList.add('resizing');document.addEventListener('mousemove',move);document.addEventListener('mouseup',up)});
+    th.append(g)})}
+for(const id of ['alerts','orders','batches']){const t=document.getElementById(id);if(!t)continue;
+  new MutationObserver(()=>gripTable(t)).observe(t,{childList:true})}
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render()}
 $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disabled=true;b.textContent='확인 중…';$('#pwErr').textContent='';
   try{await unlock($('#pw').value)}catch{const e=$('#pwErr');if(e)e.textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};
