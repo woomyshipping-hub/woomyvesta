@@ -112,3 +112,6 @@ th:hover .colgrip::after{background:var(--line)}.colgrip:hover::after{background
 table.sized{width:max-content;min-width:0}table.sized td,table.sized th{overflow:hidden;text-overflow:ellipsis}
 body.resizing{cursor:col-resize;user-select:none}
 .sentmark,.pendmark{font-size:11.5px;font-weight:600;white-space:nowrap}.sentmark{color:var(--good)}.pendmark{color:var(--warn)}
+/* staff: sortable columns */
+th.sortable{cursor:pointer;user-select:none}th.sortable:hover{color:var(--ink)}
+th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[data-sort="desc"]::before{content:'▼ ';font-size:9px;color:var(--blue)}

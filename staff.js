@@ -45,19 +45,37 @@ function row(o){
 }
 const HEAD='<thead><tr><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="작성자에게 지연 안내 문자 (우마이직구 관리자에서 발송)">문자</th></tr></thead>';
 const matches=(o,q)=>!q||[o.order,o.hbl,o.courierNo,o.item,o.name,o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
+// 정렬: click a column title (not its border) to sort ▲, again ▼, a third time back to the default order.
+const KORDER={customs:0,handover:1,unknown:2,domestic:3};
+const SORTKEY=[o=>o.hbl,o=>o.order,o=>o.courierNo,o=>o.name,o=>o.writer?o.writer.name:'',o=>o.item,o=>o.stage,
+  o=>(KORDER[o.kind]??9)*1000-(+(o.alerts.join(' ').match(/\+(\d+)일/)||[0,0])[1]),o=>o.orderDate,o=>o.obDate,o=>o.arDate,
+  o=>o.sinceDeparture??-1,o=>o.courier,o=>o.smsSent?o.smsSent.at:''];
+const sortBy={alerts:null,orders:null};  // {col, dir: 1|-1}
+function sorted(list,id){
+  const st=sortBy[id];if(!st)return list;const k=SORTKEY[st.col];
+  const cmp=(a,b)=>{const x=k(a)??'',y=k(b)??'';
+    if(x===''&&y!=='')return 1;if(y===''&&x!=='')return -1;  // blanks last either way
+    return (typeof x==='number'&&typeof y==='number'?x-y:String(x).localeCompare(String(y),'ko',{numeric:true}))*st.dir};
+  return [...list].sort(cmp)}
+function markSort(table){const st=sortBy[table.id];const head=table.tHead&&table.tHead.rows[0];if(!head)return;
+  [...head.cells].forEach((th,i)=>{th.classList.add('sortable');th.dataset.sort=st&&st.col===i?(st.dir>0?'asc':'desc'):''})}
+document.addEventListener('click',e=>{const th=e.target.closest('th');if(!th||e.target.closest('.colgrip,button,a'))return;
+  const table=th.closest('table');if(!table||!(table.id in sortBy))return;const col=th.cellIndex,st=sortBy[table.id];
+  sortBy[table.id]=!st||st.col!==col?{col,dir:1}:st.dir>0?{col,dir:-1}:null;
+  table.id==='alerts'?renderAlerts():renderList()});
 function renderAlerts(){
   const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>o.alerts.length),shown=al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
   $('#alertCount').textContent=shown.length===al.length?`${al.length}건`:`${shown.length} / ${al.length}건`;
   $('#kindChips').innerHTML=`<button class="chip${kindFilter?'':' on'}" data-kind="">전체 ${al.length}</button>`+
     Object.entries(KIND).filter(([k])=>D.kinds[k]).map(([k,[label,cls]])=>`<button class="chip ${cls}${kindFilter===k?' on':''}" data-kind="${k}">${esc(label)} ${D.kinds[k]}</button>`).join('');
-  shownAlerts=shown;
-  $('#alerts').innerHTML=HEAD+'<tbody>'+(shown.map(row).join('')||'<tr><td colspan="14" class="muted">검색 결과가 없어요.</td></tr>')+'</tbody>';
+  shownAlerts=sorted(shown,'alerts');
+  $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||'<tr><td colspan="14" class="muted">검색 결과가 없어요.</td></tr>')+'</tbody>';
 }
 function renderList(){
   const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value;
   const list=D.orders.filter(o=>(!st||String(o.stage)===st)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
   $('#count').textContent=`${list.length.toLocaleString()}건${list.length>300?' · 처음 300건만 표시 (오른쪽 위 검색으로 좁혀 보세요)':''}`;
-  $('#orders').innerHTML=HEAD+'<tbody>'+list.slice(0,300).map(row).join('')+'</tbody>';
+  $('#orders').innerHTML=HEAD+'<tbody>'+sorted(list,'orders').slice(0,300).map(row).join('')+'</tbody>';
 }
 document.addEventListener('click',e=>{const c=e.target.closest('[data-kind]');if(!c)return;kindFilter=c.dataset.kind;renderAlerts()});
 document.addEventListener('click',e=>{const k=e.target.closest('[data-go]');if(!k)return;const go=k.dataset.go;
@@ -101,8 +119,8 @@ function message(o){
   const why=SMS_REASON[o.kind]||'배송 지연',n=o.sinceDeparture??'';
   const full=`${o.order}건 ${o.name}님의 상품이 ${why} 사유로 ${n}일 지연되고 있습니다.`;
   return bytes(full)<=90?full:`${o.order}건 ${o.name}님 상품이 ${why}로 ${n}일째 지연 중입니다.`}
-// 발송: staff confirm here; the request is kept in this browser (localStorage woomyvesta-sms-req) and handed to the
-// Claude session on this Mac through sms_relay.py, which sends it from the 우마이직구 admin and records it — so 발송완료 (o.smsSent) comes back
+// 발송: staff confirm here; the request is kept in this browser (localStorage woomyvesta-sms-req) and filed in the
+// shared 접수창구, from which Claude sends it from the 우마이직구 admin and records it — so 발송완료 (o.smsSent) comes back
 // in the data for every PC after the next publish. Until then the row shows 발송 대기.
 const REQ='woomyvesta-sms-req';
 const reqAll=()=>{try{return JSON.parse(localStorage.getItem(REQ)||'{}')}catch{return {}}};
@@ -135,12 +153,12 @@ async function goSend(){
   const all=reqAll();all[o.order]={v:1,order:o.order,to:o.writer.id,text,resend:!!o.smsSent||!!pendingOf(o),at:new Date().toISOString()};
   try{localStorage.setItem(REQ,JSON.stringify(all))}catch{toast('이 브라우저에 요청을 저장하지 못했어요.');return}
   $('#msgDlg').close();renderAlerts();renderList();
-  // Opened from Claude's Mac (sms_relay.py at 127.0.0.1:8799), the request goes straight to Claude; elsewhere, or if
-  // Claude isn't listening, it stays 발송 대기 until someone asks Claude to send it.
-  try{if(location.port!=='8799')throw Error('not local');
-    const r=await fetch('/sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(all[o.order])});
-    if(!r.ok)throw Error();toast('발송 요청을 Claude에게 전달했어요. 보내고 나면 발송완료로 바뀌어요.')}
-  catch{toast('Claude가 지금 연결돼 있지 않아 발송 대기로 남겨 뒀어요. Claude에게 "베스타 문자 보내줘"라고 하면 보내요.')}}
+  // Shared 접수창구 (append-only Apps Script, URL inside the encrypted data): works from any staff PC; Claude on the
+  // sending Mac picks it up. text/plain keeps it a simple request (no CORS preflight).
+  try{if(!D.smsIntake)throw Error('no intake');
+    const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(all[o.order])})).json();
+    if(!r.ok)throw Error(r.error);toast('발송 요청을 전달했어요. 보내고 나면 발송완료로 바뀌어요.')}
+  catch{toast('발송 요청을 전달하지 못해 이 브라우저에 발송 대기로 남겨 뒀어요. 관리자에게 알려 주세요.')}}
 // 열 너비: drag a column border to resize; click it (like Excel's double-click) to fit the widest content.
 // Widths are remembered per table in this browser and re-applied whenever a table is redrawn.
 const COLW='woomyvesta-colw';
@@ -156,6 +174,7 @@ function fitCol(table,i){
   w=Math.min(w,900);setCol(table,i,w);saveCol(table,i,w)}
 function gripTable(table){
   const head=table.tHead&&table.tHead.rows[0];if(!head)return;
+  if(table.id in sortBy)markSort(table);
   const saved=colw()[table.id]||{};table.classList.toggle('sized',Object.keys(saved).length>0);
   for(const [i,w] of Object.entries(saved))setCol(table,+i,w);
   [...head.cells].forEach((th,i)=>{if(th.querySelector('.colgrip'))return;
