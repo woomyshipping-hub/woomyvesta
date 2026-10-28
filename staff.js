@@ -33,7 +33,8 @@ const KPI_ORDER=['통관 시작','국내배송','해운 출발','특송업체 �
 // One spreadsheet-like line per order; multi-box waybills stack one per line. Long text is cut with … (full text on hover).
 function row(o){
   const link=TRACK[o.courier];
-  const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n)).join('<br>'):'—';
+  const cp=n=>`<button class="copybtn" data-copy="${esc(n)}" title="운송장번호 복사" aria-label="운송장번호 복사">⧉</button>`;
+  const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>(link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n))+cp(n)).join('<br>'):'—';
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
   const alerts=o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
