@@ -94,13 +94,19 @@ async function downloadExcel(){
 // 문자: the page cannot send by itself (sending happens in the 우마이직구 admin under the staff's own login), so it
 // prepares the text for the row's 작성자 and the details to find them there.
 const bytes=s=>[...s].reduce((n,c)=>n+(c.charCodeAt(0)>127?2:1),0);
-function message(o){return `${o.order}건 ${o.name}님의 상품이 ${o.alerts.join(' · ')} 사유로 ${o.sinceDeparture??''}일 지연되고 있습니다.`}
+// The admin sends plain SMS, cut at 90 bytes (Korean = 2 bytes), so the reason is the short label, and a shorter
+// wording is used when a long order number or name would still not fit.
+const SMS_REASON={customs:'통관 미완료',handover:'택배 인계 지연',domestic:'국내배송 지연',unknown:'통관·배송 확인 중'};
+function message(o){
+  const why=SMS_REASON[o.kind]||'배송 지연',n=o.sinceDeparture??'';
+  const full=`${o.order}건 ${o.name}님의 상품이 ${why} 사유로 ${n}일 지연되고 있습니다.`;
+  return bytes(full)<=90?full:`${o.order}건 ${o.name}님 상품이 ${why}로 ${n}일째 지연 중입니다.`}
 function openMsg(order){
   const o=D.orders.find(x=>x.order===order);if(!o||!o.writer)return;
   $('#msgTo').dataset.id=o.writer.id;
   $('#msgTo').innerHTML=`<b>${esc(o.writer.name)}</b> <span class="muted">· 사서함 ${esc(o.writer.box)} · 아이디 ${esc(o.writer.id)}</span>`;
   $('#msgText').value=message(o);countBytes();$('#msgDlg').showModal()}
-function countBytes(){const n=bytes($('#msgText').value);$('#msgBytes').textContent=`${n} byte${n>90?' · 90byte 넘으면 SMS 한 통에 다 안 들어갈 수 있어요':''}`;$('#msgBytes').className=n>90?'small k-handover':'small muted'}
+function countBytes(){const n=bytes($('#msgText').value);$('#msgBytes').textContent=`${n} / 90 byte${n>90?' · 90byte를 넘는 부분은 잘려서 도착해요. 줄여 주세요.':''}`;$('#msgBytes').className=n>90?'small k-handover':'small muted'}
 const copy=async t=>{try{await navigator.clipboard.writeText(t);toast('복사했어요.')}catch{toast('복사하지 못했어요. 직접 선택해서 복사해 주세요.')}};
 document.addEventListener('click',e=>{const m=e.target.closest('[data-msg]');if(m)openMsg(m.dataset.msg)});
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render()}
