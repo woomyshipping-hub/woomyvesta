@@ -240,8 +240,9 @@ mark.kd-fill{background:color-mix(in srgb,var(--warn) 22%,transparent);color:inh
 .kd-check ul{margin:4px 0 6px;padding-left:18px}
 
 /* 카카오 누락: chips + refresh on one row */
-.krow{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.krow .chips{flex:1;min-width:0}
-.krefresh{flex:none;margin-top:12px}
-.krmsg{margin:8px 0 0;text-align:right}
+/* chips, then the refresh button right after the last chip, then its status text, all in one wrapping row */
+.krow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:12px}
+.krow .chips{display:contents}
+.krbtn{padding:5px 12px;font-size:12.5px;border-radius:999px;font-weight:600}
+.krmsg{margin-left:4px}
 .krmsg:empty{display:none}
