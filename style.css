@@ -190,3 +190,12 @@ th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[da
 .mi b,.cus-card b{overflow-wrap:anywhere;word-break:keep-all}
 .st-head b{min-width:0;flex:1 1 60%}.st-head span{flex:0 0 auto}
 .cusdlg h3:focus{outline:none}
+
+/* tabs */
+.tabs{display:flex;gap:6px;margin:16px 0 0;border-bottom:1px solid var(--line)}
+.tab{font:inherit;font-weight:700;font-size:15px;padding:10px 16px;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);cursor:pointer;margin-bottom:-1px}
+.tab.on{color:var(--ink);border-bottom-color:var(--ink)}
+.tabcount{display:inline-block;min-width:20px;padding:1px 7px;margin-left:4px;border-radius:999px;background:var(--bad);color:#fff;font-size:12px;font-weight:700}
+.tabcount:empty{display:none}
+td.kmsg{max-width:420px;white-space:pre-wrap;word-break:break-word}
+tr.late td:first-child{box-shadow:inset 3px 0 var(--bad)}
