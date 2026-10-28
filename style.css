@@ -199,3 +199,29 @@ th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[da
 .tabcount:empty{display:none}
 table.sheet td.kmsg{min-width:240px;max-width:clamp(260px,30vw,460px);white-space:normal;overflow-wrap:anywhere;line-height:1.45}
 tr.late td:first-child{box-shadow:inset 3px 0 var(--bad)}
+
+/* AI insight card */
+.insight .ai-tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:6px;margin-right:6px;vertical-align:2px;background:linear-gradient(135deg,var(--blue),#a36bff);color:#fff}
+.ki-summary{margin:12px 0 4px;padding-left:20px;line-height:1.6}
+.ki-summary li{margin:4px 0}
+.ki-h{font-size:15px;margin:20px 0 4px}
+table.ki-topics{width:100%;border-collapse:collapse;font-size:13px}
+table.ki-topics th{text-align:left;font-size:12px;color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
+table.ki-topics td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
+table.ki-topics td:first-child{white-space:nowrap}
+table.ki-topics td.num{white-space:nowrap}
+table.ki-topics td:nth-child(3){min-width:180px;max-width:280px}
+table.ki-topics td:last-child{min-width:260px}
+.ki-row{cursor:pointer}
+.ki-row:hover,.ki-row.on{background:var(--blue-soft)}
+.ki-actions{margin:8px 0 0;padding-left:22px;line-height:1.55}
+.ki-actions li{margin:8px 0}
+.ki-actions .pill{font-size:11px;margin-left:4px}
+@media (max-width:1000px){
+  table.ki-topics thead{display:none}
+  table.ki-topics tr{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:12px 8px;border-bottom:1px solid var(--line)}
+  table.ki-topics td{border:0;padding:0;min-width:0!important;max-width:none!important}
+  table.ki-topics td:nth-child(3),table.ki-topics td:nth-child(5){grid-column:1/-1}
+  table.ki-topics td:nth-child(4){grid-row:1;grid-column:2}
+  table.ki-topics td.num{grid-row:2;grid-column:1}
+}

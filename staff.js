@@ -248,15 +248,16 @@ document.addEventListener('click',e=>{const c=e.target.closest('[data-copy]');if
 const KTYPE={unread:['안 읽음','k-customs','아직 아무도 읽지 않은 상담'],noReply:['읽고 답 없음','k-handover','읽었지만 고객 메시지에 아무도 답하지 않은 상담'],
   pending:['확인 후 안내 대기','k-domestic','"확인해 보겠습니다"라고 답한 뒤 추가 안내가 없는 상담'],
   bot:['챗봇만 응대','k-unknown','마지막 대화 뒤 고객이 챗봇 메뉴만 눌렀고 직원 답이 없는 상담']};
-let kFilter='';
+let kFilter='',kTopic=null;
 const waited=at=>{const h=(Date.now()-new Date(at))/36e5;return h<1?`${Math.max(1,Math.round(h*60))}분`:h<48?`${Math.floor(h)}시간`:`${Math.floor(h/24)}일`};
 function renderKakao(){
   const K=D.kakao;
-  if(!K){$('#kakaoBadge').textContent='';$('#kRules').textContent='아직 카카오 데이터가 없어요.';$('#kTable').innerHTML='';return}
+  if(!K){$('#kakaoBadge').textContent='';$('#kRules').textContent='아직 카카오 데이터가 없어요.';$('#kTable').innerHTML='';$('#kInsight').classList.add('hidden');return}
   const q=$('#gq').value.trim().toLowerCase(),all=K.items,cnt=t=>all.filter(x=>x.type===t).length;
-  const shown=all.filter(x=>(!kFilter||x.type===kFilter)&&(!q||[x.name,x.last,x.botTaps,x.context,x.staff,x.hist&&x.hist.stage,x.hist&&x.hist.service].join(' ').toLowerCase().includes(q)));
+  const topicIds=kTopic&&new Set(kTopic.ids);
+  const shown=all.filter(x=>(!kFilter||x.type===kFilter)&&(!topicIds||topicIds.has(x.id))&&(!q||[x.name,x.last,x.botTaps,x.context,x.staff,x.hist&&x.hist.stage,x.hist&&x.hist.service].join(' ').toLowerCase().includes(q)));
   $('#kakaoBadge').textContent=all.length||'';
-  $('#kCount').textContent=shown.length===all.length?`${all.length}건`:`${shown.length} / ${all.length}건`;
+  $('#kCount').innerHTML=(shown.length===all.length?`${all.length}건`:`${shown.length} / ${all.length}건`)+(kTopic?` · <button class="chip on" id="kTopicClear" title="유형 필터 해제">${esc(kTopic.name)} ✕</button>`:'');
   $('#kRules').textContent=`${new Date(K.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${K.windowDays}일 안에 움직인 상담만 봐요. 결제 고객 → 견적 받은 고객 → 나머지 순으로, 같은 묶음 안에서는 오래 기다린 순서로 보여 줘요. 고객이 "감사합니다·네 알겠습니다"처럼 인사로 끝낸 대화는 빼요. 챗봇 대화는 따로 떼어 보고, 그 위의 직원·고객 대화로 판단해요.`;
   $('#kChips').innerHTML=`<button class="chip${kFilter?'':' on'}" data-k="">전체 ${all.length}</button>`+
     Object.entries(KTYPE).map(([k,[label,cls,tip]])=>`<button class="chip ${cls}${kFilter===k?' on':''}" data-k="${k}" title="${esc(tip)}">${esc(label)} ${cnt(k)}</button>`).join('');
@@ -273,7 +274,23 @@ function renderKakao(){
   $('#kTable').innerHTML='<thead><tr><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th><th></th></tr></thead><tbody>'+
     (rows.join('')||'<tr><td colspan="9" class="muted">누락된 상담이 없어요.</td></tr>')+'</tbody>';
   $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. 결제 고객 = 이전에 결제·배송까지 간 고객. `:'')+`늦음 기준: 안 읽음 ${K.lateHours.unread}시간, 읽고 답 없음 ${K.lateHours.noReply}시간, 확인 후 안내 대기 ${K.lateHours.pending}시간, 챗봇만 응대 ${K.lateHours.bot||24}시간 이상 (주말 포함 실제 경과 시간).`;
+  renderInsight();
 }
+const AUTOCLS={'높음':'k-delivered','중간':'k-handover','낮음':'k-unknown'};
+function renderInsight(){
+  const I=D.kakaoInsight,K=D.kakao,sec=$('#kInsight');
+  if(!I){sec.classList.add('hidden');return}sec.classList.remove('hidden');
+  const at=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
+  $('#kiAt').innerHTML=`${at(I.basedOn)} 데이터 · ${I.total}건 분석`+(K&&I.basedOn!==K.updatedAt?' <span class="pill k-handover">이전 데이터 기준 분석</span>':'');
+  $('#kiSummary').innerHTML=I.summary.map(t=>`<li>${esc(t)}</li>`).join('');
+  $('#kiTopics').innerHTML='<thead><tr><th>질문 유형</th><th>건수</th><th>예시</th><th>자동화</th><th>방법</th></tr></thead><tbody>'+
+    I.topics.map((t,i)=>`<tr class="ki-row${kTopic&&kTopic.name===t.name?' on':''}" data-ti="${i}"><td><b>${esc(t.name)}</b></td><td class="num">${t.count}<span class="muted small"> · ${Math.round(t.count/I.total*100)}%</span></td>`+
+      `<td class="muted">${t.examples.map(e=>`“${esc(e)}”`).join('<br>')}</td><td><span class="pill ${AUTOCLS[t.auto]||''}">${esc(t.auto)}</span></td><td>${esc(t.how)}</td></tr>`).join('')+'</tbody>';
+  $('#kiActions').innerHTML=I.actions.map(a=>`<li><b>${esc(a.title)}</b> <span class="pill">영향 ${esc(a.impact)}</span> <span class="pill">작업 ${esc(a.effort)}</span><div class="muted small">${esc(a.detail)}</div></li>`).join('');
+}
+$('#kiTopics').addEventListener('click',e=>{const r=e.target.closest('[data-ti]');if(!r)return;const t=D.kakaoInsight.topics[+r.dataset.ti];
+  kTopic=kTopic&&kTopic.name===t.name?null:t;kFilter='';renderKakao();if(kTopic)$('#tabKakao').scrollIntoView({behavior:'smooth'})});
+$('#kCount').addEventListener('click',e=>{if(e.target.id==='kTopicClear'){kTopic=null;renderKakao()}});
 $('#kChips').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(!b)return;kFilter=b.dataset.k;renderKakao()});
 function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
