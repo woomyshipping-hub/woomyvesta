@@ -47,7 +47,7 @@ function row(o){
   const cp=n=>`<button class="copybtn" data-copy="${esc(n)}" title="운송장번호 복사" aria-label="운송장번호 복사">⧉</button>`;
   const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>(link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n))+cp(n)).join('<br>'):'—';
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
-  const dm=o.doneMark,alerts=dm?`✓ 완료 처리 · ${dm.how}${dm.memo?` · ${dm.memo}`:''}${dm.ts?` · ${when(dm.ts)}`:''}`:o.alerts.join(' · ');
+  const dm=o.doneMark,howTxt=dm&&(ODMEMO[dm.how]||dm.how),alerts=dm?`✓ 완료 처리 · ${howTxt}${dm.memo&&dm.memo!==howTxt?` · ${dm.memo}`:''}${dm.ts?` · ${when(dm.ts)}`:''}`:o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
   <td>${o.hbl?`<button class="mini" data-cus="${esc(o.order)}" title="통관 진행정보 보기">통관조회</button>`:''}</td>
   <td class="mono" title="ERP: ${esc(o.order)}">${esc(adm(o))}<button class="copybtn" data-copy="${esc(adm(o))}" title="주문번호 복사" aria-label="주문번호 복사">⧉</button>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}</td>
@@ -135,6 +135,7 @@ async function setODone(o,done,how,memo){
   try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({kind:'odone',order:o.order,...m})})).json();if(!r.ok)throw Error(r.error)}
   catch{toast('이 화면에는 반영했지만 다른 직원 화면에는 아직 반영되지 않았어요. (접수창구 새 버전 배포 필요)')}}
+// Default memo per choice; it doubles as the label, so a memo left as is shows once.
 const ODMEMO={'독차(우리)':'독차 (우리가 부름)','독차(화주)':'독차 (화주가 부름)','기타':''};
 let odOrder=null;
 document.addEventListener('click',e=>{const b=e.target.closest('[data-od]');if(!b)return;
