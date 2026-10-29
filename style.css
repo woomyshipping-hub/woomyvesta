@@ -283,8 +283,10 @@ td.kclick:hover{background:var(--blue-soft);text-decoration:underline dotted}
 .ki-bar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-size:13px;height:52px;box-sizing:border-box}
 /* 처리완료 체크, 옮김 안내, 팝업 '대화창 열기' */
 #kTable td.kdone{text-align:center;width:44px}
-#kTable td.kmemo{min-width:90px;max-width:220px;white-space:normal}
-#kTable .kmemo-text{margin-top:4px;line-height:1.4;overflow-wrap:anywhere}
+#kTable td.kmemo{min-width:240px;max-width:340px;white-space:normal}
+#kTable .kmemo-row{display:flex;align-items:flex-start;gap:8px}
+#kTable .kmemo-row .mini{flex:none}
+#kTable .kmemo-text{flex:1;min-width:140px;line-height:1.4;overflow-wrap:anywhere;padding-top:2px}
 .kgap{margin:10px 0 4px;padding:6px 10px;border:1px dashed var(--bad);border-radius:8px;font-size:12px;text-align:center;color:var(--bad)}
 .kreply{color:var(--ink);margin-top:3px}
 .kmove{min-height:20px;margin:8px 0 0;font-size:13px;font-weight:600;color:var(--blue);opacity:0;transition:opacity .3s}
