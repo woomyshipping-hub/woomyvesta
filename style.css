@@ -439,3 +439,21 @@ label[for=odMemo]{display:block;margin-top:16px}
 .q-sheet tr.q-sub td{border-bottom:1px dashed var(--line);padding-top:0}.q-sheet tr:has(+ tr.q-sub) td{border-bottom:0}
 .q-link{display:inline-block;margin:0 0 2px}.q-adds{display:flex;gap:8px;margin-top:8px}
 .q-gradenote{margin:6px 0 0;color:var(--muted);line-height:1.5}.q-gradenote.hit{color:var(--good)}
+/* 견적서 document: Japanese 見積書 layout, Korean with Japanese beside it */
+.q-doc .qd-ja{font-size:.72em;font-weight:500;color:#5b6475;margin-left:5px;letter-spacing:0}
+.qd-title{letter-spacing:.25em}.qd-title .qd-ja{letter-spacing:.1em}
+.qd-top{display:grid;grid-template-columns:1.1fr 1fr;gap:26px;margin-bottom:20px;align-items:start}
+.qd-to{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:1.5px solid #1d2433;padding:4px 4px 6px;margin-bottom:12px}
+.qd-toname{font-size:19px;font-weight:700}.q-doc .qd-sama{font-size:17px;font-weight:600}
+.qd-meta th{width:120px}.qd-meta th .qd-ja{display:block;margin:0}
+.qd-say{margin:12px 0 0;font-weight:700;font-size:12.5px}
+.qd-co{position:relative;padding-top:4px;font-size:12.5px;line-height:1.75}.q-doc .qd-co p{margin:0}
+.qd-coname{font-size:17px;font-weight:800;margin-bottom:6px;position:relative;display:inline-block;padding-right:40px}
+.qd-stamp{position:absolute;right:-26px;top:-20px;width:64px;height:64px}
+.qd-rep{margin-top:8px!important;padding-bottom:5px;border-bottom:1px solid #9aa3b2}
+.qd-items td.qd-item{font-weight:600;text-align:left;font-size:12.5px}
+.qd-items th:nth-child(1){width:46px}.qd-items th:nth-child(2){width:auto}.qd-items th:nth-child(3){width:58px}.qd-items th:nth-child(4){width:110px}.qd-items th:nth-child(5){width:190px}
+.qd-items thead th .qd-ja{display:block;margin:0}
+.qd-items tr.qd-total td{background:#fff4d9;font-weight:800;font-size:15px;text-align:center}.qd-items tr.qd-total td.n{text-align:right;font-size:17px}
+.qd-items tr.qd-total td .qd-ja{display:block;margin:0}
+.qd-coname{padding-right:22px}.qd-stamp{right:-30px;top:-22px;opacity:.92}

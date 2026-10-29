@@ -638,7 +638,7 @@ $('#kChips').addEventListener('click',e=>{const b=e.target.closest('[data-k]');i
 // (오늘날짜_101부터) and copies + saves the preview as a PNG. 공급자·입금 정보 and the signature come from the vault.
 // adj: staff's own 현지배송비 / 구매수수료 (엔) and their 비고; '' = the automatic value
 const QADJ=()=>({ship:'',shipNote:'',fee:'',feeNote:''});
-const Q={type:'구매',items:[],lines:{'구매':[],'배송':[]},no:'',vat:{'구매':false,'배송':true},adj:QADJ()};
+const Q={type:'구매',items:[],lines:{'구매':[],'배송':[]},no:'',adj:QADJ()};
 const QLINES={'구매':[],'배송':[['중대형 화물 입고비',1,100000,'1PL 당 100,000원'],['사이즈 오버비용',1,20000,'박스당 20,000원'],
   ['재포장',1,'',''],['국내화물택배비',1,'','픽업 업체 확인 후 변동될 수 있음']]};
 const QNOTE={'구매':'우마이직구 이용 시 제품에 따라 입고비, 해외배송비, 사이즈 오버비용, 재포장비용, 국내화물 택배비 등이 추가로 발생할 수 있습니다. 상품 가격·현지배송비는 구매 시점의 판매 가격과 환율에 따라 달라질 수 있습니다.',
@@ -681,30 +681,38 @@ function qfee(){const sh=qship(),{fee,note}=qfeeAll(sh.yen),own=qnum(Q.adj.fee);
   return {auto:fee,autoNote:fee?`${yen(fee)} · ${note}`:'',yen:own??fee,note:Q.adj.feeNote||(own!=null?`${yen(own)} (직원 입력)`:fee?`${yen(fee)} · ${note}`:'')}}
 function qrows(){const r=qrate(),out=[];
   if(Q.type==='구매'&&Q.items.length){
-    Q.items.forEach((it,i)=>{if(qnum(it.price))out.push({k:'p'+i,name:'상품가',qty:qnum(it.qty)||1,unit:Math.round(qnum(it.price)*r),note:`${it.title?it.title.slice(0,34)+' · ':''}${yen(it.price)}`})});
+    Q.items.forEach((it,i)=>{if(qnum(it.price))out.push({k:'p'+i,name:(it.title||'상품').slice(0,40),qty:qnum(it.qty)||1,unit:Math.round(qnum(it.price)*r),note:`상품가 ${yen(it.price)}`})});
     const sh=qship();out.push({k:'ship',name:'현지배송비',qty:1,unit:Math.round(sh.yen*r),note:sh.note});
     const f=qfee();if(f.yen)out.push({k:'fee',name:'구매수수료',qty:1,unit:Math.round(f.yen*r),note:f.note})}
   Q.lines[Q.type].forEach((l,i)=>{if(l[2]!==''&&qnum(l[2])!=null)out.push({k:'l'+i,name:l[0],qty:qnum(l[1])||1,unit:qnum(l[2]),note:l[3]})});
   return out}
-function qdoc(){const I=D.quoteInfo||{},rows=qrows(),sub=rows.reduce((a,x)=>a+x.qty*x.unit,0),vat=Q.vat[Q.type]?Math.round(sub*.1):0;
-  const sup=(I.supplier||[]).map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
-  $('#qDoc').innerHTML=`<h2 class="qd-title">${Q.type==='구매'?'구매 견적서':'배송대행 견적서'}</h2>
-    <div class="qd-head"><table class="qd-meta"><tr><th>견적번호</th><td>${esc(Q.no||'(제작 시 발급)')}</td></tr><tr><th>수신</th><td>${esc($('#qTo').value.trim()||'—')}</td></tr>
-      <tr><th>견적일</th><td>${esc(qtoday())}</td></tr><tr><td colspan="2" class="qd-say">아래와 같이 견적합니다</td></tr></table>
-      <table class="qd-sup"><tr><th colspan="2" class="qd-cap">공급자</th></tr>${sup}</table></div>
-    <table class="qd-items"><thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>공급가액</th><th>비고</th></tr></thead><tbody>${
-      rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td class="n">${won(x.unit)}</td><td class="n">${won(x.qty*x.unit)}</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
-      '<tr><td colspan="6" class="qd-empty">항목이 없어요</td></tr>'}${
+// The document, in the style of a Japanese 見積書 with Korean first and Japanese beside it: customer name + 様 under the
+// title, the company block with its seal on the right, then 항목 (상품명) · 수량 · 단가 · 비고 and one 총 합계. 단가 already
+// include 부가세, so there is no 부가세 line.
+const qdate=()=>{const [y,m,d]=qtoday().split('-').map(Number);return `${y}년 ${m}월 ${d}일 (${y}年${m}月${d}日)`};
+function qdoc(){const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+x.qty*x.unit,0),sup=Object.fromEntries(I.supplier||[]);
+  const bi=(ko,ja)=>`${esc(ko)}<span class="qd-ja">${esc(ja)}</span>`;
+  $('#qDoc').innerHTML=`<h2 class="qd-title">${Q.type==='구매'?'구매 견적서':'배송대행 견적서'} <span class="qd-ja">見積書</span></h2>
+    <div class="qd-top"><div class="qd-left">
+      <div class="qd-to"><span class="qd-toname">${esc($('#qTo').value.trim()||'　')}</span><span class="qd-sama">様</span></div>
+      <table class="qd-meta"><tr><th>${bi('견적번호','見積番号')}</th><td>${esc(Q.no||'(제작 시 발급)')}</td></tr>
+        <tr><th>${bi('견적일','見積日')}</th><td>${esc(qdate())}</td></tr>
+        ${Q.type==='구매'?`<tr><th>${bi('적용 환율','為替レート')}</th><td>1엔 = ${qrate()}원</td></tr>`:''}</table>
+      <p class="qd-say">아래와 같이 견적합니다 <span class="qd-ja">下記の通りお見積り申し上げます</span></p></div>
+      <div class="qd-co"><div class="qd-coname">${esc(sup['상호명']||'우마이직구')} <span class="qd-ja">${esc(I.nameJa||'')}</span>${I.stamp?`<img class="qd-stamp" src="${I.stamp}" alt="">`:''}</div>
+        <p>${esc(sup['사업장주소']||'')}</p><p>tel ${esc(sup['전화번호']||'')}</p>
+        <p>사업자등록번호 ${esc(sup['사업자등록번호']||'')} · ${esc(sup['업태']||'')}</p>
+        <p class="qd-rep">대표 <span class="qd-ja">代表</span> ${esc(sup['대표자']||'')}</p></div></div>
+    <table class="qd-items"><thead><tr><th>${bi('구분','No.')}</th><th>${bi('항목','項目')}</th><th>${bi('수량','数量')}</th><th>${bi('단가','単価')}</th><th>${bi('비고','備考')}</th></tr></thead><tbody>${
+      rows.map((x,i)=>`<tr><td>${i+1}</td><td class="qd-item">${esc(x.name)}</td><td>${x.qty}</td><td class="n">${won(x.unit)}원</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
+      '<tr><td colspan="5" class="qd-empty">항목이 없어요</td></tr>'}${
       // blank ruled rows up to 12, like the Excel template's empty lines, so the page reads as a full A4 sheet
-      '<tr class="qd-blank"><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(Math.max(0,12-Math.max(rows.length,1)))}</tbody></table>
-    <table class="qd-sum"><tr><th>소계</th><td>${won(sub)}원</td></tr><tr><th>부가세</th><td>${Q.vat[Q.type]?won(vat)+'원':'미포함'}</td></tr>
-      <tr class="qd-total"><th>최종 견적가</th><td>${won(sub+vat)}원</td></tr></table>
-    ${Q.type==='구매'&&qrows().some(x=>x.name==='상품가')?`<p class="qd-rate">적용 환율 1엔 = ${qrate()}원 (${esc(qtoday())} 기준)</p>`:''}
-    <div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div>
-      <div class="qd-sign"><span>SIGNED BY:</span>${I.sign?`<img src="${I.sign}" alt="">`:''}</div></div>
+      '<tr class="qd-blank"><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(Math.max(0,12-Math.max(rows.length,1)))}
+      <tr class="qd-total"><td colspan="2">${bi('총 합계','総合計')}</td><td colspan="2" class="n">${won(total)}원</td><td>${bi('입금하실 금액','お振込み額')}</td></tr></tbody></table>
+    <div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>${bi('입금안내','お振込先')}</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
     <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p></div>`;
   if($('#qTable tbody'))qkrw();
-  return {sub,vat,total:sub+vat}}
+  return {sub:total,vat:0,total}}
 // 비슷한 지난 견적 (D.quoteExamples, the staff sheet without names): same shop or shared words in the item name, newest
 // first. Shows what we charged for 현지배송비·수수료 and the size, so staff can judge an unknown 送料.
 const qwords=t=>new Set(String(t||'').toLowerCase().match(/[a-z0-9]{3,}|[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7a3]{2,}/g)||[]);
@@ -716,16 +724,15 @@ function qpast(it){const E=D.quoteExamples||[];if(!E.length||!(it.title||it.url)
   return `<details class="q-past"><summary>비슷한 지난 견적 ${top.length}건</summary>${top.map(([,x])=>`<div>${esc(x.d.slice(5))} · ${esc(x.shop)} · ${esc(x.item)}${x.size?` <span class="muted">(${esc(x.size.slice(0,60))})</span>`:''}<br>`+
     `상품 ${yen(x.price)}${x.qty>1?` ×${x.qty}`:''} · 현지배송비 ${x.ship!=null?yen(x.ship):'—'} · 수수료 ${x.fee!=null?yen(x.fee):'—'}${x.rate?` · 환율 ${x.rate}`:''}`+
     `${x.ship!=null?` <button type="button" class="mini" data-qship="${x.ship}">배송비 적용</button>`:''}</div>`).join('')}</details>`}
-// The editor is laid out like the document: 구분 · 항목 · 수량 · 단가 · 공급가액 · 비고. 상품가·현지배송비·구매수수료 are typed
-// in 엔 (the 공급가액 column shows the 원 the document will print); added rows are in 원. Each product's reading status and
+// The editor is laid out like the document: 구분 · 항목 (상품명) · 수량 · 단가 · 비고. 상품가·현지배송비·구매수수료 are typed
+// in 엔 (the 원 환산 column shows the 원 the document will print); added rows are in 원. Each product's reading status and
 // 비슷한 지난 견적 sit in a thin row under it.
 const qin=(f,v,o={})=>`<input data-f="${f}" value="${esc(v??'')}"${o.num?' inputmode="numeric" class="q-num"':''}${o.ph?` placeholder="${esc(o.ph)}"`:''}>`;
 function qeditors(){
   $('#qBuy').classList.toggle('hidden',Q.type!=='구매');$('#qAddItem').classList.toggle('hidden',Q.type!=='구매');
-  $('#qVat').checked=Q.vat[Q.type];
   let n=0;const rows=[],krw=k=>`<td class="q-krw" data-krw="${k}"></td>`;
   if(Q.type==='구매'){
-    Q.items.forEach((it,i)=>{rows.push(`<tr data-qi="${i}"><td class="q-n">${++n}</td><td>상품가</td><td>${qin('qty',it.qty??1,{num:1})}</td><td><span class="q-cur">¥</span>${qin('price',it.price,{num:1,ph:'가격'})}</td>${krw('p'+i)}<td>${qin('title',it.title,{ph:'상품명 (비고)'})}</td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`);
+    Q.items.forEach((it,i)=>{rows.push(`<tr data-qi="${i}"><td class="q-n">${++n}</td><td>${qin('title',it.title,{ph:'상품명'})}</td><td>${qin('qty',it.qty??1,{num:1})}</td><td><span class="q-cur">¥</span>${qin('price',it.price,{num:1,ph:'1개 가격'})}</td>${krw('p'+i)}<td class="small muted">비고: 상품가 ¥</td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`);
       const st=it.state?`<div class="small q-st ${it.state==='fail'?'bad':it.state==='wait'?'wait':''}">${esc(it.msg||'')}</div>`:'',past=qpast(it,i);
       if(st||past||it.url)rows.push(`<tr class="q-sub" data-qi="${i}"><td></td><td colspan="6">${it.url?`<a class="small muted q-link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url.replace(/^https?:\/\/(www\.)?/,'').slice(0,60))} ↗</a>`:''}${st}${past}</td></tr>`)});
     if(!Q.items.length)rows.push('<tr><td></td><td colspan="6" class="muted small">링크를 넣고 [자동 견적]을 누르거나, [+ 상품 추가]로 직접 넣으세요.</td></tr>');
@@ -733,16 +740,16 @@ function qeditors(){
     rows.push(`<tr data-qa="ship" class="q-fixed"><td class="q-n">${++n}</td><td>현지배송비</td><td>1</td><td><span class="q-cur">¥</span>${qin('ship',Q.adj.ship,{num:1,ph:Q.items.some(it=>qnum(it.ship)!=null)?'자동 '+sh.auto.toLocaleString():'모름'})}</td>${krw('ship')}<td>${qin('shipNote',Q.adj.shipNote,{ph:sh.autoNote})}</td><td>${Q.adj.ship||Q.adj.shipNote?'<button type="button" class="mini" data-qauto="ship" title="자동 값으로">↺</button>':''}</td></tr>`);
     rows.push(`<tr data-qa="fee" class="q-fixed"><td class="q-n">${++n}</td><td>구매수수료</td><td>1</td><td><span class="q-cur">¥</span>${qin('fee',Q.adj.fee,{num:1,ph:f.auto?'자동 '+f.auto.toLocaleString():'자동'})}</td>${krw('fee')}<td>${qin('feeNote',Q.adj.feeNote,{ph:f.autoNote||'상품 가격을 넣으면 계산돼요'})}</td><td>${Q.adj.fee||Q.adj.feeNote?'<button type="button" class="mini" data-qauto="fee" title="자동 값으로">↺</button>':''}</td></tr>`)}
   Q.lines[Q.type].forEach((l,i)=>rows.push(`<tr data-ql="${i}"><td class="q-n">${++n}</td><td>${qin('0',l[0],{ph:'항목'})}</td><td>${qin('1',l[1],{num:1})}</td><td><span class="q-cur">₩</span>${qin('2',l[2],{num:1,ph:'비우면 제외'})}</td>${krw('l'+i)}<td>${qin('3',l[3],{ph:'비고'})}</td><td><button type="button" class="mini" data-qldel="${i}" aria-label="삭제">✕</button></td></tr>`));
-  $('#qTable').innerHTML='<thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>공급가액</th><th>비고</th><th></th></tr></thead><tbody>'+rows.join('')+'</tbody>';
+  $('#qTable').innerHTML='<thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>원 환산</th><th>비고</th><th></th></tr></thead><tbody>'+rows.join('')+'</tbody>';
   qdoc()}
-// 공급가액 cells follow every keystroke without redrawing the inputs.
+// 원 환산 cells follow every keystroke without redrawing the inputs.
 function qkrw(){const m=Object.fromEntries(qrows().map(x=>[x.k,x]));
   document.querySelectorAll('#qTable [data-krw]').forEach(td=>{const x=m[td.dataset.krw];td.textContent=x?won(x.qty*x.unit)+'원':'—'});
   for(const [k,f] of [['ship',qship],['fee',qfee]]){const tr=document.querySelector(`#qTable tr[data-qa="${k}"]`);if(!tr)continue;const v=f();
     tr.querySelector('[data-f="'+k+'"]').placeholder=v.auto?'자동 '+v.auto.toLocaleString():k==='ship'?'모름':'자동';tr.querySelector('[data-f="'+k+'Note"]').placeholder=v.autoNote||''}}
-function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,...x})=>x),lines:Q.lines,vat:Q.vat,no:Q.no,adj:Q.adj,
+function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,...x})=>x),lines:Q.lines,no:Q.no,adj:Q.adj,
   to:$('#qTo').value,links:$('#qLinks').value,grade:$('#qGrade').value,rate:$('#qRate').value,rateManual:Q.rateManual}))}catch{}}
-function qreset(keepType){Q.items=[];Q.adj=QADJ();Q.lines={'구매':QLINES['구매'].map(l=>[...l]),'배송':QLINES['배송'].map(l=>[...l])};Q.no='';Q.vat={'구매':false,'배송':true};
+function qreset(keepType){Q.items=[];Q.adj=QADJ();Q.lines={'구매':QLINES['구매'].map(l=>[...l]),'배송':QLINES['배송'].map(l=>[...l])};Q.no='';
   $('#qTo').value='';$('#qLinks').value='';$('#qAutoMsg').textContent='';$('#qMakeMsg').textContent='';if(!keepType)Q.type='구매';
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave()}
 async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
@@ -753,7 +760,7 @@ async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
   catch{$('#qRateNote').textContent='환율을 불러오지 못했어요. 직접 넣어 주세요.'}}
 function qinit(){if(qinit.done||!D)return;qinit.done=true;
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
-  qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,vat:s.vat||Q.vat,no:s.no||'',adj:{...QADJ(),...s.adj}});
+  qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,no:s.no||'',adj:{...QADJ(),...s.adj}});
     $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=s.grade||'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave();qloadRate()}
 // One link -> 접수창구, which reads most shops itself in 3–15 s (the shop's own page speed: 라쿠텐 ~10 s, 이케아 ~3 s).
@@ -845,7 +852,6 @@ $('#tabQuote').addEventListener('input',e=>{const el=e.target,tr=el.closest('tr'
   if(tr&&tr.dataset.qi!=null){Q.items[+tr.dataset.qi][el.dataset.f]=el.value}
   else if(tr&&tr.dataset.qa){Q.adj[el.dataset.f]=el.value}
   else if(tr&&tr.dataset.ql!=null)Q.lines[Q.type][+tr.dataset.ql][+el.dataset.f]=el.value;
-  else if(el.id==='qVat')Q.vat[Q.type]=el.checked;
   else if(el.id==='qRate')Q.rateManual=!!qnum(el.value);   // a rate staff typed is kept; otherwise today's is loaded
   else if(el.id==='qTo')qguess();
   qdoc();qsave()});
@@ -883,9 +889,9 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
   b.disabled=true;
   // The quote itself goes with its number (sheet 견적번호, column 견적 내용) so Claude can write the 구매 정리 row once the
   // customer says they paid; making the image again after edits updates it.
-  const detail=()=>{const sh=qship(),f=qfee(),{sub,vat,total}=qdoc();return {type:Q.type,to:$('#qTo').value.trim(),grade:$('#qGrade').value,rate:qrate(),
+  const detail=()=>{const sh=qship(),f=qfee(),{total}=qdoc();return {type:Q.type,to:$('#qTo').value.trim(),grade:$('#qGrade').value,rate:qrate(),
     items:Q.items.map(({url,title,qty,price,ship,shop})=>({url,title,qty,price,ship,shop})),ship:sh.yen,shipNote:sh.note,fee:f.yen,feeNote:f.note,
-    lines:Q.lines[Q.type],vat:Q.vat[Q.type],sub,vatWon:vat,total}};
+    lines:Q.lines[Q.type],total}};
   try{if(Q.no&&D.smsIntake)fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({kind:'quoteSave',no:Q.no,total:qdoc().total,detail:detail()})}).catch(()=>{});
     if(!Q.no){msg('견적번호를 받는 중…');const {total}=qdoc();
