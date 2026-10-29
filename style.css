@@ -424,6 +424,7 @@ label[for=odMemo]{display:block;margin-top:16px}
 .q3d-card{position:relative;pointer-events:auto;width:min(360px,86vw);background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px 14px 16px;box-shadow:0 18px 60px #19243a2e;text-align:center;animation:q3dIn .35s ease-out}
 .q3d-card model-viewer{width:100%;height:260px;background:radial-gradient(circle at 50% 60%,var(--blue-soft),transparent 70%);border-radius:14px;--poster-color:transparent}
 .q3d-cap{font-size:13px;color:var(--muted);margin-top:8px;min-height:20px}.q3d-cap b{color:var(--ink)}
+.q3d-pn{display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 .q3d-x{position:absolute;top:8px;right:8px;z-index:1;border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;padding:6px 8px;border-radius:8px}
 .q3d-x:hover{background:var(--bg)}
 @keyframes q3dIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}

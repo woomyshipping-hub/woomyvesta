@@ -595,22 +595,14 @@ setInterval(keepFresh,3*60e3);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)keepFresh()});
 window.addEventListener('focus',keepFresh);
 let rTimer=null,rCount=null;
-// The Mac picks requests up every 5 minutes from 9:00 to 21:55 KST (task vesta-kakao-refresh), so a waiting request
-// shows a countdown to the next pick-up instead of "곧".
-function nextPickup(now=Date.now()){
-  const kst=new Date(now+9*36e5),h=kst.getUTCHours(),m=kst.getUTCMinutes(),base=now-(kst.getUTCMinutes()*6e4+kst.getUTCSeconds()*1e3+kst.getUTCMilliseconds());
-  if(h>=9&&h<22){const t=base+Math.ceil((m*6e4+kst.getUTCSeconds()*1e3+kst.getUTCMilliseconds()+1)/3e5)*3e5;if(new Date(t+9*36e5).getUTCHours()<22)return t}
-  return base-h*36e5+(h<9?9:33)*36e5}   // 오전 9시 (오늘 또는 내일)
-// The target is kept until 3 minutes past it (a run takes a moment to pick the request up), then moves to the next one.
-let rTarget=0;
-function waitMsg(){const now=Date.now();if(!rTarget||now>rTarget+3*6e4)rTarget=nextPickup(now);
-  const s=Math.ceil((rTarget-now)/1e3);
-  if(s<=2)return '새로고침 요청됨 · 곧 시작해요';
-  if(s>3600){const t=new Date(rTarget+9*36e5),today=new Date(now+9*36e5).getUTCDate()===t.getUTCDate();return `새로고침 요청됨 · ${today?'오늘':'내일'} 오전 9시에 시작해요`}
-  return `새로고침 요청됨 · ${s>=60?`${Math.floor(s/60)}분 `:''}${s%60}초 후 시작해요`}
-function countdown(on){if(on&&rCount)return;clearInterval(rCount);rCount=null;if(on){rTarget=0;rmsg(waitMsg());rCount=setInterval(()=>rmsg(waitMsg()),1e3)}}
+// The Mac's watcher (task vesta-kakao-send-watch, any hour) picks a request up within seconds, so a waiting request
+// just shows how long it has waited; past 3 minutes the watcher is probably busy sending or not running.
+let rSince=0;
+function waitMsg(){const s=Math.floor((Date.now()-rSince)/1e3);
+  return s<180?'새로고침 요청됨 · 곧 시작해요':`새로고침 요청됨 · 아직 시작 전이에요 (${Math.floor(s/60)}분째 대기 · 다른 작업이 끝나면 시작해요)`}
+function countdown(on){if(on&&rCount)return;clearInterval(rCount);rCount=null;if(on){rmsg(waitMsg());rCount=setInterval(()=>rmsg(waitMsg()),1e3)}}
 let rGen=0;   // only the newest watcher keeps polling (each [새로고침] click used to start another loop)
-function watchRefresh(req){clearTimeout(rTimer);const gen=++rGen;
+function watchRefresh(req){clearTimeout(rTimer);const gen=++rGen;rSince=req.since;
   const tick=async()=>{if(gen!==rGen)return;if(Date.now()-req.since>40*60e3){countdown(false);rmsg('새로고침이 오래 걸리고 있어요. 관리자에게 알려 주세요.');try{localStorage.removeItem(RREQ)}catch{}return}
     try{const r=await (await fetch(`${D.smsIntake}?action=refreshStatus&at=${encodeURIComponent(req.at)}`)).json();const st=r.status||'';if(gen!==rGen)return;
       countdown(st!=='진행 중'&&st!=='완료'&&!st.startsWith('실패'));
@@ -618,7 +610,7 @@ function watchRefresh(req){clearTimeout(rTimer);const gen=++rGen;
       if(st.startsWith('실패')){try{localStorage.removeItem(RREQ)}catch{}countdown(false);rmsg(`새로고침 실패 · ${st.replace(/^실패:?\s*/,'')}`);return}
       if(st==='진행 중')rmsg('카카오에서 가져오고 분석하는 중이에요…');
     }catch{countdown(false);rmsg('상태를 확인하지 못했어요. 잠시 뒤 다시 확인해요.')}
-    if(gen===rGen)rTimer=setTimeout(tick,20e3)};
+    if(gen===rGen)rTimer=setTimeout(tick,8e3)};
   tick()}
 $('#kRefresh').onclick=async()=>{const b=$('#kRefresh');b.disabled=true;rmsg('최신 데이터 불러오는 중…');
   try{await reloadData()}catch{rmsg('데이터를 다시 불러오지 못했어요.');b.disabled=false;return}
@@ -785,7 +777,7 @@ const Q3D=[['wallclock','벽시계',/clock|クロック|掛け?時計|置き?時
   ['car','자동차·미니카',/\bcar\b|自動車|자동차|차량|ミニカー|minicar|1\/18|1:18|ラジコン|rc ?(car|카)|rc자동차|toyota|トヨタ|nissan|日産|bmw|porsche|ポルシェ|mazda|lancia|スープラ|スカイライン|bumper|バンパー|범퍼|フロントガラス|スポイラー/],
   ['tire','타이어·휠',/tire|tyre|タイヤ|타이어|ホイール|휠|geolandar|mudstar/],
   ['lighter','라이터·담배',/lighter|ライター|라이터|zippo|ジッポ|dupont|デュポン|iqos|アイコス|아이코스|담배|タバコ|煙草|cigar|vape/],
-  ['sofa','소파',/sofa|ソファ|소파|쇼파|togo|トーゴ|オットマン|ottoman|couch|カウチ/],['chair','의자',/chair|チェア|椅子|의자|スツール|stool|체어|アームチェ/],
+  ['sofa','소파',/sofa|ソファ|소파|쇼파|togo|トーゴ|オットマン|ottoman|couch|カウチ|리네로제|ligne ?roset|リーンロゼ|마라룽가|maralunga|아르플렉스|arflex|드세데|de ?sede/],['chair','의자',/chair|チェア|椅子|의자|スツール|stool|체어|アームチェ|가리모쿠|カリモク|karimoku|텐도|天童|텍타|tecta|lafuma|칼한센|carl ?hansen|콘데 ?하우스|condehouse|飛騨/],
   ['bed','침대',/\bbed|ベッド|침대|mattress|マットレス|매트리스/],
   ['mirror','거울',/mirror|ミラー|거울|鏡|ドレッサー|dresser|드레서/],
   ['suitcase','캐리어',/suitcase|スーツケース|캐리어|rimowa|リモワ|trunk|トランク|트렁크|キャリー/],
@@ -815,9 +807,23 @@ const Q3D=[['wallclock','벽시계',/clock|クロック|掛け?時計|置き?時
   ['firepit','캠핑·화로대',/キャンプ|캠핑|\bcamping\b|焚.?火|화로|fire-?pit|outdoor|アウトドア|bbq|バーベキュー/],
   ['shirt','의류',/shirt|シャツ|셔츠|\btee\b|jacket|ジャケット|자켓|재킷|\bcoat\b|コート|pants|パンツ|바지|denim|デニム|jeans|ジーンズ|청바지|hoodie|パーカー|sweater|ニット|knit|scarf|スカーフ|스카프|ワンピース|의류|아동복|잠옷|socks|靴下|levi|arc.?teryx|アークテリクス|patagonia|mccoy/],
   ['vase','유리·도자기',/glass|グラス|花瓶|vase|陶器|도자기|유리|食器|器|cup|カップ|usuhari|그릇|tray|トレイ|タンブラー|tumbler|オブジェ/]];
-function q3dType(it){let u=String(it.url||'');try{u+=' '+decodeURIComponent(u)}catch{}
-  const t=String(it.title||'').toLowerCase(),find=s=>s&&Q3D.find(([,,re])=>re.test(s));  // page title wins over words in the URL
-  return find(t)||find(u.toLowerCase())||['box','상품',null]}
+// Shops that sell mostly one kind of thing, for links whose name is not known yet (메루카리 etc. are read later by Claude).
+const Q3DSHOP=[[/ikea\./,'table'],[/l-tike|pia\.jp|eplus|ticket|fighters\.co/,'ticket'],[/tomiz|kanpai|sake|saketen/,'bottle'],
+  [/beauty|cosme|azzurro|kfix/,'cosmetic'],[/yonex/,'racket'],[/hamiltonwatch|casio\.com|seiko|watch|shinzone/,'watch'],
+  [/onitsuka|newbalance|hoka|nike\.com|adidas|asics/,'sneaker'],[/rimowa/,'suitcase'],[/hermes|louisvuitton|goyard/,'bag'],
+  [/tokyobike|cycle|bike|strider/,'bicycle'],[/actus|karimoku|tendo|condehouse|carlhansen/,'chair'],[/ligne-?roset|cassina|arflex/,'sofa'],
+  [/romapri/,'drawer'],[/zarahome|p-f-s|pfs/,'table'],[/receno/,'basket'],[/giants|uniform/,'shirt'],[/camping|snowpeak|coleman/,'firepit'],
+  [/goodsmile|bandai|animate|toranoana/,'figure']];
+// Nearest model: every clue votes — the page's product name (from the link) counts most, then the names staff gave the same
+// link in past quotes, then words in the URL; a shop that sells one kind of thing decides only when nothing else does.
+function q3dType(it){let u=String(it.url||'');try{u+=' '+decodeURIComponent(u)}catch{}u=u.toLowerCase();
+  const past=qpastOf(it).slice(0,5).map(x=>`${x.item||''} ${x.title||''}`).join(' ');
+  const clues=[[it.title,4],[it.hint,4],[past,2],[u,1]].map(([t,w])=>[String(t||'').toLowerCase(),w]).filter(([t])=>t.trim());
+  let best=null,top=0;
+  Q3D.forEach(c=>{const sc=clues.reduce((n,[t,w])=>n+(c[2].test(t)?w:0),0);if(sc>top){top=sc;best=c}});
+  if(best)return best;
+  const host=(u.match(/^https?:\/\/([^/\s]+)/)||[])[1]||'',sh=Q3DSHOP.find(([re])=>re.test(host)||re.test(u.slice(0,120)));
+  return (sh&&Q3D.find(c=>c[0]===sh[1]))||['box','상품',null]}
 function q3d(){const box=$('#q3d'),wait=Q.items.filter(x=>x.state==='wait');
   if(!wait.length){box.classList.add('hidden');q3d.off=false;return}
   if(q3d.off||$('#tabQuote').classList.contains('hidden')){box.classList.add('hidden');return}
@@ -825,7 +831,8 @@ function q3d(){const box=$('#q3d'),wait=Q.items.filter(x=>x.state==='wait');
   const it=wait[Math.floor(Date.now()/6000)%wait.length],[key,name]=q3dType(it),v=$('#q3dView'),src=`models/${key}.glb`;
   if(v.getAttribute('src')!==src)v.setAttribute('src',src);
   const [,,what]=QWAIT[it.step||'read'];
-  $('#q3dCap').innerHTML=`<b>${esc(name)}</b> · ${esc(what)}… ${mmss(Math.round((Date.now()-it.t0)/1000))}${wait.length>1?` · ${wait.length}개 확인 중`:''}`;
+  const pn=String(it.title||it.hint||'').replace(/\s+/g,' ').slice(0,28);
+  $('#q3dCap').innerHTML=`<b>${esc(name)}</b>${pn?` <span class="q3d-pn">${esc(pn)}</span>`:''} · ${esc(what)}… ${mmss(Math.round((Date.now()-it.t0)/1000))}${wait.length>1?` · ${wait.length}개 확인 중`:''}`;
   box.classList.remove('hidden')}
 $('#q3dHide').onclick=()=>{q3d.off=true;$('#q3d').classList.add('hidden')};
 function qtick(){q3d();let busy=0;
@@ -864,10 +871,12 @@ async function qfetchLink(it){
     const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'quote',url:it.url,at})})).json();
     if(!r.ok)throw Error(r.error||'fail');
     if(r.status==='자동완료'&&r.result)return qfill(it,r.result);
+    if(r.result?.title)it.hint=r.result.title;   // the script found the name but no price: the 3D model can match it now
     Object.assign(it,{step:'claude',t0:Date.now()});qtick();
     for(;Date.now()-it.t0<15*60e3;){await new Promise(z=>setTimeout(z,5000));
       let q;try{q=await (await fetch(`${D.smsIntake}?action=quoteStatus&at=${encodeURIComponent(at)}`)).json()}catch{continue}
       if(q.status==='완료'&&q.result)return qfill(it,q.result);
+      if(q.result?.title)it.hint=q.result.title;
       if(/^실패/.test(q.status||'')){it.state='fail';it.msg=`읽지 못했어요 (${q.status.replace(/^실패:?\s*/,'')}). 직접 입력해 주세요.`;qeditors();return}}
     it.state='fail';it.msg='15분 동안 답이 없어요. Claude가 꺼져 있을 수 있어요 — 직접 입력해 주세요.';qeditors()}
   catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}
