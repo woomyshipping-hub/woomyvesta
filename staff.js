@@ -833,12 +833,19 @@ $('#qGrade').addEventListener('change',()=>{Q.gradeManual=true;$('#qGradeNote').
 const QLV={normal:'일반',gold:'골드',vip:'VIP',biz:'사업자 회원'};
 function qguess(){const to=$('#qTo').value.trim(),C=D.quoteCustomers||[],note=$('#qGradeNote');Q.gradeManual=false;
   if(!to){note.textContent='';return}
-  const words=new Set(to.match(/[가-힣]{2,4}/g)||[]);
-  const hits=C.filter(e=>words.has(e.n)||(e.co&&e.co.length>1&&to.includes(e.co)));
-  if(!hits.length){$('#qGrade').value='normal';note.className='small q-gradenote';
-    note.textContent='관리자·카카오 채널·구매 정리 시트에서 등급 근거를 못 찾아 일반으로 두었어요. 다르면 골라 주세요.';return}
-  const e=hits[0];$('#qGrade').value=e.lv||'normal';note.className='small q-gradenote hit';
-  note.textContent=`추정: ${QLV[e.lv||'normal']} · 근거: ${e.src.slice(0,2).join(', ')}${hits.length>1?` · 같은 이름 ${hits.length}명 (동명이인 확인)`:''}`}
+  const words=new Set(to.match(/[가-힣]{2,4}/g)||[]),box=((to.match(/(?:OF|WO)[-\s]?0*(\d{2,6})/i)||[])[1]||'');
+  let hits=C.filter(e=>words.has(e.n)||(e.co&&e.co.length>1&&to.includes(e.co)));
+  if(box&&hits.some(e=>e.box===box))hits=hits.filter(e=>e.box===box);   // 사서함 in 수신 picks the person
+  note.className='small q-gradenote';
+  if(!hits.length){$('#qGrade').value='normal';
+    note.textContent='관리자 회원·카카오 채널·구매 정리 시트에서 이 이름을 못 찾아 일반으로 두었어요. 다르면 골라 주세요.';return}
+  // staff tags (카카오 "/사업자", 시트 회사명) win over the site level; otherwise the admin level, 동명이인 noted
+  const tagged=hits.find(e=>!e.src[0].startsWith('관리자')),admins=hits.filter(e=>e.src[0].startsWith('관리자'));
+  const cnt={};admins.forEach(e=>cnt[e.lv]=(cnt[e.lv]||0)+1);
+  const pick=tagged||admins.find(e=>e.lv==='biz')&&admins.length===1&&admins[0]||admins.slice().sort((x,y)=>(cnt[y.lv]||0)-(cnt[x.lv]||0))[0];
+  $('#qGrade').value=pick.lv||'normal';note.className='small q-gradenote hit';
+  note.textContent=`추정: ${QLV[pick.lv||'normal']} · 근거: ${pick.src[0]}${tagged&&admins.length?` · 관리자 등급 ${[...new Set(admins.map(e=>QLV[e.lv]))].join('/')}`:''}`+
+    (admins.length>1?` · 관리자에 같은 이름 ${admins.length}명 (${Object.entries(cnt).map(([k,v])=>QLV[k]+' '+v).join(', ')}) — 수신에 사서함 번호(OF/WO)를 넣으면 정확해요`:'')}
 $('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel],[data-qldel],[data-qtype],[data-qship],[data-qauto]');if(!b)return;
   if(b.dataset.qship!=null){Q.adj.ship=b.dataset.qship;Q.adj.shipNote=`${yen(b.dataset.qship)} · 예상 금액 (비슷한 지난 견적), 판매자 확인 후 변동 가능`;qeditors();qsave();return}
   if(b.dataset.qauto){Q.adj[b.dataset.qauto]='';Q.adj[b.dataset.qauto+'Note']='';qeditors();qsave();return}
