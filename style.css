@@ -379,3 +379,36 @@ label[for=odMemo]{display:block;margin-top:16px}
 .cus-staff{margin:10px 2px 0;color:var(--warn);text-align:center}
 @media(max-width:620px){.cus-plain{padding:16px}.cp-now b{font-size:19px}}
 .pager{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px}.pager:empty{display:none}.pager .pg{min-width:40px}.pager .pg.on{background:var(--blue);border-color:var(--blue);color:#fff}.pager button:disabled{opacity:.4;cursor:default}
+/* 견적서 tab: the form on the left, the document (copied as an image, so always light) on the right */
+.q-wrap{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,800px);gap:18px;align-items:start}
+.q-form textarea{width:100%;box-sizing:border-box;font:inherit;font-size:13.5px;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);resize:vertical}
+.q-form select{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+.q-type{display:flex;gap:8px}.q-auto{width:100%;margin-top:10px}
+.q-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.q-edit{width:100%;border-collapse:collapse;font-size:13px}.q-edit th{font-size:11.5px;color:var(--muted);text-align:left;font-weight:600;padding:4px}
+.q-edit td{padding:3px 4px;vertical-align:top}.q-edit input{padding:8px 9px;font-size:13px;border-radius:8px}.q-edit .q-num{width:88px;text-align:right}
+.q-st{margin-top:4px;color:var(--good);line-height:1.45}.q-st.bad{color:var(--warn)}
+.q-check{display:flex;align-items:center;gap:8px;font-weight:600;margin-top:16px}.q-check input{width:auto}
+.q-btns{justify-content:flex-end;gap:8px}
+.q-preview{position:sticky;top:12px;overflow-x:auto;margin-top:16px}
+.q-doc{width:760px;box-sizing:border-box;background:#fff;color:#1d2433;padding:34px 36px 26px;border:1px solid #e3e7ee;border-radius:6px;font-size:13px;line-height:1.5;font-feature-settings:normal}
+.q-doc table{border-collapse:collapse;width:100%}.q-doc th,.q-doc td{border:1px solid #9aa3b2;padding:6px 8px}
+.qd-title{text-align:center;font-size:30px;letter-spacing:.5em;margin:0 0 22px;padding-bottom:12px;border-bottom:3px double #1d2433}
+.qd-head{display:grid;grid-template-columns:1fr 1.25fr;gap:14px;margin-bottom:16px}
+.qd-meta th,.qd-sup th{background:#f1f3f7;font-weight:600;width:96px;text-align:center;white-space:nowrap}
+.qd-meta td{font-weight:600}.qd-say{text-align:center;font-weight:700;border:0!important;padding-top:16px!important}
+.qd-cap{text-align:center!important;width:auto!important;letter-spacing:.3em}.qd-sup td{font-size:12.5px}
+.qd-items thead th{background:#e9edf5;font-weight:700;text-align:center}.qd-items td{text-align:center}
+.qd-items td.n{text-align:right;white-space:nowrap}.qd-items td.qd-note{text-align:left;font-size:12px;color:#3c475c}
+.qd-items td:nth-child(2){text-align:left;font-weight:600}.qd-empty{color:#9aa3b2;padding:18px!important}
+.qd-sum{margin-top:-1px}.qd-sum th{background:#f1f3f7;width:50%;text-align:center}.qd-sum td{text-align:right;font-weight:600;padding-right:14px}
+.qd-total th,.qd-total td{background:#fff4d9;font-size:15px;font-weight:800}
+.qd-rate{margin:6px 0 0;font-size:11.5px;color:#6f7a8f;text-align:right}
+.qd-foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:14px;border-top:1px dashed #9aa3b2}
+.qd-bank{display:flex;gap:14px;align-items:center}.qd-bank b{background:#f1f3f7;border:1px solid #9aa3b2;padding:8px 12px}
+.qd-sign{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12px}.qd-sign img{width:92px;height:92px;margin:-18px 0}
+.qd-fine{margin:18px 0 0;font-size:10.5px;line-height:1.6;color:#7a8394}
+@media(max-width:1180px){.q-wrap{grid-template-columns:1fr}.q-preview{position:static}}
+@media(max-width:620px){.q-grid{grid-template-columns:1fr}.q-edit .q-num{width:70px}}
+.q-doc :is(h2,th,td,b,span,p){color:#1d2433}.q-doc .qd-note{color:#3c475c}.q-doc .qd-fine,.q-doc .qd-rate{color:#7a8394}.q-doc .qd-empty{color:#9aa3b2}
+.qd-items th:nth-child(1){width:44px}.qd-items th:nth-child(2){width:118px}.qd-items th:nth-child(3){width:46px}.qd-items th:nth-child(4){width:84px}.qd-items th:nth-child(5){width:94px}.qd-meta td,.qd-meta th{vertical-align:middle}

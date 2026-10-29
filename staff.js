@@ -632,14 +632,144 @@ $('#kRefresh').onclick=async()=>{const b=$('#kRefresh');b.disabled=true;rmsg('�
   catch{rmsg('새로고침 요청을 보내지 못했어요. 지금 화면은 최신 공개 데이터예요.')}
   finally{b.disabled=false}};
 $('#kChips').addEventListener('click',e=>{const b=e.target.closest('[data-k]');if(!b)return;kFilter=b.dataset.k;renderKakao()});
+// 견적서 tab: 구매 견적서 (상품 링크 -> 상품가·현지배송비·구매수수료) and 배송대행 견적서, laid out like 견적서 예시.xlsx.
+// [자동 견적] sends each link to the 접수창구: the script reads the page at once, and links it cannot read (메루카리·아마존)
+// wait for Claude on the Mac, who fills them in. Staff can change anything; [견적서 제작] takes a shared 견적번호
+// (오늘날짜_101부터) and copies + saves the preview as a PNG. 공급자·입금 정보 and the signature come from the vault.
+const Q={type:'구매',items:[],lines:{'구매':[],'배송':[]},no:'',vat:{'구매':false,'배송':true}};
+const QLINES={'구매':[],'배송':[['중대형 화물 입고비',1,100000,'1PL 당 100,000원'],['사이즈 오버비용',1,20000,'박스당 20,000원'],
+  ['재포장',1,'',''],['국내화물택배비',1,'','픽업 업체 확인 후 변동될 수 있음']]};
+const QNOTE={'구매':'우마이직구 이용 시 제품에 따라 입고비, 해외배송비, 사이즈 오버비용, 재포장비용, 국내화물 택배비 등이 추가로 발생할 수 있습니다. 상품 가격·현지배송비는 구매 시점의 판매 가격과 환율에 따라 달라질 수 있습니다.',
+  '배송':'실제 입고 후 무게·부피 실측에 따라 비용이 달라질 수 있으며, 해외배송비·사업자통관비용·관부가세는 별도로 안내드립니다.'};
+const QKEY='woomyvesta-quote';
+const won=n=>Math.round(Number(n)||0).toLocaleString('ko-KR');
+const yen=n=>'¥'+Math.round(Number(n)||0).toLocaleString('ja-JP');
+const qnum=v=>{const n=parseFloat(String(v??'').replace(/[^\d.]/g,''));return isFinite(n)?n:null};
+const qrate=()=>qnum($('#qRate').value)||0;
+const qtoday=()=>new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
+// 구매수수료 per link (each shop is its own payment): 야후옥션·메루카리 5% 최소 2,000엔 for everyone, else by 등급.
+function qfee(it){const pay=(qnum(it.price)||0)*(qnum(it.qty)||1)+(qnum(it.ship)||0);if(!pay)return 0;
+  if(it.shop==='auction')return Math.max(2000,Math.round(pay*.05));
+  return $('#qGrade').value==='biz'?Math.round(pay*.03):Math.max(1500,Math.round(pay*.05))}
+// The lines the document shows: 구매 = 상품가 per link + 현지배송비 + 구매수수료, then the added rows; rows without a price are left out.
+function qrows(){const r=qrate(),out=[];
+  if(Q.type==='구매'&&Q.items.length){
+    for(const it of Q.items)if(qnum(it.price))out.push({name:'상품가',qty:qnum(it.qty)||1,unit:Math.round(qnum(it.price)*r),note:`${it.title?it.title.slice(0,34)+' · ':''}${yen(it.price)}`});
+    const known=Q.items.filter(it=>qnum(it.ship)!=null),ship=known.reduce((a,it)=>a+qnum(it.ship),0);
+    out.push({name:'현지배송비',qty:1,unit:Math.round(ship*r),note:known.length<Q.items.length?(ship?`${yen(ship)} · 일부 판매자 확인 후 변동 가능`:'판매자 확인 후 안내 (변동 가능)'):ship?yen(ship):'무료 (送料込み)'});
+    const fees=Q.items.map(qfee),fee=fees.reduce((a,b)=>a+b,0);
+    if(fee)out.push({name:'구매수수료',qty:1,unit:Math.round(fee*r),note:`${fees.filter(Boolean).length>1?fees.filter(Boolean).map(yen).join(' + ')+' = ':''}${yen(fee)} · `+
+      [...new Set(Q.items.filter((it,i)=>fees[i]).map(it=>it.shop==='auction'?'야후옥션·메루카리 5% (최소 2,000엔)':$('#qGrade').value==='biz'?'결제금액 3%':'결제금액 5% (최소 1,500엔)'))].join(', ')})}
+  for(const l of Q.lines[Q.type])if(l[2]!==''&&qnum(l[2])!=null)out.push({name:l[0],qty:qnum(l[1])||1,unit:qnum(l[2]),note:l[3]});
+  return out}
+function qdoc(){const I=D.quoteInfo||{},rows=qrows(),sub=rows.reduce((a,x)=>a+x.qty*x.unit,0),vat=Q.vat[Q.type]?Math.round(sub*.1):0;
+  const sup=(I.supplier||[]).map(([k,v])=>`<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');
+  $('#qDoc').innerHTML=`<h2 class="qd-title">${Q.type==='구매'?'구매 견적서':'배송대행 견적서'}</h2>
+    <div class="qd-head"><table class="qd-meta"><tr><th>견적번호</th><td>${esc(Q.no||'(제작 시 발급)')}</td></tr><tr><th>수신</th><td>${esc($('#qTo').value.trim()||'—')}</td></tr>
+      <tr><th>견적일</th><td>${esc(qtoday())}</td></tr><tr><td colspan="2" class="qd-say">아래와 같이 견적합니다</td></tr></table>
+      <table class="qd-sup"><tr><th colspan="2" class="qd-cap">공급자</th></tr>${sup}</table></div>
+    <table class="qd-items"><thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>공급가액</th><th>비고</th></tr></thead><tbody>${
+      rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td class="n">${won(x.unit)}</td><td class="n">${won(x.qty*x.unit)}</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
+      '<tr><td colspan="6" class="qd-empty">항목이 없어요</td></tr>'}</tbody></table>
+    <table class="qd-sum"><tr><th>소계</th><td>${won(sub)}원</td></tr><tr><th>부가세</th><td>${Q.vat[Q.type]?won(vat)+'원':'미포함'}</td></tr>
+      <tr class="qd-total"><th>최종 견적가</th><td>${won(sub+vat)}원</td></tr></table>
+    ${Q.type==='구매'&&qrows().some(x=>x.name==='상품가')?`<p class="qd-rate">적용 환율 1엔 = ${qrate()}원 (${esc(qtoday())} 기준)</p>`:''}
+    <div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div>
+      <div class="qd-sign"><span>SIGNED BY:</span>${I.sign?`<img src="${I.sign}" alt="">`:''}</div></div>
+    <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p>`;
+  return {sub,vat,total:sub+vat}}
+function qeditors(){
+  $('#qBuy').classList.toggle('hidden',Q.type!=='구매');$('#qLinesHead').firstChild.textContent=Q.type==='구매'?'추가 항목 ':'항목 ';
+  $('#qVat').checked=Q.vat[Q.type];
+  $('#qItems').innerHTML='<thead><tr><th>상품명</th><th>수량</th><th>가격(엔)</th><th>현지배송비(엔)</th><th></th></tr></thead><tbody>'+
+    (Q.items.map((it,i)=>`<tr data-qi="${i}"><td><input data-f="title" value="${esc(it.title||'')}" placeholder="상품명">${it.state?`<div class="small q-st ${it.state==='fail'?'bad':''}">${esc(it.msg||'')}</div>`:''}</td>
+      <td><input data-f="qty" value="${esc(it.qty??1)}" inputmode="numeric" class="q-num"></td><td><input data-f="price" value="${esc(it.price??'')}" inputmode="numeric" class="q-num"></td>
+      <td><input data-f="ship" value="${esc(it.ship??'')}" inputmode="numeric" class="q-num" placeholder="모름"></td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`).join('')||
+     '<tr><td colspan="5" class="muted small">링크를 넣고 [자동 견적]을 누르거나, 직접 추가하세요.</td></tr>')+'</tbody>';
+  $('#qLines').innerHTML='<thead><tr><th>항목</th><th>수량</th><th>단가(원)</th><th>비고</th><th></th></tr></thead><tbody>'+
+    (Q.lines[Q.type].map((l,i)=>`<tr data-ql="${i}"><td><input data-f="0" value="${esc(l[0])}"></td><td><input data-f="1" value="${esc(l[1])}" class="q-num" inputmode="numeric"></td>
+      <td><input data-f="2" value="${esc(l[2])}" class="q-num" inputmode="numeric" placeholder="비우면 제외"></td><td><input data-f="3" value="${esc(l[3])}"></td>
+      <td><button type="button" class="mini" data-qldel="${i}" aria-label="삭제">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted small">추가 항목이 없어요.</td></tr>')+'</tbody>';
+  qdoc()}
+function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,...x})=>x),lines:Q.lines,vat:Q.vat,no:Q.no,
+  to:$('#qTo').value,links:$('#qLinks').value,grade:$('#qGrade').value,rate:$('#qRate').value}))}catch{}}
+function qreset(keepType){Q.items=[];Q.lines={'구매':QLINES['구매'].map(l=>[...l]),'배송':QLINES['배송'].map(l=>[...l])};Q.no='';Q.vat={'구매':false,'배송':true};
+  $('#qTo').value='';$('#qLinks').value='';$('#qAutoMsg').textContent='';$('#qMakeMsg').textContent='';if(!keepType)Q.type='구매';
+  document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave()}
+async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
+  try{const r=await (await fetch('https://open.er-api.com/v6/latest/JPY')).json();const v=r.rates&&r.rates.KRW;if(!v)throw 0;
+    $('#qRate').value=(Math.round(v*100)/100).toString();$('#qRateNote').textContent=`오늘 시장 환율 ${v.toFixed(2)}원을 넣었어요 (${new Date(r.time_last_update_unix*1e3).toLocaleDateString('ko-KR')} 기준). 회사 적용 환율이 다르면 고쳐 주세요.`;qdoc();qsave()}
+  catch{$('#qRateNote').textContent='환율을 불러오지 못했어요. 직접 넣어 주세요.'}}
+function qinit(){if(qinit.done||!D)return;qinit.done=true;
+  let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
+  qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,vat:s.vat||Q.vat,no:s.no||''});
+    $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=s.grade||'normal';$('#qRate').value=s.rate||''}
+  document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave();qloadRate()}
+// One link -> 접수창구; a link the script could not read is polled until Claude marks it (up to 15 minutes).
+async function qfetchLink(it){
+  const at=new Date().toISOString();it.state='wait';it.msg='상품 정보를 읽는 중…';qeditors();
+  try{if(!D.smsIntake)throw Error('no intake');
+    const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'quote',url:it.url,at})})).json();
+    if(!r.ok)throw Error(r.error||'fail');
+    if(r.status==='자동완료'&&r.result)return qfill(it,r.result);
+    it.msg='이 쇼핑몰은 바로 읽히지 않아 Claude가 링크를 열어 확인하고 있어요 (보통 몇 분)…';qeditors();
+    for(const t0=Date.now();Date.now()-t0<15*60e3;){await new Promise(z=>setTimeout(z,5000));
+      let q;try{q=await (await fetch(`${D.smsIntake}?action=quoteStatus&at=${encodeURIComponent(at)}`)).json()}catch{continue}
+      if(q.status==='완료'&&q.result)return qfill(it,q.result);
+      if(/^실패/.test(q.status||'')){it.state='fail';it.msg=`읽지 못했어요 (${q.status.replace(/^실패:?\s*/,'')}). 직접 입력해 주세요.`;qeditors();return}}
+    it.state='fail';it.msg='15분 동안 답이 없어요. Claude가 꺼져 있을 수 있어요 — 직접 입력해 주세요.';qeditors()}
+  catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}}
+function qfill(it,r){Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:r.shop||it.shop||''});
+  it.state='ok';it.msg=r.price?`읽었어요: ${yen(r.price)}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:'가격을 찾지 못했어요. 직접 입력해 주세요.';
+  if(!r.price)it.state='fail';qeditors();qsave()}
+$('#qAuto').onclick=()=>{const urls=[...new Set($('#qLinks').value.split(/\s+/).filter(u=>/^https?:\/\/\S{4,}$/.test(u)))];
+  if(!urls.length){$('#qAutoMsg').textContent='http로 시작하는 상품 링크를 넣어 주세요.';return}
+  $('#qAutoMsg').textContent=`링크 ${urls.length}개를 확인해요.`;
+  const shopOf=u=>/(auctions|page\.auctions)\.yahoo\.co\.jp|mercari\.com|paypayfleamarket/i.test(u)?'auction':'';
+  const fresh=urls.filter(u=>!Q.items.some(it=>it.url===u)).map(u=>({url:u,title:'',qty:1,price:'',ship:'',shop:shopOf(u)}));
+  Q.items.push(...fresh);qeditors();qsave();fresh.forEach(qfetchLink)};
+$('#qAddItem').onclick=()=>{Q.items.push({url:'',title:'',qty:1,price:'',ship:'',shop:''});qeditors();qsave()};
+$('#qAddLine').onclick=()=>{Q.lines[Q.type].push(['',1,'','']);qeditors();qsave()};
+$('#tabQuote').addEventListener('input',e=>{const el=e.target,tr=el.closest('tr');
+  if(tr&&tr.dataset.qi!=null){const it=Q.items[+tr.dataset.qi];it[el.dataset.f]=el.value}
+  else if(tr&&tr.dataset.ql!=null)Q.lines[Q.type][+tr.dataset.ql][+el.dataset.f]=el.value;
+  else if(el.id==='qVat')Q.vat[Q.type]=el.checked;
+  qdoc();qsave()});
+$('#qGrade').addEventListener('change',()=>{qdoc();qsave()});
+$('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel],[data-qldel],[data-qtype]');if(!b)return;
+  if(b.dataset.qdel!=null)Q.items.splice(+b.dataset.qdel,1);
+  else if(b.dataset.qldel!=null)Q.lines[Q.type].splice(+b.dataset.qldel,1);
+  else{Q.type=b.dataset.qtype;Q.no='';document.querySelectorAll('[data-qtype]').forEach(x=>x.classList.toggle('on',x===b))}
+  qeditors();qsave()});
+$('#qReset').onclick=()=>{if(confirm('입력한 내용을 지우고 새 견적을 시작할까요?'))qreset(true)};
+$('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textContent=t;
+  if(!$('#qTo').value.trim()){msg('수신(고객 이름)을 먼저 넣어 주세요.');$('#qTo').focus();return}
+  if(!qrows().length){msg('견적 항목이 없어요.');return}
+  b.disabled=true;
+  try{if(!Q.no){msg('견적번호를 받는 중…');const {total}=qdoc();
+      try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({kind:'quoteNo',type:Q.type,to:$('#qTo').value.trim(),total,at:new Date().toISOString()})})).json();if(!r.ok||!r.no)throw 0;Q.no=r.no}
+      catch{const day=qtoday().replace(/-/g,''),k='woomyvesta-qno-'+day,n=(+localStorage.getItem(k)||100)+1;localStorage.setItem(k,n);Q.no=`${day}_${n}`;
+        toast('공용 견적번호를 받지 못해 이 PC 번호로 만들었어요. 다른 직원 번호와 겹칠 수 있어요.')}
+      qsave()}
+    qdoc();const name=`견적서_${Q.no}_${$('#qTo').value.trim().replace(/[\\/:*?"<>|\s]+/g,'_').slice(0,30)}.png`;
+    const blob=loadH2C().then(f=>f($('#qDoc'),{scale:2,backgroundColor:'#ffffff',logging:false})).then(c=>new Promise(r=>c.toBlob(r,'image/png')));
+    let copied=false;try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);copied=true}catch{}
+    const a=document.createElement('a');a.href=URL.createObjectURL(await blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3);
+    msg(`견적번호 ${Q.no} · ${copied?'이미지를 복사하고 ':''}${name} 파일로 저장했어요.${copied?' 카카오톡에 붙여넣기(⌘V / Ctrl+V) 하면 돼요.':''}`)}
+  catch{msg('이미지를 만들지 못했어요. 다시 눌러 주세요.')}
+  finally{b.disabled=false}};
+$('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});
 function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
-  $('#tabShip').classList.toggle('hidden',t!=='ship');$('#tabKakao').classList.toggle('hidden',t!=='kakao');
+  $('#tabShip').classList.toggle('hidden',t!=='ship');$('#tabKakao').classList.toggle('hidden',t!=='kakao');$('#tabQuote').classList.toggle('hidden',t!=='quote');
+  if(t==='quote')qinit();
   if(push){const u=new URL(location.href);t==='ship'?u.searchParams.delete('tab'):u.searchParams.set('tab',t);history.replaceState(null,'',u)}
   heal()}
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)setTab(b.dataset.tab,true)});
-setTab(new URLSearchParams(location.search).get('tab')==='kakao'?'kakao':'ship');
+setTab(['kakao','quote'].includes(new URLSearchParams(location.search).get('tab'))?new URLSearchParams(location.search).get('tab'):'ship');
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render();
+  if(!$('#tabQuote').classList.contains('hidden'))qinit();
   try{const req=JSON.parse(localStorage.getItem(RREQ)||'null');if(req&&D.smsIntake&&Date.now()-req.since<40*60e3)watchRefresh(req)}catch{}watchSends();
   loadDone();setInterval(loadDone,60e3);loadMemos();setInterval(loadMemos,60e3);loadODone();setInterval(loadODone,60e3);vaultTag().then(t=>{dataTag=t})}   // other staff's 처리완료 ticks
 $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disabled=true;b.textContent='확인 중…';$('#pwErr').textContent='';
