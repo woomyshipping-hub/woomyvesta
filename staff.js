@@ -709,7 +709,7 @@ function qeditors(){
       <td><button type="button" class="mini" data-qldel="${i}" aria-label="삭제">✕</button></td></tr>`).join('')||'<tr><td colspan="5" class="muted small">추가 항목이 없어요.</td></tr>')+'</tbody>';
   qdoc()}
 function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,...x})=>x),lines:Q.lines,vat:Q.vat,no:Q.no,
-  to:$('#qTo').value,links:$('#qLinks').value,grade:$('#qGrade').value,rate:$('#qRate').value}))}catch{}}
+  to:$('#qTo').value,links:$('#qLinks').value,grade:$('#qGrade').value,rate:$('#qRate').value,rateManual:Q.rateManual}))}catch{}}
 function qreset(keepType){Q.items=[];Q.lines={'구매':QLINES['구매'].map(l=>[...l]),'배송':QLINES['배송'].map(l=>[...l])};Q.no='';Q.vat={'구매':false,'배송':true};
   $('#qTo').value='';$('#qLinks').value='';$('#qAutoMsg').textContent='';$('#qMakeMsg').textContent='';if(!keepType)Q.type='구매';
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave()}
@@ -722,7 +722,7 @@ async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
 function qinit(){if(qinit.done||!D)return;qinit.done=true;
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
   qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,vat:s.vat||Q.vat,no:s.no||''});
-    $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=s.grade||'normal';$('#qRate').value=s.rate||''}
+    $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=s.grade||'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave();qloadRate()}
 // One link -> 접수창구; a link the script could not read is polled until Claude marks it (up to 15 minutes).
 async function qfetchLink(it){
@@ -753,6 +753,7 @@ $('#tabQuote').addEventListener('input',e=>{const el=e.target,tr=el.closest('tr'
   if(tr&&tr.dataset.qi!=null){const it=Q.items[+tr.dataset.qi];it[el.dataset.f]=el.value;if(el.dataset.f==='ship')it.shipGuess=false}
   else if(tr&&tr.dataset.ql!=null)Q.lines[Q.type][+tr.dataset.ql][+el.dataset.f]=el.value;
   else if(el.id==='qVat')Q.vat[Q.type]=el.checked;
+  else if(el.id==='qRate')Q.rateManual=!!qnum(el.value);   // a rate staff typed is kept; otherwise today's is loaded
   qdoc();qsave()});
 $('#qGrade').addEventListener('change',()=>{qdoc();qsave()});
 $('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel],[data-qldel],[data-qtype],[data-qship]');if(!b)return;
