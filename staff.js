@@ -661,7 +661,9 @@ function qfeeAll(shipTotal){
   const priced=Q.items.filter(it=>qnum(it.price)),tickets=priced.filter(it=>it.shop==='ticket'),goods=priced.filter(it=>it.shop!=='ticket');
   const tfee=tickets.reduce((a,it)=>{const q=qnum(it.qty)||1;return a+(q>1?2500*q:3000)},0),parts=[],short=[];
   let fee=tfee;
-  if(goods.length){const biz=$('#qGrade').value==='biz',pct=biz?3:5,nocard=goods.some(it=>it.shop==='auction');
+  const g=$('#qGrade').value,fixed=g==='fix1500'?1500:g==='fix2000'?2000:0;
+  if(goods.length&&fixed){fee+=fixed;parts.push(`고정 수수료 ${yen(fixed)} (직원 선택)`);short.push('고정 수수료')}
+  else if(goods.length){const biz=g==='biz',pct=biz?3:5,nocard=goods.some(it=>it.shop==='auction');
     const total=goods.reduce((a,it)=>a+qnum(it.price)*(qnum(it.qty)||1),0)+(shipTotal||0),raw=Math.floor(total*pct/100);
     const min=goods.length>1||nocard?2000:1500,base=Math.max(min,raw);
     const orders=[...new Map(goods.map((it,i)=>[it.shop==='auction'||!it.url?'#'+i:(it.url.match(/^https?:\/\/(?:www\.)?([^/]+)/)||[])[1]||'#'+i,it])).values()];
@@ -699,18 +701,18 @@ function qdoc(){const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+
       <div class="qd-date">${esc(qdate())}</div></div>
     <div class="qd-top"><div class="qd-left">
       <table class="qd-meta"><tr><th>견적번호</th><td>${esc(Q.no||'(제작 시 발급)')}</td></tr>
-        ${Q.type==='구매'?`<tr><th>적용 환율</th><td>1엔 = ${qrate()}원</td></tr>`:''}</table>
+        ${Q.type==='구매'?`<tr><th>적용 환율</th><td>¥100 = ₩${(Math.round(qrate()*10000)/100).toLocaleString('ko-KR',{maximumFractionDigits:2})}</td></tr>`:''}</table>
       <p class="qd-say">아래와 같이 견적합니다</p></div>
       <div class="qd-co"><div class="qd-coname">${esc(sup['상호명']||'우마이직구')} <span class="qd-ja">${esc(I.nameJa||'')}</span>${I.stamp?`<img class="qd-stamp" src="${I.stamp}" alt="">`:''}</div>
         <p>${esc(sup['사업장주소']||'')}</p><p>tel ${esc(sup['전화번호']||'')}</p>
         <p>사업자등록번호 ${esc(sup['사업자등록번호']||'')} · ${esc(sup['업태']||'')}</p>
         <p class="qd-rep">대표 ${esc(sup['대표자']||'')}</p></div></div>
     <table class="qd-items"><thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>비고</th></tr></thead><tbody>${
-      rows.map((x,i)=>`<tr><td>${i+1}</td><td class="qd-item">${esc(x.name)}</td><td>${x.qty}</td><td>${won(x.unit)}원</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
+      rows.map((x,i)=>`<tr><td>${i+1}</td><td class="qd-item">${esc(x.name)}</td><td>${x.qty}</td><td>₩${won(x.unit)}</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
       '<tr><td colspan="5" class="qd-empty">항목이 없어요</td></tr>'}${
       // blank ruled rows up to 12, like the Excel template's empty lines, so the page reads as a full A4 sheet
       '<tr class="qd-blank"><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(Math.max(0,12-Math.max(rows.length,1)))}
-      <tr class="qd-total"><td colspan="2">총 합계</td><td colspan="2">${won(total)}원</td><td>입금하실 금액</td></tr></tbody></table>
+      <tr class="qd-total"><td colspan="2">총 합계</td><td colspan="2">₩${won(total)}</td><td>입금하실 금액</td></tr></tbody></table>
     <div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
     <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p></div>`;
   if($('#qTable tbody'))qkrw();
@@ -746,7 +748,7 @@ function qeditors(){
   qdoc()}
 // 원 환산 cells follow every keystroke without redrawing the inputs.
 function qkrw(){const m=Object.fromEntries(qrows().map(x=>[x.k,x]));
-  document.querySelectorAll('#qTable [data-krw]').forEach(td=>{const x=m[td.dataset.krw];td.textContent=x?'= '+won(x.qty*x.unit)+'원':''});
+  document.querySelectorAll('#qTable [data-krw]').forEach(td=>{const x=m[td.dataset.krw];td.textContent=x?'= ₩'+won(x.qty*x.unit):''});
   document.querySelectorAll('#qTable tr[data-qi]:not(.q-sub) [data-f="note"]').forEach(el=>{const it=Q.items[+el.closest('tr').dataset.qi];if(it)el.placeholder=qnum(it.price)?yen(it.price):'비고'});
   for(const [k,f] of [['ship',qship],['fee',qfee]]){const tr=document.querySelector(`#qTable tr[data-qa="${k}"]`);if(!tr)continue;const v=f();
     tr.querySelector('[data-f="'+k+'"]').placeholder=v.auto?'자동 '+v.auto.toLocaleString():k==='ship'?'모름':'자동';tr.querySelector('[data-f="'+k+'Note"]').placeholder=v.autoNote||''}}
@@ -759,12 +761,12 @@ async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
   // 적용 환율 = 시장 환율 × 1.02: what 2026 quotes used (applied ÷ market, monthly median 1.018–1.021 since August)
   try{const r=await (await fetch('https://open.er-api.com/v6/latest/JPY')).json();const v=r.rates&&r.rates.KRW;if(!v)throw 0;
     $('#qRate').value=(Math.round(v*1.02*100)/100).toString();
-    $('#qRateNote').textContent=`시장 환율 ${v.toFixed(2)}원 × 1.02 = ${$('#qRate').value}원 (${new Date(r.time_last_update_unix*1e3).toLocaleDateString('ko-KR')} 기준, 지난 견적과 같은 방식). 필요하면 고쳐 주세요.`;qdoc();qsave()}
+    $('#qRateNote').textContent=`시장 환율 ¥100 = ₩${(v*100).toFixed(0)} × 1.02 → ¥100 = ₩${Math.round(qrate()*100)} (${new Date(r.time_last_update_unix*1e3).toLocaleDateString('ko-KR')} 기준, 지난 견적과 같은 방식). 필요하면 고쳐 주세요.`;qdoc();qsave()}
   catch{$('#qRateNote').textContent='환율을 불러오지 못했어요. 직접 넣어 주세요.'}}
 function qinit(){if(qinit.done||!D)return;qinit.done=true;
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
   qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,no:s.no||'',adj:{...QADJ(),...s.adj}});
-    $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=s.grade||'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
+    $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=['normal','biz','fix1500','fix2000'].includes(s.grade)?s.grade:'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave();qloadRate()}
 // One link -> 접수창구, which reads most shops itself in 3–15 s (the shop's own page speed: 라쿠텐 ~10 s, 이케아 ~3 s).
 // A link it cannot read (메루카리·아마존) waits for Claude on the Mac, polled every 5 s for up to 15 minutes. While a link
@@ -875,7 +877,7 @@ function qguess(){const to=$('#qTo').value.trim(),C=D.quoteCustomers||[],note=$(
   const tagged=hits.find(e=>!e.src[0].startsWith('관리자')),admins=hits.filter(e=>e.src[0].startsWith('관리자'));
   const cnt={};admins.forEach(e=>cnt[e.lv]=(cnt[e.lv]||0)+1);
   const pick=tagged||admins.find(e=>e.lv==='biz')&&admins.length===1&&admins[0]||admins.slice().sort((x,y)=>(cnt[y.lv]||0)-(cnt[x.lv]||0))[0];
-  $('#qGrade').value=pick.lv||'normal';note.className='small q-gradenote hit';
+  $('#qGrade').value=pick.lv==='biz'?'biz':'normal';note.className='small q-gradenote hit';
   note.textContent=`추정: ${QLV[pick.lv||'normal']} · 근거: ${pick.src[0]}${tagged&&admins.length?` · 관리자 등급 ${[...new Set(admins.map(e=>QLV[e.lv]))].join('/')}`:''}`+
     (admins.length>1?` · 관리자에 같은 이름 ${admins.length}명 (${Object.entries(cnt).map(([k,v])=>QLV[k]+' '+v).join(', ')}) — 수신에 사서함 번호(OF/WO)를 넣으면 정확해요`:'')}
 $('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel],[data-qldel],[data-qtype],[data-qship],[data-qauto]');if(!b)return;
