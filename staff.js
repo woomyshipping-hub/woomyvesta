@@ -647,15 +647,28 @@ const yen=n=>'¥'+Math.round(Number(n)||0).toLocaleString('ja-JP');
 const qnum=v=>{const n=parseFloat(String(v??'').replace(/[^\d.]/g,''));return isFinite(n)?n:null};
 const qrate=()=>qnum($('#qRate').value)||0;
 const qtoday=()=>new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
-// 구매수수료 per link (each shop is its own payment), as staff charged it in 2026 (vesta-tools/quote_rules.md): 결제금액
-// (상품가×수량+현지배송비) 5% 원 미만 버림, 최소 1,500엔 · 야후옥션·메루카리 최소 2,000엔 · 사업자 3% · 티켓 1매 3,000엔, 2매부터 매당 2,500엔.
-const QFEE={auction:'야후옥션·메루카리 5% (최소 2,000엔)',ticket:'티켓 1매 3,000엔 · 2매부터 매당 2,500엔',biz:'결제금액 3%',normal:'결제금액 5% (최소 1,500엔)'};
-const qkind=it=>it.shop==='auction'||it.shop==='ticket'?it.shop:$('#qGrade').value==='biz'?'biz':'normal';
-function qfee(it){const q=qnum(it.qty)||1,pay=(qnum(it.price)||0)*q+(qnum(it.ship)||0);if(!pay)return 0;
-  const k=qkind(it);
-  if(k==='ticket')return q>1?2500*q:3000;
-  if(k==='auction')return Math.max(2000,Math.floor(pay*.05));
-  return k==='biz'?Math.floor(pay*.03):Math.max(1500,Math.floor(pay*.05))}
+// 구매수수료 for one request (one quote), as the user set it on 2026-10-30: (상품가×수량+현지배송비) of every product together
+// × 5% (개인) or 3% (사업자), 원 미만 버림. Minimum 1,500엔 for one product from a shop that takes Korean cards; 2,000엔 when
+// the request has more than one product or any 야후옥션·야후쇼핑·메루카리·페이페이플리마 product (Korean cards are refused
+// there). Many orders: the notice charges again past 5 orders, and past quotes charged each separate 야후옥션·메루카리
+// seller its own 2,000엔 — so each order beyond 5 adds its minimum (one shop = one order; each 옥션·메루카리 listing = one).
+// 티켓 keep their own fee: 1매 3,000엔, 2매부터 매당 2,500엔.
+const QNOCARD=/(auctions|page\.auctions|shopping)\.yahoo\.co\.jp|mercari\.com|paypayfleamarket/i;
+const qshopOf=u=>QNOCARD.test(u)?'auction':/l-tike|t\.pia\.jp|eplus|ticket/i.test(u)?'ticket':'';
+function qfeeAll(){
+  const priced=Q.items.filter(it=>qnum(it.price)),tickets=priced.filter(it=>it.shop==='ticket'),goods=priced.filter(it=>it.shop!=='ticket');
+  const tfee=tickets.reduce((a,it)=>{const q=qnum(it.qty)||1;return a+(q>1?2500*q:3000)},0),parts=[];
+  let fee=tfee;
+  if(goods.length){const biz=$('#qGrade').value==='biz',pct=biz?3:5,nocard=goods.some(it=>it.shop==='auction');
+    const total=goods.reduce((a,it)=>a+qnum(it.price)*(qnum(it.qty)||1)+(qnum(it.ship)||0),0),raw=Math.floor(total*pct/100);
+    const min=goods.length>1||nocard?2000:1500,base=Math.max(min,raw);
+    const orders=[...new Map(goods.map((it,i)=>[it.shop==='auction'||!it.url?'#'+i:(it.url.match(/^https?:\/\/(?:www\.)?([^/]+)/)||[])[1]||'#'+i,it])).values()];
+    const extra=orders.slice(5).reduce((a,it)=>a+(it.shop==='auction'?2000:1500),0);
+    fee+=base+extra;
+    parts.push(`${goods.length>1?`상품 ${goods.length}개 합계 `:''}${yen(total)} × ${pct}%${raw<min?` → 최소 ${yen(min)}${nocard?' (야후·메루카리는 한국 카드 결제 불가)':goods.length>1?' (여러 상품)':''}`:` = ${yen(raw)}`}`);
+    if(extra)parts.push(`주문 ${orders.length}건 중 5건 초과 ${orders.length-5}건 +${yen(extra)}`)}
+  if(tfee)parts.push(`티켓 ${yen(tfee)} (1매 3,000엔 · 2매부터 매당 2,500엔)`);
+  return {fee,note:parts.join(' · ')}}
 // The lines the document shows: 구매 = 상품가 per link + 현지배송비 + 구매수수료, then the added rows; rows without a price are left out.
 function qrows(){const r=qrate(),out=[];
   if(Q.type==='구매'&&Q.items.length){
@@ -663,9 +676,8 @@ function qrows(){const r=qrate(),out=[];
     const known=Q.items.filter(it=>qnum(it.ship)!=null),ship=known.reduce((a,it)=>a+qnum(it.ship),0);
     const guess=Q.items.some(it=>it.shipGuess&&qnum(it.ship));
     out.push({name:'현지배송비',qty:1,unit:Math.round(ship*r),note:known.length<Q.items.length?(ship?`${yen(ship)} · 일부 판매자 확인 후 변동 가능`:'판매자 확인 후 안내 (변동 가능)'):ship?yen(ship)+(guess?' · 예상 금액, 판매자 확인 후 변동 가능':''):'무료 (送料込み)'});
-    const fees=Q.items.map(qfee),fee=fees.reduce((a,b)=>a+b,0);
-    if(fee)out.push({name:'구매수수료',qty:1,unit:Math.round(fee*r),note:`${fees.filter(Boolean).length>1?fees.filter(Boolean).map(yen).join(' + ')+' = ':''}${yen(fee)} · `+
-      [...new Set(Q.items.filter((it,i)=>fees[i]).map(it=>QFEE[qkind(it)]))].join(', ')})}
+    const {fee,note}=qfeeAll();
+    if(fee)out.push({name:'구매수수료',qty:1,unit:Math.round(fee*r),note:`${yen(fee)} · ${note}`})}
   for(const l of Q.lines[Q.type])if(l[2]!==''&&qnum(l[2])!=null)out.push({name:l[0],qty:qnum(l[1])||1,unit:qnum(l[2]),note:l[3]});
   return out}
 function qdoc(){const I=D.quoteInfo||{},rows=qrows(),sub=rows.reduce((a,x)=>a+x.qty*x.unit,0),vat=Q.vat[Q.type]?Math.round(sub*.1):0;
@@ -774,19 +786,17 @@ async function qfetchLink(it){
     it.state='fail';it.msg='15분 동안 답이 없어요. Claude가 꺼져 있을 수 있어요 — 직접 입력해 주세요.';qeditors()}
   catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}
   finally{qtick()}}
-function qfill(it,r){Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:it.shop==='ticket'?'ticket':r.shop||it.shop||''});
+function qfill(it,r){if(!Q.items.includes(it))return;Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:it.url?qshopOf(it.url):r.shop||it.shop||''});
   const took=it.t0?` (${mmss(Math.round((Date.now()-it.t0)/1000))})`:'';
   it.state='ok';it.msg=r.price?`✓ 읽었어요${took}: ${yen(r.price)}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:`가격을 찾지 못했어요. ${r.shipNote||'직접 입력해 주세요.'}`;
   if(!r.price)it.state='fail';qeditors();qsave()}
-// Every link in the box is (re)read on each press, including ones already in the list: before, a second press on the
-// same links added nothing and looked like no reaction.
+// Each press starts a new 구매 견적서 from the links in the box: products and added rows are cleared and the next
+// [견적서 제작] takes a new 견적번호. 수신, 등급 and 환율 stay, since staff usually set them just before pressing.
 $('#qAuto').onclick=()=>{const urls=[...new Set($('#qLinks').value.split(/\s+/).filter(u=>/^https?:\/\/\S{4,}$/.test(u)))];
   if(!urls.length){$('#qAutoMsg').textContent='http로 시작하는 상품 링크를 넣어 주세요.';return}
-  const shopOf=u=>/(auctions|page\.auctions)\.yahoo\.co\.jp|mercari\.com|paypayfleamarket/i.test(u)?'auction':/l-tike|t\.pia\.jp|eplus|ticket/i.test(u)?'ticket':'';
-  const todo=urls.map(u=>{let it=Q.items.find(x=>x.url===u);if(!it){it={url:u,title:'',qty:1,price:'',ship:'',shop:shopOf(u)};Q.items.push(it)}return it})
-    .filter(it=>it.state!=='wait');
-  Q.items.forEach(it=>{if(!todo.includes(it)&&it.state!=='wait'){it.state='';it.msg=''}});
-  $('#qAutoMsg').textContent=`링크 ${urls.length}개를 확인해요. 라쿠텐 같은 큰 쇼핑몰은 10초쯤 걸려요.`;
+  Q.items=urls.map(u=>({url:u,title:'',qty:1,price:'',ship:'',shop:qshopOf(u)}));Q.lines['구매']=[];Q.no='';$('#qMakeMsg').textContent='';
+  const todo=Q.items;
+  $('#qAutoMsg').textContent=`새 견적서 · 링크 ${urls.length}개를 확인해요. 라쿠텐 같은 큰 쇼핑몰은 10초쯤 걸려요.`;
   qeditors();qsave();todo.forEach(qfetchLink);if(!qtick.t)qtick.t=setInterval(qtick,1000);qtick()};
 $('#qAddItem').onclick=()=>{Q.items.push({url:'',title:'',qty:1,price:'',ship:'',shop:''});qeditors();qsave()};
 $('#qAddLine').onclick=()=>{Q.lines[Q.type].push(['',1,'','']);qeditors();qsave()};
