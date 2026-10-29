@@ -354,13 +354,13 @@ function renderKakao(){
   $('#kChips').innerHTML=`<button class="chip${kFilter?'':' on'}" data-k="">전체 ${open.length}</button>`+
     Object.entries(KTYPE).map(([k,[label,cls,tip]])=>`<button class="chip ${cls}${kFilter===k?' on':''}" data-k="${k}" title="${esc(tip)}">${esc(label)} ${cnt(k)}</button>`).join('')+
     `<button class="chip k-delivered${kFilter==='done'?' on':''}" data-k="done" title="직원이 처리완료로 체크했거나 카카오에서 답변돼 정리된 상담 (새 메시지가 오면 다시 누락 탭으로 돌아가요)">✓ 처리완료 ${done.length}</button>`;
-  const TIER=[['결제 고객','k-delivered'],['견적 받음','k-domestic']],fmtD=d=>d?d.slice(2).replace(/-/g,'/'):'';
+  const fmtD=d=>d?d.slice(2).replace(/-/g,'/'):'';
   const drafts=D.kakaoDrafts||{};
-  const rows=shown.map(x=>{const [label,cls]=KTYPE[x.type],h=x.hist,t=h&&TIER[h.tier],dr=draftOf(x),st=sendState(x.id);
+  const rows=shown.map(x=>{const [label,cls]=KTYPE[x.type],h=x.hist,dr=draftOf(x),st=sendState(x.id);
     const fin=kFilter==='done',chk=fin?`<input type="checkbox" checked data-done="${esc(x.id)}" ${x.auto?'disabled title="카카오에서 답변돼 자동으로 옮겨졌어요. 새 메시지가 오면 다시 누락 탭으로 돌아가요."':'title="체크를 풀면 원래 탭으로 돌아가요"'} aria-label="처리완료">`
       :`<input type="checkbox" data-done="${esc(x.id)}" title="처리완료로 옮기기 (고객이 새 메시지를 보내면 다시 돌아와요)" aria-label="처리완료">`;
     return `<tr class="${x.late&&!fin?'late':''}"><td class="kdone">${chk}</td><td><span class="pill ${cls}">${esc(label)}</span>${x.auto?'<div class="muted small">카카오에서 처리됨</div>':''}</td>`+
-      `<td><b>${esc(x.name)}</b>${t?` <span class="pill ${t[1]}">${t[0]}</span>`:''}${h&&h.ctype?` <span class="pill">${h.ctype}</span>`:''}${st?` <span class="pill ${st.cls}" title="${esc(st.text)}">${esc(st.label)}</span>`:''}</td>`+
+      `<td><b>${esc(x.name)}</b>${st?` <span class="pill ${st.cls}" title="${esc(st.text)}">${esc(st.label)}</span>`:''}</td>`+
       `<td title="${esc(new Date(x.at).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'}))}">${x.auto?`<span class="muted small">처리 ${waited(x.resolvedAt)} 전</span>`:waited(x.at)}${x.late&&!fin?' <span class="pill k-customs">늦음</span>':''}${x.viaBot?' <span class="pill k-unknown" title="고객 질문 뒤에 챗봇 대화가 이어져 목록에서 놓치기 쉬운 상담">챗봇 뒤에 묻힘</span>':''}</td>`+
       `<td class="kmsg kclick" data-chat="${esc(x.id)}" title="눌러서 지난 대화 · 맥락 요약 · 추천 답변 보기">${x.type==='bot'?'<span class="muted small">챗봇 메뉴: </span>':''}${esc(x.last||'')}${x.viaBot?`<div class="muted small">↳ 이후 챗봇만 사용${x.botTaps?`: ${esc(x.botTaps)}`:''}</div>`:''}${x.context?`<div class="muted small">↳ 그 전 마지막 대화 — ${esc(x.context)}</div>`:''}${x.reply?`<div class="small kreply">↳ ${esc(x.by||'직원')}: ${esc(x.reply)}</div>`:''}</td>`+
       (h?`<td>${esc(h.stage||'')}</td><td>${esc(h.service||'')}</td>`
@@ -369,7 +369,7 @@ function renderKakao(){
       `<td class="kact"><a class="mini" href="https://business.kakao.com/_xdetxmG/chats/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" title="열면 읽음 처리돼요. 직접 응대할 때만 여세요.">열기 ↗</a></td></tr>`});
   $('#kTable').innerHTML='<thead><tr><th title="처리완료">완료</th><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th><th></th></tr></thead><tbody>'+
     (rows.join('')||`<tr><td colspan="10" class="muted">${$('#gq').value.trim()?noneMsg():kFilter==='done'?'처리완료로 옮긴 상담이 없어요.':'누락된 상담이 없어요.'}</td></tr>`)+'</tbody>';
-  $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. 결제 고객 = 이전에 결제·배송까지 간 고객. `:'')+`늦음: 기다린 시간 2시간부터 (주말 포함 실제 경과 시간).`;
+  $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. `:'')+`늦음: 기다린 시간 2시간부터 (주말 포함 실제 경과 시간).`;
   renderInsight();
 }
 const AUTOCLS={'높음':'k-delivered','중간':'k-handover','낮음':'k-unknown'};
