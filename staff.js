@@ -97,12 +97,21 @@ function renderAlerts(){
   $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
   searchLayout();
 }
-let dayFilter='';
+let dayFilter='',listPage=1,listKey='';const PAGE=300;
+document.addEventListener('click',e=>{const b=e.target.closest('#pager [data-page]');if(!b||b.disabled)return;
+  listPage=+b.dataset.page;renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 function renderList(){
   const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value;
   const list=D.orders.filter(o=>(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
-  $('#count').innerHTML=(dayFilter?`<button class="daychip" data-clearday title="주문일 필터 해제">${md(dayFilter)} 주문만 ✕</button> `:'')+`${list.length.toLocaleString()}건${list.length>300?' · 처음 300건만 표시 (오른쪽 위 검색으로 좁혀 보세요)':''}`;
-  $('#orders').innerHTML=HEAD+'<tbody>'+(sorted(list,'orders').slice(0,300).map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
+  // 300 rows a page; a new search or filter starts again at page 1 (search and filters always look at every order)
+  const key=[q,st,fl,dayFilter].join('|');if(key!==listKey){listKey=key;listPage=1}
+  const pages=Math.max(1,Math.ceil(list.length/PAGE));listPage=Math.min(listPage,pages);const from=(listPage-1)*PAGE;
+  $('#count').innerHTML=(dayFilter?`<button class="daychip" data-clearday title="주문일 필터 해제">${md(dayFilter)} 주문만 ✕</button> `:'')+`${list.length.toLocaleString()}건`+
+    (pages>1?` · ${(from+1).toLocaleString()}–${Math.min(from+PAGE,list.length).toLocaleString()}번째 (${listPage} / ${pages}페이지)`:'');
+  $('#orders').innerHTML=HEAD+'<tbody>'+(sorted(list,'orders').slice(from,from+PAGE).map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
+  $('#pager').innerHTML=pages>1?`<button class="btn small-btn" data-page="${listPage-1}"${listPage>1?'':' disabled'}>‹ 이전</button>`+
+    Array.from({length:pages},(_,i)=>`<button class="btn small-btn pg${i+1===listPage?' on':''}" data-page="${i+1}">${i+1}</button>`).join('')+
+    `<button class="btn small-btn" data-page="${listPage+1}"${listPage<pages?'':' disabled'}>다음 ›</button>`:'';
   listHits=list.length;searchLayout();
 }
 // While searching, show only the cards holding matches: staff missed results sitting at the bottom under the chart.

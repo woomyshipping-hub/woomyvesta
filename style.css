@@ -378,3 +378,4 @@ label[for=odMemo]{display:block;margin-top:16px}
 .cp-steps p{margin:3px 0 0;font-size:13.5px;line-height:1.6;color:#3c475c;word-break:keep-all;overflow-wrap:anywhere}
 .cus-staff{margin:10px 2px 0;color:var(--warn);text-align:center}
 @media(max-width:620px){.cus-plain{padding:16px}.cp-now b{font-size:19px}}
+.pager{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:14px}.pager:empty{display:none}.pager .pg{min-width:40px}.pager .pg.on{background:var(--blue);border-color:var(--blue);color:#fff}.pager button:disabled{opacity:.4;cursor:default}
