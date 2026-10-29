@@ -310,6 +310,14 @@ td.kclick:hover{background:var(--blue-soft);text-decoration:underline dotted}
 .kb-ask p{font-size:14.5px}
 .kb-dash{border:0;border-top:2px dashed color-mix(in srgb,var(--blue) 45%,var(--line));margin:12px 0}
 .kb-sec{margin-top:10px}
+.kb-facts{margin-top:10px;border:1px solid color-mix(in srgb,var(--good) 40%,var(--line));background:color-mix(in srgb,var(--good) 7%,var(--card));border-radius:10px;padding:8px 10px}
+.kb-facts>b{display:block;color:var(--good);font-size:12.5px;margin-bottom:4px}
+.kb-facts table{width:100%;border-collapse:collapse;font-size:13px}
+.kb-facts th{text-align:left;font-weight:600;white-space:nowrap;padding:4px 10px 4px 0;vertical-align:top;width:1%}
+.kb-facts td{padding:4px 0;overflow-wrap:anywhere}
+.kb-facts tr+tr>*{border-top:1px dashed var(--line)}
+.kb-facts tr.miss td{color:var(--warn)}
+.kb-src{font-size:11px;color:var(--muted)}
 .kb-sec>b{display:block;color:var(--blue);font-size:12.5px;margin-bottom:2px}
 @media (max-width:860px){.kmerge-grid{grid-template-columns:1fr}.kmerge .kclog{max-height:40vh}.kmerge-right{max-height:none;overflow:visible}}
 /* 주문일별 진행: stacked bars (stage colors run light blue → blue, 완료 = green) */

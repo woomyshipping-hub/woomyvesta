@@ -444,7 +444,9 @@ function briefHtml(d){
   if(!d)return '<p class="muted">아직 맥락 요약이 없어요. 다음 전체 업데이트(매시 정각) 때 만들어져요.</p>';
   if(!d.situation)return `<p class="kb-p">${esc(d.summary||'')}</p>`;   // older drafts
   const ol=a=>`<ol>${a.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>`,sec=(t,b)=>`<div class="kb-sec"><b>(${t})</b>${b}</div>`;
-  return `<div class="kb-ask"><p><b>${esc(d.ask)}</b></p>${ol(d.todo)}</div><hr class="kb-dash">`+
+  const facts=d.facts&&d.facts.length?`<div class="kb-facts"><b>답변에 쓸 정보</b><table>${d.facts.map(f=>{const miss=/^못 찾음/.test(f.a);
+    return `<tr${miss?' class="miss"':''}><th>${esc(f.q)}</th><td>${esc(f.a)}<div class="kb-src">${esc(f.src)}</div></td></tr>`}).join('')}</table></div>`:'';
+  return `<div class="kb-ask"><p><b>${esc(d.ask)}</b></p>${ol(d.todo)}</div>${facts}<hr class="kb-dash">`+
     sec('현재 상황',`<p class="kb-p">${esc(d.situation)}</p>`)+sec('고객에게 필요한 것',ol(d.needs))+
     sec('답변 직원의 역할',`<p class="kb-p">${esc(d.role)}</p>`)+sec('지금 해야 할 것',ol(d.now))+
     (d.note?sec('오해 소지·보충 설명',`<p class="kb-p">${esc(d.note)}</p>`):'')+
