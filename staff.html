@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="우마이 베스타">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=d0925e58">
+<link rel="stylesheet" href="style.css?v=9b8503db">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -83,17 +83,15 @@
           <p class="small muted" id="qAutoMsg" role="status"></p>
           <div class="q-grid">
             <div><label for="qGrade">고객 등급 (구매수수료)</label>
-              <select id="qGrade"><option value="normal">개인 고객 · 5%</option><option value="biz">사업자 고객 · 3%</option></select></div>
+              <select id="qGrade"><option value="normal">일반 · 5%</option><option value="gold">골드 · 5%</option><option value="vip">VIP · 5%</option><option value="biz">사업자 회원 · 3%</option></select>
+              <p class="small q-gradenote" id="qGradeNote"></p></div>
             <div><label for="qRate">환율 (1엔 = 원)</label><input id="qRate" inputmode="decimal" autocomplete="off"></div></div>
           <p class="small muted" id="qRateNote"></p>
           <p class="small muted">최소 수수료: 한국 카드로 결제되는 쇼핑몰 상품 1개 1,500엔 · 여러 상품이거나 야후옥션·야후쇼핑·메루카리 2,000엔 · 주문 5건 초과분은 건당 최소 수수료 추가</p>
-          <h4 class="cus-sec">상품 <span class="muted small">(엔 · 고치면 견적서에 바로 반영)</span></h4>
-          <div class="tablewrap"><table class="q-edit" id="qItems"></table></div>
-          <button type="button" class="btn small-btn" id="qAddItem">+ 상품 직접 추가</button>
         </div>
-        <h4 class="cus-sec" id="qLinesHead">추가 항목 <span class="muted small">(원)</span></h4>
-        <div class="tablewrap"><table class="q-edit" id="qLines"></table></div>
-        <button type="button" class="btn small-btn" id="qAddLine">+ 항목 추가</button>
+        <h4 class="cus-sec">견적 항목 <span class="muted small">(오른쪽 견적서와 같은 순서 · 고치면 바로 반영 · 빈칸은 자동 값)</span></h4>
+        <div class="tablewrap"><table class="q-edit q-sheet" id="qTable"></table></div>
+        <div class="q-adds"><button type="button" class="btn small-btn" id="qAddItem">+ 상품 추가</button><button type="button" class="btn small-btn" id="qAddLine">+ 항목 추가</button></div>
         <label class="q-check"><input type="checkbox" id="qVat"> 부가세 10% 포함</label>
         <div class="dlgbtns q-btns"><button type="button" class="btn" id="qReset">새 견적</button>
           <button type="button" class="btn send" id="qMake">견적서 제작 (이미지 복사 + 저장)</button></div>
@@ -220,6 +218,6 @@
     <model-viewer id="q3dView" auto-rotate rotation-per-second="18deg" auto-rotate-delay="0" interaction-prompt="none" camera-orbit="30deg 72deg auto" shadow-intensity="0.6" exposure="1.05" disable-zoom><div slot="progress-bar"></div></model-viewer>
     <p class="q3d-cap" id="q3dCap"></p></div>
 </div>
-<script src="staff.js?v=d0925e58"></script>
+<script src="staff.js?v=9b8503db"></script>
 </body>
 </html>
