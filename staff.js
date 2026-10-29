@@ -710,8 +710,8 @@ function qdoc(){const I=D.quoteInfo||{},rows=qrows(),sub=rows.reduce((a,x)=>a+x.
 const qwords=t=>new Set(String(t||'').toLowerCase().match(/[a-z0-9]{3,}|[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7a3]{2,}/g)||[]);
 function qpast(it){const E=D.quoteExamples||[];if(!E.length||!(it.title||it.url))return '';
   const dom=(it.url.match(/^https?:\/\/(?:www\.)?([^/]+)/)||[])[1]||'',w=qwords(it.title);
-  const score=x=>{let n=0;for(const t of qwords(x.title+' '+x.item))if(w.has(t))n+=2;if(dom&&x.url.includes(dom))n+=1;if(x.ship)n+=.5;return n};
-  const top=E.map(x=>[score(x),x]).filter(([n])=>n>=2).sort((a,b)=>b[0]-a[0]||b[1].d.localeCompare(a[1].d)).slice(0,3);
+  const k=qkey(it.url||'');const score=x=>{let n=x.url&&qkey(x.url)===k?20:0;for(const t of qwords(x.title+' '+x.item))if(w.has(t))n+=2;if(dom&&x.url.includes(dom))n+=1;if(x.ship)n+=.5;return n};
+  const top=E.map(x=>[score(x),x]).filter(([n])=>n>=2).sort((a,b)=>b[0]-a[0]||b[1].d.localeCompare(a[1].d)).slice(0,it.shop==='ticket'?6:3);
   if(!top.length)return '';
   return `<details class="q-past"><summary>비슷한 지난 견적 ${top.length}건</summary>${top.map(([,x])=>`<div>${esc(x.d.slice(5))} · ${esc(x.shop)} · ${esc(x.item)}${x.size?` <span class="muted">(${esc(x.size.slice(0,60))})</span>`:''}<br>`+
     `상품 ${yen(x.price)}${x.qty>1?` ×${x.qty}`:''} · 현지배송비 ${x.ship!=null?yen(x.ship):'—'} · 수수료 ${x.fee!=null?yen(x.fee):'—'}${x.rate?` · 환율 ${x.rate}`:''}`+
@@ -786,10 +786,31 @@ function qtick(){q3d();let busy=0;
   Q.items.forEach((it,i)=>{if(it.state!=='wait')return;busy++;
     const el=document.querySelector(`#qTable tr.q-sub[data-qi="${i}"] .q-st`);if(!el)return;
     const [lo,hi,what]=QWAIT[it.step||'read'],t=Math.round((Date.now()-it.t0)/1000);
-    el.textContent=`⏳ ${what}… ${mmss(t)} 지남 · `+(t<lo?`보통 ${mmss(lo)}~${mmss(hi)}`:t<hi?`약 ${mmss(hi-t)} 남음`:it.step==='claude'?'조금 늦어지고 있어요 (최대 15분)':'곧 끝나요')});
+    el.textContent=`${it.pre||''}⏳ ${what}… ${mmss(t)} 지남 · `+(t<lo?`보통 ${mmss(lo)}~${mmss(hi)}`:t<hi?`약 ${mmss(hi-t)} 남음`:it.step==='claude'?'조금 늦어지고 있어요 (최대 15분)':'곧 끝나요')});
   const b=$('#qAuto');b.disabled=!!busy;b.textContent=busy?`확인 중… (${Q.items.filter(x=>x.state&&x.state!=='wait').length}/${Q.items.filter(x=>x.state).length})`:'자동 견적';
   if(!busy){clearInterval(qtick.t);qtick.t=null;const ok=Q.items.filter(x=>x.state==='ok').length,bad=Q.items.filter(x=>x.state==='fail').length;
     if(ok+bad)$('#qAutoMsg').textContent=`끝났어요 · ${ok}개 채움${bad?` · ${bad}개는 직접 입력이 필요해요`:''}`}}
+// Same product, same key (vesta-tools/quote_requests.py key()): 로치케·피아 event, 메루카리 item, 야후옥션 auction, else
+// host + path. Links Claude read before (D.quoteMemory) and past purchases in the 구매 정리 sheet (D.quoteExamples) fill
+// a row at once, so a slow shop is not waited on twice.
+function qkey(url){try{const u=new URL(url.trim()),q=u.searchParams,h=u.hostname.replace(/^www\./,'');
+  if(/l-tike\.com/.test(h)&&q.get('gLcode'))return `l-tike:${q.get('gLcode')}:${q.get('gPfKey')||''}`;
+  if(/pia\.jp/.test(h)&&q.get('eventCd'))return 'pia:'+q.get('eventCd');
+  let m=u.pathname.match(/\/item\/(m\d+)/);if(/mercari/.test(h)&&m)return 'mercari:'+m[1];
+  m=u.pathname.match(/\/auction\/([a-z]?\d+)/);if(/auctions\.yahoo/.test(h)&&m)return 'yauc:'+m[1];
+  return h+u.pathname.replace(/\/$/,'')}catch{return url}}
+const qpastOf=it=>{const k=qkey(it.url);return (D.quoteExamples||[]).filter(x=>x.url&&qkey(x.url)===k)};
+const qticketName=url=>{try{const q=new URL(url).searchParams;return (q.get('gPfName')||'').normalize('NFKC').trim()}catch{return ''}};
+// true = the row is done without asking the 접수창구 (tickets, links Claude already read); false = fetch, maybe after a prefill.
+function qprefill(it){const mem=(D.quoteMemory||{})[qkey(it.url)],past=qpastOf(it),last=past[0];
+  if(it.shop==='ticket'){
+    it.title=mem?.title||qticketName(it.url)||last?.item||'';it.state='ok';
+    it.msg='티켓 · 좌석 등급마다 가격이 달라요. 고른 좌석의 1매 가격과 매수를 넣어 주세요.'+(past.length?` 같은 공연 지난 구매 ${past.length}건이 아래에 있어요.`:'');return true}
+  if(mem&&mem.price){Object.assign(it,{title:mem.title||'',price:mem.price,ship:mem.ship??'',state:'ok',
+    msg:`✓ 기억된 결과 (${mem.at.slice(5).replace('-','/')} Claude 확인): ${yen(mem.price)}${mem.shipNote?` · ${mem.shipNote}`:''} — 가격이 바뀌었을 수 있어요`});return true}
+  if(last&&last.price){Object.assign(it,{title:last.title||last.item,price:Math.round(last.price/(last.combined?1:1)),ship:last.ship??''});
+    it.pre=`지난 구매 (${last.d.slice(5).replace('-','/')}) ${yen(last.price)}로 먼저 채웠어요 · `}
+  return false}
 async function qfetchLink(it){
   const at=new Date().toISOString();Object.assign(it,{state:'wait',step:'read',t0:Date.now(),msg:''});qeditors();qtick();
   try{if(!D.smsIntake)throw Error('no intake');
@@ -815,7 +836,7 @@ $('#qAuto').onclick=()=>{const urls=[...new Set($('#qLinks').value.split(/\s+/).
   Q.items=urls.map(u=>({url:u,title:'',qty:1,price:'',ship:'',shop:qshopOf(u)}));Q.lines['구매']=[];Q.no='';Q.adj=QADJ();$('#qMakeMsg').textContent='';
   const todo=Q.items;
   $('#qAutoMsg').textContent=`새 견적서 · 링크 ${urls.length}개를 확인해요. 라쿠텐 같은 큰 쇼핑몰은 10초쯤 걸려요.`;
-  qeditors();qsave();todo.forEach(qfetchLink);if(!qtick.t)qtick.t=setInterval(qtick,1000);qtick()};
+  todo.filter(it=>!qprefill(it)).forEach(qfetchLink);qeditors();qsave();if(!qtick.t)qtick.t=setInterval(qtick,1000);qtick()};
 $('#qAddItem').onclick=()=>{Q.items.push({url:'',title:'',qty:1,price:'',ship:'',shop:''});qeditors();qsave()};
 $('#qAddLine').onclick=()=>{Q.lines[Q.type].push(['',1,'','']);qeditors();qsave()};
 $('#tabQuote').addEventListener('input',e=>{const el=e.target,tr=el.closest('tr');
