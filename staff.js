@@ -47,7 +47,7 @@ function row(o){
   const cp=n=>`<button class="copybtn" data-copy="${esc(n)}" title="운송장번호 복사" aria-label="운송장번호 복사">⧉</button>`;
   const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>(link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n))+cp(n)).join('<br>'):'—';
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
-  const dm=o.doneMark,howTxt=dm&&(ODMEMO[dm.how]||dm.how),alerts=dm?`✓ 완료 처리 · ${howTxt}${dm.memo&&dm.memo!==howTxt?` · ${dm.memo}`:''}${dm.ts?` · ${when(dm.ts)}`:''}`:o.alerts.join(' · ');
+  const dm=o.doneMark,alerts=dm?['✓ 완료 처리',...new Set([ODMEMO[dm.how]??dm.how,dm.memo].filter(Boolean)),dm.ts&&when(dm.ts)].filter(Boolean).join(' · '):o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
   <td>${o.alerts.length?`<button class="mini odbtn" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
     dm?`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`:''}</td>
@@ -136,17 +136,15 @@ async function setODone(o,done,how,memo){
   try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({kind:'odone',order:o.order,...m})})).json();if(!r.ok)throw Error(r.error)}
   catch{toast('이 화면에는 반영했지만 다른 직원 화면에는 아직 반영되지 않았어요. (접수창구 새 버전 배포 필요)')}}
-// Default memo per choice; it doubles as the label, so a memo left as is shows once.
+// Marks made before the memo-only dialog carry a 독차 choice; shown as its label (once, even if the memo repeats it).
 const ODMEMO={'독차(우리)':'독차 (우리가 부름)','독차(화주)':'독차 (화주가 부름)','기타':''};
 let odOrder=null;
 document.addEventListener('click',e=>{const b=e.target.closest('[data-od]');if(!b)return;
   const o=D.orders.find(x=>x.order===b.dataset.od);if(!o)return;odOrder=o;
   $('#odOrder').textContent=adm(o);$('#odWho').textContent=`${o.name||''}${o.courier?' · '+o.courier:''}`;$('#odIssue').textContent=o.alerts.join(' · ');
-  document.querySelector('input[name=odHow][value="독차(우리)"]').checked=true;$('#odMemo').value=ODMEMO['독차(우리)'];$('#odDlg').showModal()});
-document.addEventListener('change',e=>{if(e.target.name!=='odHow')return;const memo=$('#odMemo');
-  if(Object.values(ODMEMO).includes(memo.value.trim()))memo.value=ODMEMO[e.target.value]});
+  $('#odMemo').value='';$('#odDlg').showModal();$('#odMemo').focus()});
 document.addEventListener('click',e=>{if(e.target.id!=='odSave'||!odOrder)return;
-  setODone(odOrder,true,document.querySelector('input[name=odHow]:checked').value,$('#odMemo').value.trim().slice(0,100));$('#odDlg').close()});
+  setODone(odOrder,true,'기타',$('#odMemo').value.trim().slice(0,100));$('#odDlg').close()});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-odundo]');if(!b)return;
   const o=D.orders.find(x=>x.order===b.dataset.odundo);if(o)setODone(o,false,o.doneMark?.how||'기타',o.doneMark?.memo||'')});
 function render(){

@@ -348,3 +348,4 @@ td.kclick:hover{background:var(--blue-soft);text-decoration:underline dotted}
 #odMemo{margin-top:6px}
 .msgcell{white-space:nowrap}
 .odbtn{border-color:color-mix(in srgb,var(--good) 50%,var(--line))!important;color:var(--good)!important}
+label[for=odMemo]{display:block;margin-top:16px}
