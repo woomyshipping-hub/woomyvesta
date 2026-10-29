@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="우마이 베스타">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=7e42e80f">
+<link rel="stylesheet" href="style.css?v=c9d2821f">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -151,16 +151,20 @@
   <dialog id="cusDlg" class="msgdlg cusdlg">
     <form method="dialog">
       <h3 tabindex="-1" autofocus>수입화물 진행정보</h3>
-      <p class="small cus-head" id="cusHead"></p>
-      <h4 class="cus-sec">처리 단계 진행</h4>
-      <ol class="cus-steps" id="cusSteps"></ol>
-      <h4 class="cus-sec">필수 확인</h4>
-      <div class="cus-cards" id="cusCards"></div>
-      <details class="cus-more" id="cusMore"><summary>더보기 · 유니패스 전체 정보</summary>
-        <div class="more-grid" id="cusInfo"></div></details>
-      <p class="small muted" id="cusAt"></p>
-      <div class="dlgbtns"><a class="btn" id="cusLink" target="_blank" rel="noopener">유니패스에서 원문 보기 ↗</a>
+      <div class="cus-plain" id="cusPlain"></div>
+      <p class="small cus-staff hidden" id="cusStaff"></p>
+      <div class="dlgbtns"><button type="button" class="btn primary" id="cusImg">🖼 이미지 복사</button>
+        <a class="btn" id="cusLink" target="_blank" rel="noopener">유니패스에서 원문 보기 ↗</a>
         <button class="btn send" value="close">닫기</button></div>
+      <details class="cus-more" id="cusMore"><summary>더보기 · 유니패스 처리단계와 전체 정보</summary>
+        <p class="small cus-head" id="cusHead"></p>
+        <h4 class="cus-sec">처리 단계 진행</h4>
+        <ol class="cus-steps" id="cusSteps"></ol>
+        <h4 class="cus-sec">필수 확인</h4>
+        <div class="cus-cards" id="cusCards"></div>
+        <h4 class="cus-sec">유니패스 전체 정보</h4>
+        <div class="more-grid" id="cusInfo"></div>
+        <p class="small muted" id="cusAt"></p></details>
     </form>
   </dialog>
   <dialog id="reDlg" class="msgdlg redlg">
@@ -175,6 +179,6 @@
   </dialog>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
-<script src="staff.js?v=7e42e80f"></script>
+<script src="staff.js?v=c9d2821f"></script>
 </body>
 </html>

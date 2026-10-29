@@ -303,10 +303,72 @@ function gripTable(table){
 for(const id of ['alerts','orders','batches']){const t=document.getElementById(id);if(!t)continue;
   new MutationObserver(()=>gripTable(t)).observe(t,{childList:true})}
 // 통관조회: the UNIPASS reading Vesta keeps for this order, in a window on the page (Esc or 닫기 to close):
-// 처리단계 timeline first, then the must-check facts as cards, then every UNIPASS field under 더보기.
+// first a plain-language card staff can copy as an image for 사업자 고객 (출항 → 부산항 도착 → 통관 → 국내 배송, and
+// whether the customer has to do anything), then the UNIPASS-style timeline, must-check cards and every field under 더보기.
 const dt=s=>s?s.replace('T',' ').slice(0,16):'—';
+const PORTS={osaka:'오사카',tokyo:'도쿄',kobe:'고베',yokohama:'요코하마',hakata:'하카타',fukuoka:'후쿠오카',shimonoseki:'시모노세키',nagoya:'나고야'};
+const mdt=s=>s?md(s)+(/\d{2}:\d{2}/.test(s.slice(11,16))&&s.slice(11,16)!=='00:00'?' '+s.slice(11,16):''):'';
+function cusPlain(o){
+  const u=o.unipass||{},steps=u.steps||[],info=Object.fromEntries(u.info||[]);
+  const at=re=>(steps.find(s=>re.test(s.step||''))||{}).at||'';
+  const port=(info['적재항']||'').split(':').pop().split(',')[0].trim().toLowerCase();
+  const all=[u.cargo,u.customs,...steps.map(s=>s.step)].join(' ');
+  const into=at(/반입신고/),cleared=u.clearedAt||at(/수입신고수리|통관목록심사완료/),out=u.releasedAt||at(/반출신고/);
+  const isCleared=!!cleared||/수리|심사완료/.test(u.customs||'')||o.stage>=3,isOut=!!out||u.cargo==='반출완료'||o.stage>=3;
+  const arrived=u.arrival||o.arDate;
+  // 통관: the plainest true sentence for where customs stands, and whether the customer must act ('need') or may be asked ('watch')
+  let cus,act=null;
+  const avg=(steps.find(s=>/평균 소요시간/.test(s.note||''))||{}).note;
+  if(/불합격|반송|폐기|멸각/.test(all)){
+    cus={state:'bad',title:/불합격/.test(all)?'검역 불합격':'통관 보류',date:mdt(u.customsAt),text:/불합격/.test(all)?
+      `검역 검사에서 불합격 판정이 났어요 (${u.cargo||'검사/검역'}). 이 물품은 이대로는 국내로 들여올 수 없어요.`:`세관에서 통관이 멈춘 상태예요 (${u.cargo||u.customs}).`};
+    act={level:'need',text:'해당 물품을 반송할지 폐기할지 알려 주세요. 결정해 주시면 바로 처리를 진행할게요.'}}
+  else if(u.inspect==='Y'||/검사|검역/.test(all)&&!isCleared){
+    cus={state:'now',title:'세관 검사·검역 중',date:mdt(u.customsAt),text:'세관에서 물품을 직접 확인하는 검사(또는 검역) 대상으로 선별돼 결과를 기다리고 있어요.'+(avg?` 보통 결과까지 ${avg.match(/(\d+)일/)?.[1]||'며칠'}일 정도 걸려요.`:' 결과가 나오면 통관이 이어져요.')};
+    act={level:'watch',text:'지금은 기다리시면 돼요. 세관에서 구매 영수증·상품 설명 같은 자료를 요청하면 바로 알려 드릴게요.'}}
+  else if(isCleared)cus={state:'done',title:'통관 완료',date:mdt(cleared),text:'세관 통관을 마쳤어요.'};
+  else if(/결재통보/.test(u.customs||'')){
+    cus={state:'now',title:'세관 담당자 확인 중',date:mdt(u.customsAt),text:'수입신고를 세관 담당자가 직접 확인하는 단계예요. 대부분 그대로 통과하지만 하루 이틀 더 걸릴 수 있어요.'};
+    act={level:'watch',text:'지금은 기다리시면 돼요. 세관에서 구매 영수증·인보이스를 요청할 수 있으니 구매 내역을 준비해 두시면 빨라요.'}}
+  else if(/심사진행|수입신고$/.test(u.customs||''))cus={state:'now',title:'통관 심사 중',date:mdt(u.customsAt),text:'수입신고를 마치고 세관에서 심사하고 있어요. 문제가 없으면 곧 통관이 끝나요.'};
+  else if(/통관목록/.test(u.customs||''))cus={state:'now',title:'통관 심사 중',date:mdt(u.customsAt),text:'간이 통관 목록이 접수돼 세관 심사를 기다리고 있어요.'};
+  else if(into||/반입/.test(u.cargo||''))cus={state:'now',title:'통관 준비 중',date:mdt(into),text:'부산 세관 창고에 들어와 통관 신고를 기다리고 있어요.'};
+  else if(arrived)cus={state:'now',title:'통관 준비 중',date:'',text:'부산항에 도착해 세관 창고로 옮겨지는 중이에요.'};
+  else cus={state:'todo',title:'통관',date:'',text:'부산항에 도착하면 통관이 시작돼요.'};
+  const rows=[
+    {state:o.obDate?'done':'now',title:'일본 출항',date:o.obDate?md(o.obDate):'',text:o.obDate?`${PORTS[port]?PORTS[port]+'항':'일본'}에서 배로 출발했어요.`:'아직 배에 실리기 전이에요.'},
+    {state:arrived?'done':o.obDate?'now':'todo',title:'부산항 도착',date:arrived?md(arrived):'',text:arrived?'부산항에 도착했어요.'+(into?` ${mdt(into)}에 세관 창고에 들어갔어요.`:''):o.obDate?'바다를 건너오고 있어요.':'출항 후 보통 다음 날 도착해요.'},
+    cus,
+    {state:o.stage>=4?'done':isOut?'now':'todo',title:o.stage>=4?'배송 완료':'국내 배송',date:isOut&&o.stage<4?mdt(out):'',
+      text:(o.stage>=4?'국내 배송까지 모두 끝났어요.':isOut?'세관 창고에서 나와 국내 택배로 넘어갔어요.':'통관이 끝나면 국내 택배로 넘어가요.')+
+        (isOut&&o.courierNo?` 택배사 ${o.courier||'—'} · 운송장 ${o.courierNo}`:'')}];
+  const now=act&&act.level==='need'?cus:[...rows].reverse().find(r=>r.state==='now')||[...rows].reverse().find(r=>r.state==='done')||rows[0];
+  const head=now===cus?cus.title:now.title==='국내 배송'?'통관 완료 · 국내 배송 중':now.title==='부산항 도착'&&now.state==='now'?'바다를 건너오는 중':now.title==='일본 출항'&&now.state==='now'?'일본 출항 준비 중':now.title;
+  return {rows,act,head,tone:act?act.level:o.stage>=4||isCleared?'good':'now'};
+}
+function plainHtml(o){
+  const p=cusPlain(o),u=o.unipass||{};
+  const act=p.act?`<div class="cp-act ${p.act.level}"><b>${p.act.level==='need'?'⚠️ 화주님 조치가 필요해요':'ℹ️ 참고해 주세요'}</b><p>${esc(p.act.text)}</p></div>`:
+    `<div class="cp-act ok"><b>✓ 지금은 따로 하실 일이 없어요</b><p>진행되는 대로 저희가 확인하고 있어요.</p></div>`;
+  return `<div class="cp-top"><span class="cp-brand">우마이직구 · 수입 통관 진행 안내</span><span class="cp-when">${u.checkedAt?esc(when(u.checkedAt))+' 기준':''}</span></div>`+
+    `<div class="cp-id"><b>${esc(adm(o))}</b>${part(o)?` · ${esc(part(o))}`:''} · ${esc(o.item||'')}<br><span>받는 분 ${esc(o.name||'—')} · H B/L ${esc(o.hbl||'—')}</span></div>`+
+    `<div class="cp-now ${p.tone}"><span>지금 상황</span><b>${esc(p.head)}</b></div>`+act+
+    `<ol class="cp-steps">${p.rows.map(r=>`<li class="${r.state}"><div class="cp-h"><b>${esc(r.title)}</b><span>${esc(r.date||'')}</span></div><p>${esc(r.text)}</p></li>`).join('')}</ol>`;
+}
+// 이미지 복사: the plain card as a PNG on the clipboard (paste into 카카오톡); saved as a file where the browser blocks it.
+let h2c;const loadH2C=()=>h2c??=new Promise((ok,no)=>{const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';s.onload=()=>ok(window.html2canvas);s.onerror=no;document.head.append(s)});
+$('#cusImg').addEventListener('click',async()=>{const el=$('#cusPlain'),b=$('#cusImg'),name=(el.dataset.order||'통관안내')+'.png';
+  b.disabled=true;
+  const blob=loadH2C().then(f=>f(el,{scale:2,backgroundColor:'#ffffff',logging:false})).then(c=>new Promise(r=>c.toBlob(r,'image/png')));
+  try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);toast('이미지를 복사했어요. 카카오톡 대화창에 붙여넣기(⌘V / Ctrl+V) 하세요.')}
+  catch{try{const a=document.createElement('a');a.href=URL.createObjectURL(await blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3);
+    toast('브라우저가 복사를 막아 이미지 파일로 내려받았어요.')}catch{toast('이미지를 만들지 못했어요. 화면을 캡처해 주세요.')}}
+  finally{b.disabled=false}});
 function openCus(order){
   const o=D.orders.find(x=>x.order===order);if(!o)return;const u=o.unipass||{};
+  $('#cusPlain').innerHTML=plainHtml(o);$('#cusPlain').dataset.order=adm(o);
+  $('#cusStaff').classList.toggle('hidden',!o.alerts.length);$('#cusStaff').textContent=o.alerts.length?`직원 확인용 (이미지에는 안 들어가요): ${o.alerts.join(' · ')}`:'';
   $('#cusHead').innerHTML=`<b>${esc(adm(o))}</b>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''} <span class="muted">· H B/L ${esc(o.hbl)} · ${esc(o.name)}</span>`;
   const steps=u.steps||[];
   $('#cusSteps').innerHTML=steps.length?steps.map((s,i)=>`<li class="${i===0?'now':''}"><div class="st-head"><b>${esc(s.step||'—')}</b><span class="muted">${esc(dt(s.at))}</span></div>`+
@@ -317,7 +379,7 @@ function openCus(order){
     ['수입신고수리',dt(u.clearedAt)],['반출신고',dt(u.releasedAt)],['관리대상검사',u.inspect==='Y'?'검사 대상':u.inspect==='N'?'아님':u.inspect],['확인할 점',o.alerts.join(' · ')]];
   $('#cusCards').innerHTML=key.map(([k,v])=>`<div class="cus-card${k==='확인할 점'?' wide':''}"><span>${esc(k)}</span><b>${esc(v||'—')}</b></div>`).join('');
   const info=u.info||[];
-  $('#cusMore').classList.toggle('hidden',!info.length&&!steps.length);$('#cusMore').open=false;
+  $('#cusMore').open=false;
   // 더보기 grid: short values sit 2-3 to a row, long ones (품명, B/L, step details) take the full width.
   const cell=(k,v)=>`<div class="mi${String(v||'').length>26?' full':''}"><span>${esc(k)}</span><b>${esc(v||'—')}</b></div>`;
   $('#cusInfo').innerHTML=info.map(([k,v])=>cell(k,v)).join('')+
