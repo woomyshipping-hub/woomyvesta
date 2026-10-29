@@ -881,9 +881,16 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
   if(!$('#qTo').value.trim()){msg('수신(고객 이름)을 먼저 넣어 주세요.');$('#qTo').focus();return}
   if(!qrows().length){msg('견적 항목이 없어요.');return}
   b.disabled=true;
-  try{if(!Q.no){msg('견적번호를 받는 중…');const {total}=qdoc();
+  // The quote itself goes with its number (sheet 견적번호, column 견적 내용) so Claude can write the 구매 정리 row once the
+  // customer says they paid; making the image again after edits updates it.
+  const detail=()=>{const sh=qship(),f=qfee(),{sub,vat,total}=qdoc();return {type:Q.type,to:$('#qTo').value.trim(),grade:$('#qGrade').value,rate:qrate(),
+    items:Q.items.map(({url,title,qty,price,ship,shop})=>({url,title,qty,price,ship,shop})),ship:sh.yen,shipNote:sh.note,fee:f.yen,feeNote:f.note,
+    lines:Q.lines[Q.type],vat:Q.vat[Q.type],sub,vatWon:vat,total}};
+  try{if(Q.no&&D.smsIntake)fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({kind:'quoteSave',no:Q.no,total:qdoc().total,detail:detail()})}).catch(()=>{});
+    if(!Q.no){msg('견적번호를 받는 중…');const {total}=qdoc();
       try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({kind:'quoteNo',type:Q.type,to:$('#qTo').value.trim(),total,at:new Date().toISOString()})})).json();if(!r.ok||!r.no)throw 0;Q.no=r.no}
+        body:JSON.stringify({kind:'quoteNo',type:Q.type,to:$('#qTo').value.trim(),total,detail:detail(),at:new Date().toISOString()})})).json();if(!r.ok||!r.no)throw 0;Q.no=r.no}
       catch{const day=qtoday().replace(/-/g,''),k='woomyvesta-qno-'+day,n=(+localStorage.getItem(k)||100)+1;localStorage.setItem(k,n);Q.no=`${day}_${n}`;
         toast('공용 견적번호를 받지 못해 이 PC 번호로 만들었어요. 다른 직원 번호와 겹칠 수 있어요.')}
       qsave()}
