@@ -885,8 +885,8 @@ async function qfetchLink(it){
 // shop suffixes and "1円" openers dropped, then the model number (letters + digits, e.g. SFA-33GY, DW-5600) with the first
 // words around it, at most ~28 characters. Staff can still edit it; the full title stays in it.fullTitle.
 function qshort(t){t=String(t||'').replace(/【[^】]*】|\[[^\]]*\]|［[^］]*］|（[^）]*）|\([^)]*\)|≪[^≫]*≫|<[^>]*>/g,' ')
-    .split(/\s+[-|｜／]\s+|\s*[|｜]\s*/)[0].replace(/^\s*(\d+円|送料無料|即決|新品|中古|美品|未使用)\s*/g,'').replace(/\s+/g,' ').trim();
-  const w=t.split(' '),model=w.find(x=>/[A-Za-z]/.test(x)&&/\d/.test(x)&&x.length>=4);
+    .split(/\s+[-|｜／]\s+|\s*[|｜]\s*/)[0].replace(/^\s*((\d+円|送料無料|即決|新品|中古|美品|未使用|展示品|在庫あり)\s*)+/g,'').replace(/\s+/g,' ').trim();
+  const w=t.split(' '),model=w.find(x=>/[A-Za-z]/.test(x)&&/\d/.test(x)&&x.length>=4&&!/^[WDHφ]?\d+(\.\d+)?(cm|mm|L|kg)?$/i.test(x)&&!/\d\s*[x×*]\s*\d/i.test(x));   // not a size like W1600 or 80x28x202
   let out=w.slice(0,2).join(' ');if(model&&!out.includes(model))out=(w[0]===model?model:w[0]+' '+model);
   for(const x of w.slice(2)){if((out+' '+x).length>28)break;if(out.length<14)out+=' '+x;else break}
   return out.slice(0,32)}
