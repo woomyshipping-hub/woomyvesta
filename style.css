@@ -412,3 +412,4 @@ label[for=odMemo]{display:block;margin-top:16px}
 @media(max-width:620px){.q-grid{grid-template-columns:1fr}.q-edit .q-num{width:70px}}
 .q-doc :is(h2,th,td,b,span,p){color:#1d2433}.q-doc .qd-note{color:#3c475c}.q-doc .qd-fine,.q-doc .qd-rate{color:#7a8394}.q-doc .qd-empty{color:#9aa3b2}
 .qd-items th:nth-child(1){width:44px}.qd-items th:nth-child(2){width:118px}.qd-items th:nth-child(3){width:46px}.qd-items th:nth-child(4){width:84px}.qd-items th:nth-child(5){width:94px}.qd-meta td,.qd-meta th{vertical-align:middle}
+.cusdlg #cusImg{width:auto;margin-top:0;padding:11px 16px}

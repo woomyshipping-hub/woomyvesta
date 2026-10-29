@@ -377,7 +377,7 @@ $('#cusImg').addEventListener('click',async()=>{const el=$('#cusPlain'),b=$('#cu
 function openCus(order){
   const o=D.orders.find(x=>x.order===order);if(!o)return;const u=o.unipass||{};
   $('#cusPlain').innerHTML=plainHtml(o);$('#cusPlain').dataset.order=adm(o);
-  $('#cusStaff').classList.toggle('hidden',!o.alerts.length);$('#cusStaff').textContent=o.alerts.length?`직원 확인용 (이미지에는 안 들어가요): ${o.alerts.join(' · ')}`:'';
+  $('#cusStaff').classList.toggle('hidden',!o.alerts.length);$('#cusStaff').textContent=o.alerts.length?`직원 확인용: ${o.alerts.join(' · ')}`:'';
   $('#cusHead').innerHTML=`<b>${esc(adm(o))}</b>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''} <span class="muted">· H B/L ${esc(o.hbl)} · ${esc(o.name)}</span>`;
   const steps=u.steps||[];
   $('#cusSteps').innerHTML=steps.length?steps.map((s,i)=>`<li class="${i===0?'now':''}"><div class="st-head"><b>${esc(s.step||'—')}</b><span class="muted">${esc(dt(s.at))}</span></div>`+
