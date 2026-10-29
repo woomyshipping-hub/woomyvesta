@@ -862,7 +862,7 @@ function qprefill(it){const mem=(D.quoteMemory||{})[qkey(it.url)],past=qpastOf(i
   // Remembered or past prices only get the row started: the current page is always read again, and qfill says if it moved.
   const prev=mem&&mem.price?{price:mem.price,ship:mem.ship,title:mem.title,when:`${mem.at.slice(5).replace('-','/')} 확인`}
     :last&&last.price?{price:last.price,ship:last.ship,title:last.title||last.item,when:`${last.d.slice(5).replace('-','/')} 구매`}:null;
-  if(prev){Object.assign(it,{title:prev.title||'',price:prev.price,ship:prev.ship??'',prev});
+  if(prev){Object.assign(it,{title:qshort(prev.title),price:prev.price,ship:prev.ship??'',prev});
     it.pre=`지난 가격 (${prev.when}) ${yen(prev.price)}로 먼저 채움 · 현재 가격 확인 중 · `}
   return false}
 async function qfetchLink(it){
@@ -881,7 +881,16 @@ async function qfetchLink(it){
     it.state='fail';it.msg='15분 동안 답이 없어요. Claude가 꺼져 있을 수 있어요 — 직접 입력해 주세요.';qeditors()}
   catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}
   finally{qtick()}}
-function qfill(it,r){if(!Q.items.includes(it))return;Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:it.url?qshopOf(it.url):r.shop||it.shop||''});
+// Shop titles are long keyword lists ("ソファー ウレタンソファー 1人掛け 2人掛け …"). The quote gets a short name: brackets,
+// shop suffixes and "1円" openers dropped, then the model number (letters + digits, e.g. SFA-33GY, DW-5600) with the first
+// words around it, at most ~28 characters. Staff can still edit it; the full title stays in it.fullTitle.
+function qshort(t){t=String(t||'').replace(/【[^】]*】|\[[^\]]*\]|［[^］]*］|（[^）]*）|\([^)]*\)|≪[^≫]*≫|<[^>]*>/g,' ')
+    .split(/\s+[-|｜／]\s+|\s*[|｜]\s*/)[0].replace(/^\s*(\d+円|送料無料|即決|新品|中古|美品|未使用)\s*/g,'').replace(/\s+/g,' ').trim();
+  const w=t.split(' '),model=w.find(x=>/[A-Za-z]/.test(x)&&/\d/.test(x)&&x.length>=4);
+  let out=w.slice(0,2).join(' ');if(model&&!out.includes(model))out=(w[0]===model?model:w[0]+' '+model);
+  for(const x of w.slice(2)){if((out+' '+x).length>28)break;if(out.length<14)out+=' '+x;else break}
+  return out.slice(0,32)}
+function qfill(it,r){if(!Q.items.includes(it))return;Object.assign(it,{fullTitle:r.title||it.fullTitle,title:it.title||qshort(r.title),price:r.price??it.price,ship:r.ship??it.ship,shop:it.url?qshopOf(it.url):r.shop||it.shop||''});
   const took=it.t0?` (${mmss(Math.round((Date.now()-it.t0)/1000))})`:'';
   const moved=it.prev&&r.price&&r.price!==it.prev.price?` (지난 ${yen(it.prev.price)} → 지금 ${yen(r.price)}, 가격이 바뀌었어요)`:it.prev&&r.price?' (지난 가격과 같아요)':'';
   it.state='ok';it.msg=r.price?`✓ 현재 가격 확인${took}: ${yen(r.price)}${moved}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:`가격을 찾지 못했어요. ${r.shipNote||'직접 입력해 주세요.'}`;
