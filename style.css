@@ -338,3 +338,12 @@ td.kclick:hover{background:var(--blue-soft);text-decoration:underline dotted}
 .brow[hidden]{display:none}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .bs0{background:color-mix(in srgb,var(--blue) 38%,var(--card))}:root:not([data-theme="light"]) .bs1{background:color-mix(in srgb,var(--blue) 58%,var(--card));color:#fff}:root:not([data-theme="light"]) .bs2{background:color-mix(in srgb,var(--blue) 78%,var(--card))}}
 :root[data-theme="dark"] .bs0{background:color-mix(in srgb,var(--blue) 38%,var(--card))}:root[data-theme="dark"] .bs1{background:color-mix(in srgb,var(--blue) 58%,var(--card));color:#fff}:root[data-theme="dark"] .bs2{background:color-mix(in srgb,var(--blue) 78%,var(--card))}
+/* 완료 처리 (독차 등) */
+.k-done{color:var(--good)}.chip.k-done{border-color:color-mix(in srgb,var(--good) 45%,var(--line))}.chip.k-done.on{background:var(--good);border-color:var(--good);color:#fff}
+.msgdlg .center{text-align:center}
+.odhow{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:14px 0 16px}
+.odhow label{white-space:nowrap;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--line);border-radius:999px;cursor:pointer;font-size:13.5px;font-weight:600}
+.odhow label:has(input:checked){border-color:var(--good);background:var(--good-soft);color:var(--good)}
+.odhow input{accent-color:var(--good);margin:0}
+#odMemo{margin-top:6px}
+.msgcell{white-space:nowrap}

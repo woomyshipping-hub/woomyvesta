@@ -7,7 +7,7 @@
 <title>우마이 베스타</title>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=231b2f6d">
+<link rel="stylesheet" href="style.css?v=0e4cb93d">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -110,6 +110,22 @@
     <button type="button" class="ki-nav" id="kiPrev" aria-label="이전 사진">‹</button><button type="button" class="ki-nav next" id="kiNext" aria-label="다음 사진">›</button>
     <div class="ki-bar"><span id="kiCount"></span><button type="button" class="btn small-btn" id="kiClose">닫기</button></div>
   </dialog>
+  <dialog id="odDlg" class="msgdlg">
+    <form method="dialog">
+      <h3>완료 처리</h3>
+      <p class="small center"><b id="odOrder" class="mono"></b> <span id="odWho" class="muted"></span></p>
+      <p class="small muted center" id="odIssue"></p>
+      <div class="odhow" role="radiogroup" aria-label="어떻게 나갔나요">
+        <label><input type="radio" name="odHow" value="독차(우리)" checked> 독차 · 우리가 부름</label>
+        <label><input type="radio" name="odHow" value="독차(화주)"> 독차 · 화주가 부름</label>
+        <label><input type="radio" name="odHow" value="기타"> 기타</label></div>
+      <label class="small" for="odMemo">메모 <span class="muted">(나중에 관리할 때 보여요 · 100자까지)</span></label>
+      <textarea id="odMemo" rows="2" maxlength="100"></textarea>
+      <p class="small muted">완료로 넘기면 확인 필요에서 빠지고 배송 완료로 세요. 다른 직원 화면에도 1분 안에 반영되고, ‘완료 처리’ 칩에서 언제든 되돌릴 수 있어요.</p>
+      <div class="dlgbtns"><button class="btn" value="close">취소</button>
+        <button type="button" class="btn send" id="odSave">완료 처리</button></div>
+    </form>
+  </dialog>
   <dialog id="msgDlg" class="msgdlg">
     <form method="dialog">
       <h3>지연 안내 문자</h3>
@@ -149,6 +165,6 @@
   </dialog>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
-<script src="staff.js?v=231b2f6d"></script>
+<script src="staff.js?v=0e4cb93d"></script>
 </body>
 </html>

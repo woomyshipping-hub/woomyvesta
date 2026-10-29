@@ -47,19 +47,20 @@ function row(o){
   const cp=n=>`<button class="copybtn" data-copy="${esc(n)}" title="운송장번호 복사" aria-label="운송장번호 복사">⧉</button>`;
   const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>(link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n))+cp(n)).join('<br>'):'—';
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
-  const alerts=o.alerts.join(' · ');
+  const dm=o.doneMark,alerts=dm?`✓ 완료 처리 · ${dm.how}${dm.memo?` · ${dm.memo}`:''}${dm.ts?` · ${when(dm.ts)}`:''}`:o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
   <td>${o.hbl?`<button class="mini" data-cus="${esc(o.order)}" title="통관 진행정보 보기">통관조회</button>`:''}</td>
   <td class="mono" title="ERP: ${esc(o.order)}">${esc(adm(o))}<button class="copybtn" data-copy="${esc(adm(o))}" title="주문번호 복사" aria-label="주문번호 복사">⧉</button>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}</td>
   <td class="mono waybill">${no}</td><td>${esc(o.name)}</td>
   <td class="clip" title="${o.writer?esc(`${o.writer.name} (${o.writer.id}) ${o.writer.box} · 신청 ${o.writer.app}`):o.writerMissing?'개별 업로드 주문이라 관리자에서 요청서를 찾을 수 없어요':''}">${o.writer?`${esc(o.writer.name)} <span class="muted small">${esc(o.writer.box)}</span>`:o.writerMissing?'<span class="k-handover">작성자 확인 필요</span>':''}</td><td class="clip" title="${esc(o.item)}">${esc(o.item)}</td>
   <td><span class="pill s${o.stage}" title="ERP: ${esc(o.erp)}">${esc(D.stages[o.stage])}</span></td>
-  <td class="clip alertline ${o.kind?KIND[o.kind][1]:''}" title="${esc(alerts)}">${esc(alerts)}</td>
+  <td class="clip alertline ${dm?'k-done':o.kind?KIND[o.kind][1]:''}" title="${esc(alerts)}">${esc(alerts)}</td>
   <td class="num">${md(o.orderDate)}</td><td class="num">${md(o.obDate)}</td><td class="num">${md(o.arDate)}</td><td class="num">${since}</td>
   <td>${esc(o.courier||'미정')}</td>
-  <td class="msgcell">${msgCell(o)}</td></tr>`;
+  <td class="msgcell">${msgCell(o)}${o.alerts.length?` <button class="mini" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
+    dm?`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`:''}</td></tr>`;
 }
-const HEAD='<thead><tr><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="작성자에게 지연 안내 문자 (우마이직구 관리자에서 발송)">문자</th></tr></thead>';
+const HEAD='<thead><tr><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="문자: 작성자에게 지연 안내 (우마이직구 관리자에서 발송) · 완료: 독차 등으로 이미 나간 주문을 완료로 넘기기">문자 · 완료</th></tr></thead>';
 const matches=(o,q)=>!q||[o.order,adm(o),o.hbl,o.courierNo,o.item,o.name,o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
 // 정렬: click a column title (not its border) to sort ▲, again ▼, a third time back to the default order.
 const KORDER={customs:0,handover:1,unknown:2,domestic:3};
@@ -80,10 +81,14 @@ document.addEventListener('click',e=>{const th=e.target.closest('th');if(!th||e.
   sortBy[table.id]=!st||st.col!==col?{col,dir:1}:st.dir>0?{col,dir:-1}:null;
   table.id==='alerts'?renderAlerts():renderList()});
 function renderAlerts(){
-  const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>o.alerts.length),shown=al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
+  const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>o.alerts.length),dn=D.orders.filter(o=>o.doneMark&&o._base.alerts.length);
+  if(kindFilter==='done'&&!dn.length)kindFilter='';
+  const shown=kindFilter==='done'?dn.filter(o=>matches(o,q)):al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
   $('#alertCount').textContent=shown.length===al.length?`${al.length}건`:`${shown.length} / ${al.length}건`;
   $('#kindChips').innerHTML=`<button class="chip${kindFilter?'':' on'}" data-kind="">전체 ${al.length}</button>`+
-    Object.entries(KIND).filter(([k])=>D.kinds[k]).map(([k,[label,cls]])=>`<button class="chip ${cls}${kindFilter===k?' on':''}" data-kind="${k}">${esc(label)} ${D.kinds[k]}</button>`).join('');
+    Object.entries(KIND).filter(([k])=>D.kinds[k]).map(([k,[label,cls]])=>`<button class="chip ${cls}${kindFilter===k?' on':''}" data-kind="${k}">${esc(label)} ${D.kinds[k]}</button>`).join('')+
+    (dn.length?`<button class="chip k-done${kindFilter==='done'?' on':''}" data-kind="done" title="독차 등으로 직원이 완료로 넘긴 주문">✓ 완료 처리 ${dn.length}</button>`:'');
+  if(kindFilter==='done')$('#alertCount').textContent=`완료 처리 ${shown.length}건`;
   shownAlerts=sorted(shown,'alerts');
   $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||`<tr><td colspan="14" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
 }
@@ -104,7 +109,46 @@ document.addEventListener('click',e=>{const k=e.target.closest('[data-go]');if(!
   $('#stage').value=go;$('#flag').value='';dayFilter='';renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 // A section that fails to draw is logged and skipped so the rest of the page still shows (see healthy()).
 const safe=f=>{try{f()}catch(e){console.error('[vesta]',e)}};
+// 완료 처리 (독차 등): staff mark an order the couriers cannot track as done. Marks are shared through the 접수창구
+// (sheet 주문완료); the build bakes them in as o.manual, live marks win, and this browser's own clicks win for a few minutes.
+const OKEY='woomyvesta-odone';let OMARKS={};
+const oLocal=()=>{try{return JSON.parse(localStorage.getItem(OKEY)||'{}')}catch{return {}}};
+function oMarkOf(o){const l=oLocal()[o.order],s=OMARKS[o.order];
+  if(l&&(!s||Date.now()-l.since<5*60e3))return l;if(s)return s;
+  return o.manual?{done:true,how:o.manual.how,memo:o.manual.memo,ts:o.manual.at}:null}
+function applyMarks(){
+  for(const o of D.orders){
+    o._base??=o.manual?{alerts:o.manual.alerts,kind:o.manual.kind,stage:o.manual.stage}:{alerts:o.alerts,kind:o.kind,stage:o.stage};
+    const m=oMarkOf(o);
+    if(m&&m.done)Object.assign(o,{alerts:[],kind:'',stage:4,doneMark:m});else Object.assign(o,o._base,{doneMark:null})}
+  const cnt=f=>{const c={};D.orders.forEach(o=>{const k=f(o);if(k)c[k]=(c[k]||0)+1});return c};
+  D.summary=cnt(o=>D.stages[o.stage]);D.kinds=cnt(o=>o.kind);D.alerts=D.orders.filter(o=>o.alerts.length).length;
+  const by={};D.orders.forEach(o=>{const b=by[o.orderDate]??={orderDate:o.orderDate};b[D.stages[o.stage]]=(b[D.stages[o.stage]]||0)+1});
+  D.batches=Object.values(by).sort((a,b)=>b.orderDate.localeCompare(a.orderDate))}
+async function loadODone(){if(!D?.smsIntake)return;try{const r=await (await fetch(`${D.smsIntake}?action=orderDoneList`)).json();
+  if(r.ok&&JSON.stringify(r.marks)!==JSON.stringify(OMARKS)){OMARKS=r.marks||{};render()}}catch{}}
+async function setODone(o,done,how,memo){
+  const m={done,how,memo,ts:new Date().toISOString()},all=oLocal();all[o.order]={...m,since:Date.now()};
+  try{localStorage.setItem(OKEY,JSON.stringify(all))}catch{}
+  render();toast(done?`${adm(o)} 주문을 완료 처리했어요.`:`${adm(o)} 주문의 완료 처리를 되돌렸어요.`);
+  if(!D.smsIntake)return;
+  try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({kind:'odone',order:o.order,...m})})).json();if(!r.ok)throw Error(r.error)}
+  catch{toast('이 화면에는 반영했지만 다른 직원 화면에는 아직 반영되지 않았어요. (접수창구 새 버전 배포 필요)')}}
+const ODMEMO={'독차(우리)':'독차 (우리가 부름)','독차(화주)':'독차 (화주가 부름)','기타':''};
+let odOrder=null;
+document.addEventListener('click',e=>{const b=e.target.closest('[data-od]');if(!b)return;
+  const o=D.orders.find(x=>x.order===b.dataset.od);if(!o)return;odOrder=o;
+  $('#odOrder').textContent=adm(o);$('#odWho').textContent=`${o.name||''}${o.courier?' · '+o.courier:''}`;$('#odIssue').textContent=o.alerts.join(' · ');
+  document.querySelector('input[name=odHow][value="독차(우리)"]').checked=true;$('#odMemo').value=ODMEMO['독차(우리)'];$('#odDlg').showModal()});
+document.addEventListener('change',e=>{if(e.target.name!=='odHow')return;const memo=$('#odMemo');
+  if(Object.values(ODMEMO).includes(memo.value.trim()))memo.value=ODMEMO[e.target.value]});
+document.addEventListener('click',e=>{if(e.target.id!=='odSave'||!odOrder)return;
+  setODone(odOrder,true,document.querySelector('input[name=odHow]:checked').value,$('#odMemo').value.trim().slice(0,100));$('#odDlg').close()});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-odundo]');if(!b)return;
+  const o=D.orders.find(x=>x.order===b.dataset.odundo);if(o)setODone(o,false,o.doneMark?.how||'기타',o.doneMark?.memo||'')});
 function render(){
+  applyMarks();
   $('#updated').textContent=`· ${new Date(D.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${D.range[0]} ~ ${D.range[1]} 주문`;
   // Cards in the order staff should look at them; each jumps to the table holding those orders.
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
@@ -472,7 +516,7 @@ $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');i
 setTab(new URLSearchParams(location.search).get('tab')==='kakao'?'kakao':'ship');
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render();
   try{const req=JSON.parse(localStorage.getItem(RREQ)||'null');if(req&&D.smsIntake&&Date.now()-req.since<40*60e3)watchRefresh(req)}catch{}watchSends();
-  loadDone();setInterval(loadDone,60e3)}   // other staff's 처리완료 ticks
+  loadDone();setInterval(loadDone,60e3);loadODone();setInterval(loadODone,60e3)}   // other staff's 처리완료 ticks
 $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disabled=true;b.textContent='확인 중…';$('#pwErr').textContent='';
   try{await unlock($('#pw').value)}catch{const e=$('#pwErr');if(e)e.textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};
 $('#gq').addEventListener('input',()=>{renderAlerts();renderList();renderKakao()});
