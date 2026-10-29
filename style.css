@@ -476,3 +476,36 @@ label[for=odMemo]{display:block;margin-top:16px}
 .qd-co .qd-rep{margin-top:auto!important}
 .qd-top .qd-coname{margin-top:18px}
 .qd-top .qd-coname{align-self:flex-start}
+/* 견적서 editor polish: one spacing rhythm, a fixed-width table so 상품명 gets room, help text set apart */
+.q-wrap{grid-template-columns:minmax(560px,1fr) 760px;gap:22px}
+@media(max-width:1380px){.q-wrap{grid-template-columns:1fr}.q-preview{position:static}}
+.q-form{letter-spacing:-.005em;line-height:1.55}
+.q-form label{margin:18px 0 7px;font-size:13px}
+.q-form .q-type{margin-bottom:4px}
+.q-form .q-auto{margin-top:12px}
+.q-form #qAutoMsg{margin:8px 2px 0}
+.q-form .q-grid{gap:14px;margin-top:6px}
+.q-form .q-grid label{margin-top:14px}
+.q-form #qRateNote,.q-form #qGradeNote,.q-form #qBuy>p.small{margin:8px 2px 0;font-size:12px;line-height:1.6}
+.q-form #qBuy>p.small.muted:last-of-type{padding:9px 12px;border-radius:10px;background:var(--bg);margin-top:12px}
+.q-form .cus-sec{margin:24px 0 10px}
+.q-sheet{table-layout:fixed;width:100%}
+.q-sheet th{font-size:12px;padding:8px 6px}
+.q-sheet th:nth-child(1){width:34px}.q-sheet th:nth-child(3){width:58px}.q-sheet th:nth-child(4){width:124px}.q-sheet th:nth-child(5){width:31%}.q-sheet th:nth-child(6){width:34px}
+.q-sheet td{padding:7px 5px;vertical-align:top}
+.q-sheet td.q-n{padding-top:15px}
+.q-sheet td:nth-child(2){font-size:13px}.q-sheet tr.q-fixed td:nth-child(2),.q-sheet tr.q-fixed td:nth-child(3){padding-top:15px}
+.q-sheet td input{width:100%;min-width:0;box-sizing:border-box;padding:9px 10px;font-size:13px;line-height:1.3}
+.q-sheet td:nth-child(2) input,.q-sheet td:nth-child(6) input{min-width:0}
+.q-sheet td:nth-child(3) input{width:100%;text-align:center}
+.q-sheet td:nth-child(4){white-space:normal}
+.q-sheet td:nth-child(4) .q-cur{display:none}
+.q-sheet td:nth-child(4) input{text-align:right}
+.q-sheet .q-krw{margin-top:4px;text-align:right;font-size:11.5px;color:var(--muted);min-height:15px}
+.q-sheet tr.q-sub td{padding:0 5px 10px}.q-sheet tr.q-sub .q-link{margin:0 0 3px;font-size:11.5px}
+.q-sheet tr.q-sub .q-st{margin:2px 0 0;font-size:12px;line-height:1.5}
+.q-sheet td:last-child{text-align:center;padding-top:12px}
+.q-adds{margin-top:12px}.q-btns{margin-top:22px}
+.q-sheet th:nth-child(4){width:108px}.q-sheet th:nth-child(5){width:27%}.q-sheet th:nth-child(3){width:54px}
+.q-sheet textarea.q-title{width:100%;box-sizing:border-box;padding:7px 9px;font:inherit;font-size:12.5px;line-height:1.4;font-weight:600;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);resize:vertical;min-height:40px}
+.q-sheet tr.q-sub td{text-align:left}
