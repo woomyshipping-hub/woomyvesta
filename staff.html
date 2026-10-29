@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="우마이 베스타">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=ce3e218c">
+<link rel="stylesheet" href="style.css?v=307c847e">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -113,6 +113,17 @@
     <button type="button" class="ki-nav" id="kiPrev" aria-label="이전 사진">‹</button><button type="button" class="ki-nav next" id="kiNext" aria-label="다음 사진">›</button>
     <div class="ki-bar"><span id="kiCount"></span><button type="button" class="btn small-btn" id="kiClose">닫기</button></div>
   </dialog>
+  <dialog id="kmDlg" class="msgdlg">
+    <form method="dialog">
+      <h3>메모</h3>
+      <p class="small center"><b id="kmName"></b></p>
+      <p class="small muted center" id="kmLast"></p>
+      <label class="small" for="kmMemo">메모 <span class="muted">(다른 직원 화면에도 보여요 · 100자까지)</span></label>
+      <textarea id="kmMemo" rows="2" maxlength="100" placeholder="예: 내일 오전 통관 확인 후 안내 · 비우고 저장하면 메모가 지워져요"></textarea>
+      <div class="dlgbtns"><button class="btn" value="close">취소</button>
+        <button type="button" class="btn send" id="kmSave">저장</button></div>
+    </form>
+  </dialog>
   <dialog id="odDlg" class="msgdlg">
     <form method="dialog">
       <h3>완료 처리</h3>
@@ -164,6 +175,6 @@
   </dialog>
   <footer>우마이 베스타 · 꺼지지 않는 불처럼, 모든 주문을 지켜봅니다 · ERP(팬스타 expressWeb) 조회 결과 · 하루 두 번 갱신 · 이 페이지의 정보는 외부에 공유하지 마세요.</footer>
 </main>
-<script src="staff.js?v=ce3e218c"></script>
+<script src="staff.js?v=307c847e"></script>
 </body>
 </html>
