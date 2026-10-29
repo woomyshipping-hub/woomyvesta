@@ -36,6 +36,9 @@ const unipass=o=>`https://unipass.customs.go.kr/csp/index.do?tgMenuId=MYC_MNU_00
 const KIND={customs:['통관 미완료','k-customs'],handover:['택배 인계 지연','k-handover'],unknown:['확인 전','k-unknown'],
   domestic:['국내배송 진행중','k-domestic'],delivered:['국내배송 완료 · ERP 미반영','k-delivered']};
 let kindFilter='',shownAlerts=[];
+// The search box at the top filters both tabs, so an empty table says which word hides the rows.
+const noneMsg=()=>{const q=$('#gq').value.trim();return q?`‘${esc(q)}’ 검색 결과가 없어요. <button type="button" class="mini" data-clearq>검색어 지우기</button>`:'조건에 맞는 주문이 없어요.'};
+document.addEventListener('click',e=>{if(!e.target.closest('[data-clearq]'))return;$('#gq').value='';renderAlerts();renderList();renderKakao()});
 const toast=t=>{const el=$('#toast');el.textContent=t;el.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.add('hidden'),2600)};
 const KPI_ORDER=['통관 시작','국내배송','해운 출발','특송업체 픽업','배송 완료'];
 // One spreadsheet-like line per order; multi-box waybills stack one per line. Long text is cut with … (full text on hover).
@@ -82,14 +85,14 @@ function renderAlerts(){
   $('#kindChips').innerHTML=`<button class="chip${kindFilter?'':' on'}" data-kind="">전체 ${al.length}</button>`+
     Object.entries(KIND).filter(([k])=>D.kinds[k]).map(([k,[label,cls]])=>`<button class="chip ${cls}${kindFilter===k?' on':''}" data-kind="${k}">${esc(label)} ${D.kinds[k]}</button>`).join('');
   shownAlerts=sorted(shown,'alerts');
-  $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||'<tr><td colspan="14" class="muted">검색 결과가 없어요.</td></tr>')+'</tbody>';
+  $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||`<tr><td colspan="14" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
 }
 let dayFilter='';
 function renderList(){
   const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value;
   const list=D.orders.filter(o=>(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
   $('#count').innerHTML=(dayFilter?`<button class="daychip" data-clearday title="주문일 필터 해제">${md(dayFilter)} 주문만 ✕</button> `:'')+`${list.length.toLocaleString()}건${list.length>300?' · 처음 300건만 표시 (오른쪽 위 검색으로 좁혀 보세요)':''}`;
-  $('#orders').innerHTML=HEAD+'<tbody>'+sorted(list,'orders').slice(0,300).map(row).join('')+'</tbody>';
+  $('#orders').innerHTML=HEAD+'<tbody>'+(sorted(list,'orders').slice(0,300).map(row).join('')||`<tr><td colspan="14" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-day],[data-clearday]');if(!b)return;
   dayFilter=b.dataset.day||'';if(b.dataset.day){$('#stage').value=b.dataset.st==='alert'?'':b.dataset.st;$('#flag').value=b.dataset.st==='alert'?'alert':''}
@@ -99,13 +102,15 @@ document.addEventListener('click',e=>{const c=e.target.closest('[data-kind]');if
 document.addEventListener('click',e=>{const k=e.target.closest('[data-go]');if(!k)return;const go=k.dataset.go;
   if(go==='alert'){kindFilter='';renderAlerts();$('#alertSec').scrollIntoView({behavior:'smooth',block:'start'});return}
   $('#stage').value=go;$('#flag').value='';dayFilter='';renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
+// A section that fails to draw is logged and skipped so the rest of the page still shows (see healthy()).
+const safe=f=>{try{f()}catch(e){console.error('[vesta]',e)}};
 function render(){
   $('#updated').textContent=`· ${new Date(D.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${D.range[0]} ~ ${D.range[1]} 주문`;
   // Cards in the order staff should look at them; each jumps to the table holding those orders.
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
     KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
   $('#rules').textContent=`기준: 해운 출발 후 영업일로 +${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (+1일까지는 정상, 주말·공휴일 제외, ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
-  renderAlerts();renderKakao();
+  safe(renderAlerts);safe(renderKakao);
   // 주문일별 진행: one stacked bar per order date (length = orders, color = stage), red badge = 확인 필요.
   const tot=b=>D.stages.reduce((a,s)=>a+(b[s]||0),0),most=Math.max(1,...D.batches.map(tot));
   const late={};D.orders.forEach(o=>{if(o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
@@ -113,9 +118,13 @@ function render(){
   const BSHOW=14;$('#batches').innerHTML=D.batches.map((b,n)=>{const t=tot(b);return `<div class="brow"${n>=BSHOW?' hidden':''}><span class="bdate">${md(b.orderDate)}</span>
     <div class="btrack"><div class="bbar" style="width:${t/most*100}%">${D.stages.map((s,i)=>b[s]?`<button class="bs${i}${b[s]/most<.04?' tiny':''}" style="flex:${b[s]}" data-day="${esc(b.orderDate)}" data-st="${i}" title="${esc(md(b.orderDate))} · ${esc(s)} ${b[s]}건">${b[s]}</button>`:'').join('')}</div></div>
     <span class="btot"><b>${t}</b>건${late[b.orderDate]?`<button class="blate" data-day="${esc(b.orderDate)}" data-st="alert" title="확인 필요 ${late[b.orderDate]}건만 보기">${late[b.orderDate]}</button>`:''}</span></div>`}).join('')+(D.batches.length>BSHOW?`<button class="btn small-btn bmore" data-bmore>이전 주문일 ${D.batches.length-BSHOW}개 더 보기</button>`:'');
-  $('#stage').innerHTML='<option value="">전체 단계</option>'+D.stages.map((s,i)=>`<option value="${i}">${esc(s)}</option>`).join('');
-  renderList();
+  const st=$('#stage').value;$('#stage').innerHTML='<option value="">전체 단계</option>'+D.stages.map((s,i)=>`<option value="${i}">${esc(s)}</option>`).join('');$('#stage').value=st;
+  safe(renderList);
 }
+// Self-check whenever a tab is shown: if the data is loaded but the page has no tables, draw again, and if that still
+// fails, load the page again (what F5 did when staff reported the page going blank after switching tabs and 새로고침).
+const healthy=()=>!!($('#kpis').children.length&&$('#orders thead')&&$('#alerts thead')&&(!D.kakao||$('#kTable thead')));
+function heal(){if(!D||healthy())return;console.warn('[vesta] page was empty; drawing again');safe(render);if(!healthy())location.reload()}
 // 확인할 점 split for Excel: the customs part and the delivery (택배) part in their own columns.
 function issues(o){
   const parts=o.alerts.join(' · ').split(' · ').filter(Boolean);
@@ -315,7 +324,7 @@ function renderKakao(){
       `<td>${esc(x.staff||'')}</td>`+
       `<td class="kact"><a class="mini" href="https://business.kakao.com/_xdetxmG/chats/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" title="열면 읽음 처리돼요. 직접 응대할 때만 여세요.">열기 ↗</a></td></tr>`});
   $('#kTable').innerHTML='<thead><tr><th title="처리완료">완료</th><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th><th></th></tr></thead><tbody>'+
-    (rows.join('')||`<tr><td colspan="10" class="muted">${kFilter==='done'?'처리완료로 옮긴 상담이 없어요.':'누락된 상담이 없어요.'}</td></tr>`)+'</tbody>';
+    (rows.join('')||`<tr><td colspan="10" class="muted">${$('#gq').value.trim()?noneMsg():kFilter==='done'?'처리완료로 옮긴 상담이 없어요.':'누락된 상담이 없어요.'}</td></tr>`)+'</tbody>';
   $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. 결제 고객 = 이전에 결제·배송까지 간 고객. `:'')+`늦음: 기다린 시간 2시간부터 (주말 포함 실제 경과 시간).`;
   renderInsight();
 }
@@ -407,8 +416,15 @@ $('#kcSend').onclick=()=>{if(kSend(kDlgChat,$('#kcText').value))$('#kChatDlg').c
 // The request is just {kind:'refresh', at}; the page then polls its status and reloads itself when the new data is live.
 const RREQ='woomyvesta-krefresh';
 const rmsg=t=>{$('#kRefreshMsg').textContent=t};
-async function reloadData(){let pw=null;try{pw=sessionStorage.getItem(SS)}catch{}
-  if(!pw){location.reload();return false}const d=await open(pw);D=d;render();return true}
+// The page can outlive a publish: when the live staff.js is newer than the one running, load the page again (as F5 does)
+// instead of drawing new data with old code. One reload at a time; data without orders is never swapped in.
+const MYV=(document.querySelector('script[src*="staff.js"]')?.src.match(/v=(\w+)/)||[])[1];
+async function stale(){try{const v=((await (await fetch('staff.html',{cache:'no-store'})).text()).match(/staff\.js\?v=(\w+)/)||[])[1];return !!(v&&MYV&&v!==MYV)}catch{return false}}
+let reloading=null;
+function reloadData(){return reloading||(reloading=(async()=>{try{let pw=null;try{pw=sessionStorage.getItem(SS)}catch{}
+    if(!pw||await stale()){location.reload();return new Promise(()=>{})}
+    const d=await open(pw);if(!d||!Array.isArray(d.orders)||!d.orders.length)throw Error('empty');
+    D=d;render();return true}finally{reloading=null}})())}
 let rTimer=null,rCount=null;
 // The Mac picks requests up every 5 minutes from 9:00 to 21:55 KST (task vesta-kakao-refresh), so a waiting request
 // shows a countdown to the next pick-up instead of "곧".
@@ -424,15 +440,16 @@ function waitMsg(){const now=Date.now();if(!rTarget||now>rTarget+3*6e4)rTarget=n
   if(s>3600){const t=new Date(rTarget+9*36e5),today=new Date(now+9*36e5).getUTCDate()===t.getUTCDate();return `새로고침 요청됨 · ${today?'오늘':'내일'} 오전 9시에 시작해요`}
   return `새로고침 요청됨 · ${s>=60?`${Math.floor(s/60)}분 `:''}${s%60}초 후 시작해요`}
 function countdown(on){if(on&&rCount)return;clearInterval(rCount);rCount=null;if(on){rTarget=0;rmsg(waitMsg());rCount=setInterval(()=>rmsg(waitMsg()),1e3)}}
-function watchRefresh(req){clearTimeout(rTimer);
-  const tick=async()=>{if(Date.now()-req.since>40*60e3){countdown(false);rmsg('새로고침이 오래 걸리고 있어요. 관리자에게 알려 주세요.');try{localStorage.removeItem(RREQ)}catch{}return}
-    try{const r=await (await fetch(`${D.smsIntake}?action=refreshStatus&at=${encodeURIComponent(req.at)}`)).json();const st=r.status||'';
+let rGen=0;   // only the newest watcher keeps polling (each [새로고침] click used to start another loop)
+function watchRefresh(req){clearTimeout(rTimer);const gen=++rGen;
+  const tick=async()=>{if(gen!==rGen)return;if(Date.now()-req.since>40*60e3){countdown(false);rmsg('새로고침이 오래 걸리고 있어요. 관리자에게 알려 주세요.');try{localStorage.removeItem(RREQ)}catch{}return}
+    try{const r=await (await fetch(`${D.smsIntake}?action=refreshStatus&at=${encodeURIComponent(req.at)}`)).json();const st=r.status||'';if(gen!==rGen)return;
       countdown(st!=='진행 중'&&st!=='완료'&&!st.startsWith('실패'));
       if(st==='완료'){try{localStorage.removeItem(RREQ)}catch{}await reloadData();rmsg('');toast('카카오 누락 목록을 새로 가져왔어요.');return}
       if(st.startsWith('실패')){try{localStorage.removeItem(RREQ)}catch{}countdown(false);rmsg(`새로고침 실패 · ${st.replace(/^실패:?\s*/,'')}`);return}
       if(st==='진행 중')rmsg('카카오에서 가져오고 분석하는 중이에요…');
     }catch{countdown(false);rmsg('상태를 확인하지 못했어요. 잠시 뒤 다시 확인해요.')}
-    rTimer=setTimeout(tick,20e3)};
+    if(gen===rGen)rTimer=setTimeout(tick,20e3)};
   tick()}
 $('#kRefresh').onclick=async()=>{const b=$('#kRefresh');b.disabled=true;rmsg('최신 데이터 불러오는 중…');
   try{await reloadData()}catch{rmsg('데이터를 다시 불러오지 못했어요.');b.disabled=false;return}
@@ -450,7 +467,7 @@ function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
   $('#tabShip').classList.toggle('hidden',t!=='ship');$('#tabKakao').classList.toggle('hidden',t!=='kakao');
   if(push){const u=new URL(location.href);t==='ship'?u.searchParams.delete('tab'):u.searchParams.set('tab',t);history.replaceState(null,'',u)}
-}
+  heal()}
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)setTab(b.dataset.tab,true)});
 setTab(new URLSearchParams(location.search).get('tab')==='kakao'?'kakao':'ship');
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render();
@@ -460,6 +477,7 @@ $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disab
   try{await unlock($('#pw').value)}catch{const e=$('#pwErr');if(e)e.textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};
 $('#gq').addEventListener('input',()=>{renderAlerts();renderList();renderKakao()});
 $('#xlsxBtn').onclick=downloadExcel;
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)heal()});
 $('#msgText').addEventListener('input',countBytes);
 $('#msgCopy').onclick=()=>copy($('#msgText').value);
 $('#msgSend').onclick=goSend;$('#reSend').onclick=()=>{$('#reDlg').close();goSend()};
