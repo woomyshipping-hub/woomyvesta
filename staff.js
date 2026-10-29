@@ -469,6 +469,24 @@ function reloadData(){return reloading||(reloading=(async()=>{try{let pw=null;tr
     if(!pw||await stale()){location.reload();return new Promise(()=>{})}
     const d=await open(pw);if(!d||!Array.isArray(d.orders)||!d.orders.length)throw Error('empty');
     D=d;render();return true}finally{reloading=null}})())}
+// A page left open (another PC, a tab nobody touched for hours) keeps itself current: every 3 minutes while visible, and
+// whenever it comes back into view, it checks the live page and data. New code -> reload (login is kept for this tab);
+// new data only -> draw it in place. Skipped while staff are in a dialog or typing, and tried again next round.
+let dataTag=null;
+const vaultTag=async()=>{try{const r=await fetch('data/staff-vault.json',{method:'HEAD',cache:'no-store'});
+  return r.ok?(r.headers.get('etag')||r.headers.get('last-modified')||r.headers.get('content-length')):null}catch{return null}};
+const busy=()=>!!document.querySelector('dialog[open]')||(()=>{const a=document.activeElement;
+  return a&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT'&&a.type!=='button')&&a.id!=='gq'&&!!a.value})();
+let freshAt=0;
+async function keepFresh(){
+  if(!D||document.hidden||busy()||reloading||Date.now()-freshAt<60e3)return;freshAt=Date.now();
+  if(await stale()){location.reload();return}
+  const t=await vaultTag();if(!t)return;
+  if(dataTag===null){dataTag=t;return}
+  if(t!==dataTag){try{await reloadData();dataTag=t;toast('최신 배송 현황으로 업데이트했어요.')}catch{}}}
+setInterval(keepFresh,3*60e3);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)keepFresh()});
+window.addEventListener('focus',keepFresh);
 let rTimer=null,rCount=null;
 // The Mac picks requests up every 5 minutes from 9:00 to 21:55 KST (task vesta-kakao-refresh), so a waiting request
 // shows a countdown to the next pick-up instead of "곧".
@@ -516,7 +534,7 @@ $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');i
 setTab(new URLSearchParams(location.search).get('tab')==='kakao'?'kakao':'ship');
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render();
   try{const req=JSON.parse(localStorage.getItem(RREQ)||'null');if(req&&D.smsIntake&&Date.now()-req.since<40*60e3)watchRefresh(req)}catch{}watchSends();
-  loadDone();setInterval(loadDone,60e3);loadODone();setInterval(loadODone,60e3)}   // other staff's 처리완료 ticks
+  loadDone();setInterval(loadDone,60e3);loadODone();setInterval(loadODone,60e3);vaultTag().then(t=>{dataTag=t})}   // other staff's 처리완료 ticks
 $('#gateForm').onsubmit=async e=>{e.preventDefault();const b=$('#pwBtn');b.disabled=true;b.textContent='확인 중…';$('#pwErr').textContent='';
   try{await unlock($('#pw').value)}catch{const e=$('#pwErr');if(e)e.textContent='비밀번호가 맞지 않거나 데이터를 불러오지 못했어요.'}finally{b.disabled=false;b.textContent='들어가기'}};
 $('#gq').addEventListener('input',()=>{renderAlerts();renderList();renderKakao()});
