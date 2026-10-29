@@ -686,30 +686,29 @@ function qrows(){const r=qrate(),out=[];
     const f=qfee();if(f.yen)out.push({k:'fee',name:'구매수수료',qty:1,unit:Math.round(f.yen*r),note:f.note})}
   Q.lines[Q.type].forEach((l,i)=>{if(l[2]!==''&&qnum(l[2])!=null)out.push({k:'l'+i,name:l[0],qty:qnum(l[1])||1,unit:qnum(l[2]),note:l[3]})});
   return out}
-// The document, in the style of a Japanese 見積書 with Korean first and Japanese beside it: customer name + 様 under the
-// title, the company block with its seal on the right, then 항목 (상품명) · 수량 · 단가 · 비고 and one 총 합계. 단가 already
-// include 부가세, so there is no 부가세 line.
-const qdate=()=>{const [y,m,d]=qtoday().split('-').map(Number);return `${y}년 ${m}월 ${d}일 (${y}年${m}月${d}日)`};
+// The document, laid out like a Japanese 見積書: title 見積書, the customer's name + 様 on the left and the date on the right
+// of the first line, then the quote facts beside the company block with its seal, then 항목 (상품명) · 수량 · 단가 · 비고 and
+// one 총 합계. Labels are Korean only (the company's katakana name stays). 단가 already include 부가세: no 부가세 line.
+const qdate=()=>{const [y,m,d]=qtoday().split('-').map(Number);return `${y}년 ${m}월 ${d}일`};
 function qdoc(){const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+x.qty*x.unit,0),sup=Object.fromEntries(I.supplier||[]);
-  const bi=(ko,ja)=>`${esc(ko)}<span class="qd-ja">${esc(ja)}</span>`;
-  $('#qDoc').innerHTML=`<h2 class="qd-title">${Q.type==='구매'?'구매 견적서':'배송대행 견적서'} <span class="qd-ja">見積書</span></h2>
+  $('#qDoc').innerHTML=`<h2 class="qd-title">見積書</h2>
+    <div class="qd-line"><div class="qd-to"><span class="qd-toname">${esc($('#qTo').value.trim()||'　')}</span><span class="qd-sama">様</span></div>
+      <div class="qd-date">${esc(qdate())}</div></div>
     <div class="qd-top"><div class="qd-left">
-      <div class="qd-to"><span class="qd-toname">${esc($('#qTo').value.trim()||'　')}</span><span class="qd-sama">様</span></div>
-      <table class="qd-meta"><tr><th>${bi('견적번호','見積番号')}</th><td>${esc(Q.no||'(제작 시 발급)')}</td></tr>
-        <tr><th>${bi('견적일','見積日')}</th><td>${esc(qdate())}</td></tr>
-        ${Q.type==='구매'?`<tr><th>${bi('적용 환율','為替レート')}</th><td>1엔 = ${qrate()}원</td></tr>`:''}</table>
-      <p class="qd-say">아래와 같이 견적합니다 <span class="qd-ja">下記の通りお見積り申し上げます</span></p></div>
+      <table class="qd-meta"><tr><th>견적번호</th><td>${esc(Q.no||'(제작 시 발급)')}</td></tr>
+        ${Q.type==='구매'?`<tr><th>적용 환율</th><td>1엔 = ${qrate()}원</td></tr>`:''}</table>
+      <p class="qd-say">아래와 같이 견적합니다</p></div>
       <div class="qd-co"><div class="qd-coname">${esc(sup['상호명']||'우마이직구')} <span class="qd-ja">${esc(I.nameJa||'')}</span>${I.stamp?`<img class="qd-stamp" src="${I.stamp}" alt="">`:''}</div>
         <p>${esc(sup['사업장주소']||'')}</p><p>tel ${esc(sup['전화번호']||'')}</p>
         <p>사업자등록번호 ${esc(sup['사업자등록번호']||'')} · ${esc(sup['업태']||'')}</p>
-        <p class="qd-rep">대표 <span class="qd-ja">代表</span> ${esc(sup['대표자']||'')}</p></div></div>
-    <table class="qd-items"><thead><tr><th>${bi('구분','No.')}</th><th>${bi('항목','項目')}</th><th>${bi('수량','数量')}</th><th>${bi('단가','単価')}</th><th>${bi('비고','備考')}</th></tr></thead><tbody>${
-      rows.map((x,i)=>`<tr><td>${i+1}</td><td class="qd-item">${esc(x.name)}</td><td>${x.qty}</td><td class="n">${won(x.unit)}원</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
+        <p class="qd-rep">대표 ${esc(sup['대표자']||'')}</p></div></div>
+    <table class="qd-items"><thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>비고</th></tr></thead><tbody>${
+      rows.map((x,i)=>`<tr><td>${i+1}</td><td class="qd-item">${esc(x.name)}</td><td>${x.qty}</td><td>${won(x.unit)}원</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
       '<tr><td colspan="5" class="qd-empty">항목이 없어요</td></tr>'}${
       // blank ruled rows up to 12, like the Excel template's empty lines, so the page reads as a full A4 sheet
       '<tr class="qd-blank"><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(Math.max(0,12-Math.max(rows.length,1)))}
-      <tr class="qd-total"><td colspan="2">${bi('총 합계','総合計')}</td><td colspan="2" class="n">${won(total)}원</td><td>${bi('입금하실 금액','お振込み額')}</td></tr></tbody></table>
-    <div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>${bi('입금안내','お振込先')}</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
+      <tr class="qd-total"><td colspan="2">총 합계</td><td colspan="2">${won(total)}원</td><td>입금하실 금액</td></tr></tbody></table>
+    <div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
     <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p></div>`;
   if($('#qTable tbody'))qkrw();
   return {sub:total,vat:0,total}}

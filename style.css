@@ -457,3 +457,13 @@ label[for=odMemo]{display:block;margin-top:16px}
 .qd-items tr.qd-total td{background:#fff4d9;font-weight:800;font-size:15px;text-align:center}.qd-items tr.qd-total td.n{text-align:right;font-size:17px}
 .qd-items tr.qd-total td .qd-ja{display:block;margin:0}
 .qd-coname{padding-right:22px}.qd-stamp{right:-30px;top:-22px;opacity:.92}
+/* 見積書 v2: name + 様 centered on the first line with the date at the right; company block sits level with the facts table */
+.qd-title{letter-spacing:.6em;padding-left:.6em}
+.qd-line{display:grid;grid-template-columns:1.1fr 1fr;gap:26px;align-items:end;margin:6px 0 18px}
+.qd-line .qd-to{display:grid;grid-template-columns:1fr auto;align-items:end;margin:0;border-bottom:1.5px solid #1d2433;padding:4px 6px 6px}
+.qd-line .qd-toname{text-align:center}
+.qd-date{text-align:right;font-size:14px;font-weight:600;padding-bottom:7px}
+.qd-top{align-items:center}.qd-co{padding-top:14px}
+.q-doc .qd-items td,.q-doc .qd-items td.qd-item,.q-doc .qd-items td.qd-note,.q-doc .qd-items td.n{text-align:center}
+.q-doc .qd-items tr.qd-total td{text-align:center}
+.qd-coname{padding-right:34px}.qd-stamp{right:-34px}
