@@ -84,7 +84,10 @@ document.addEventListener('click',e=>{const th=e.target.closest('th');if(!th||e.
 function renderAlerts(){
   const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>o.alerts.length),dn=D.orders.filter(o=>o.doneMark&&o._base.alerts.length);
   if(kindFilter==='done'&&!dn.length)kindFilter='';
-  const shown=kindFilter==='done'?dn.filter(o=>matches(o,q)):al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
+  const pick=()=>kindFilter==='done'?dn.filter(o=>matches(o,q)):al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
+  let shown=pick();alertHits=q?al.filter(o=>matches(o,q)).length+dn.filter(o=>matches(o,q)).length:0;
+  // a search hit hidden by the chip filter: switch to the chip that holds it instead of saying "no results"
+  if(q&&!shown.length&&alertHits){kindFilter=al.some(o=>matches(o,q))?'':'done';shown=pick()}
   $('#alertCount').textContent=shown.length===al.length?`${al.length}건`:`${shown.length} / ${al.length}건`;
   $('#kindChips').innerHTML=`<button class="chip${kindFilter?'':' on'}" data-kind="">전체 ${al.length}</button>`+
     Object.entries(KIND).filter(([k])=>D.kinds[k]).map(([k,[label,cls]])=>`<button class="chip ${cls}${kindFilter===k?' on':''}" data-kind="${k}">${esc(label)} ${D.kinds[k]}</button>`).join('')+
@@ -92,6 +95,7 @@ function renderAlerts(){
   if(kindFilter==='done')$('#alertCount').textContent=`완료 처리 ${shown.length}건`;
   shownAlerts=sorted(shown,'alerts');
   $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
+  searchLayout();
 }
 let dayFilter='';
 function renderList(){
@@ -99,6 +103,15 @@ function renderList(){
   const list=D.orders.filter(o=>(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
   $('#count').innerHTML=(dayFilter?`<button class="daychip" data-clearday title="주문일 필터 해제">${md(dayFilter)} 주문만 ✕</button> `:'')+`${list.length.toLocaleString()}건${list.length>300?' · 처음 300건만 표시 (오른쪽 위 검색으로 좁혀 보세요)':''}`;
   $('#orders').innerHTML=HEAD+'<tbody>'+(sorted(list,'orders').slice(0,300).map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
+  listHits=list.length;searchLayout();
+}
+// While searching, show only the cards holding matches: staff missed results sitting at the bottom under the chart.
+// With no match anywhere, the 전체 주문 card stays to say so.
+let alertHits=0,listHits=0;
+function searchLayout(){
+  const q=!!$('#gq').value.trim(),hide=(el,h)=>el&&el.classList.toggle('qhide',h);
+  hide($('.vesta-myth'),q);hide($('#kpis'),q);hide($('#batchSec'),q);hide($('#kInsight'),q);
+  hide($('#alertSec'),q&&!alertHits);hide($('#listSec'),q&&!listHits&&!!alertHits);
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-day],[data-clearday]');if(!b)return;
   dayFilter=b.dataset.day||'';if(b.dataset.day){$('#stage').value=b.dataset.st==='alert'?'':b.dataset.st;$('#flag').value=b.dataset.st==='alert'?'alert':''}

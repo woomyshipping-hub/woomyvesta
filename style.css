@@ -39,7 +39,7 @@ input:focus{outline:2px solid var(--blue);outline-offset:-1px}
 details{border-top:1px solid var(--line);padding:12px 0}details:first-of-type{border-top:0}
 summary{cursor:pointer;font-weight:650}details p{margin-top:8px;color:var(--muted);font-size:14px}
 footer{margin-top:26px;font-size:12px;color:var(--muted);text-align:center}
-.hidden{display:none!important}
+.hidden{display:none!important}.qhide{display:none!important}
 /* staff */
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;font:inherit;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,transform .15s}
