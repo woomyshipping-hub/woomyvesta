@@ -647,19 +647,25 @@ const yen=n=>'¥'+Math.round(Number(n)||0).toLocaleString('ja-JP');
 const qnum=v=>{const n=parseFloat(String(v??'').replace(/[^\d.]/g,''));return isFinite(n)?n:null};
 const qrate=()=>qnum($('#qRate').value)||0;
 const qtoday=()=>new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
-// 구매수수료 per link (each shop is its own payment): 야후옥션·메루카리 5% 최소 2,000엔 for everyone, else by 등급.
-function qfee(it){const pay=(qnum(it.price)||0)*(qnum(it.qty)||1)+(qnum(it.ship)||0);if(!pay)return 0;
-  if(it.shop==='auction')return Math.max(2000,Math.round(pay*.05));
-  return $('#qGrade').value==='biz'?Math.round(pay*.03):Math.max(1500,Math.round(pay*.05))}
+// 구매수수료 per link (each shop is its own payment), as staff charged it in 2026 (vesta-tools/quote_rules.md): 결제금액
+// (상품가×수량+현지배송비) 5% 원 미만 버림, 최소 1,500엔 · 야후옥션·메루카리 최소 2,000엔 · 사업자 3% · 티켓 1매 3,000엔, 2매부터 매당 2,500엔.
+const QFEE={auction:'야후옥션·메루카리 5% (최소 2,000엔)',ticket:'티켓 1매 3,000엔 · 2매부터 매당 2,500엔',biz:'결제금액 3%',normal:'결제금액 5% (최소 1,500엔)'};
+const qkind=it=>it.shop==='auction'||it.shop==='ticket'?it.shop:$('#qGrade').value==='biz'?'biz':'normal';
+function qfee(it){const q=qnum(it.qty)||1,pay=(qnum(it.price)||0)*q+(qnum(it.ship)||0);if(!pay)return 0;
+  const k=qkind(it);
+  if(k==='ticket')return q>1?2500*q:3000;
+  if(k==='auction')return Math.max(2000,Math.floor(pay*.05));
+  return k==='biz'?Math.floor(pay*.03):Math.max(1500,Math.floor(pay*.05))}
 // The lines the document shows: 구매 = 상품가 per link + 현지배송비 + 구매수수료, then the added rows; rows without a price are left out.
 function qrows(){const r=qrate(),out=[];
   if(Q.type==='구매'&&Q.items.length){
     for(const it of Q.items)if(qnum(it.price))out.push({name:'상품가',qty:qnum(it.qty)||1,unit:Math.round(qnum(it.price)*r),note:`${it.title?it.title.slice(0,34)+' · ':''}${yen(it.price)}`});
     const known=Q.items.filter(it=>qnum(it.ship)!=null),ship=known.reduce((a,it)=>a+qnum(it.ship),0);
-    out.push({name:'현지배송비',qty:1,unit:Math.round(ship*r),note:known.length<Q.items.length?(ship?`${yen(ship)} · 일부 판매자 확인 후 변동 가능`:'판매자 확인 후 안내 (변동 가능)'):ship?yen(ship):'무료 (送料込み)'});
+    const guess=Q.items.some(it=>it.shipGuess&&qnum(it.ship));
+    out.push({name:'현지배송비',qty:1,unit:Math.round(ship*r),note:known.length<Q.items.length?(ship?`${yen(ship)} · 일부 판매자 확인 후 변동 가능`:'판매자 확인 후 안내 (변동 가능)'):ship?yen(ship)+(guess?' · 예상 금액, 판매자 확인 후 변동 가능':''):'무료 (送料込み)'});
     const fees=Q.items.map(qfee),fee=fees.reduce((a,b)=>a+b,0);
     if(fee)out.push({name:'구매수수료',qty:1,unit:Math.round(fee*r),note:`${fees.filter(Boolean).length>1?fees.filter(Boolean).map(yen).join(' + ')+' = ':''}${yen(fee)} · `+
-      [...new Set(Q.items.filter((it,i)=>fees[i]).map(it=>it.shop==='auction'?'야후옥션·메루카리 5% (최소 2,000엔)':$('#qGrade').value==='biz'?'결제금액 3%':'결제금액 5% (최소 1,500엔)'))].join(', ')})}
+      [...new Set(Q.items.filter((it,i)=>fees[i]).map(it=>QFEE[qkind(it)]))].join(', ')})}
   for(const l of Q.lines[Q.type])if(l[2]!==''&&qnum(l[2])!=null)out.push({name:l[0],qty:qnum(l[1])||1,unit:qnum(l[2]),note:l[3]});
   return out}
 function qdoc(){const I=D.quoteInfo||{},rows=qrows(),sub=rows.reduce((a,x)=>a+x.qty*x.unit,0),vat=Q.vat[Q.type]?Math.round(sub*.1):0;
@@ -678,11 +684,22 @@ function qdoc(){const I=D.quoteInfo||{},rows=qrows(),sub=rows.reduce((a,x)=>a+x.
       <div class="qd-sign"><span>SIGNED BY:</span>${I.sign?`<img src="${I.sign}" alt="">`:''}</div></div>
     <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p>`;
   return {sub,vat,total:sub+vat}}
+// 비슷한 지난 견적 (D.quoteExamples, the staff sheet without names): same shop or shared words in the item name, newest
+// first. Shows what we charged for 현지배송비·수수료 and the size, so staff can judge an unknown 送料.
+const qwords=t=>new Set(String(t||'').toLowerCase().match(/[a-z0-9]{3,}|[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7a3]{2,}/g)||[]);
+function qpast(it){const E=D.quoteExamples||[];if(!E.length||!(it.title||it.url))return '';
+  const dom=(it.url.match(/^https?:\/\/(?:www\.)?([^/]+)/)||[])[1]||'',w=qwords(it.title);
+  const score=x=>{let n=0;for(const t of qwords(x.title+' '+x.item))if(w.has(t))n+=2;if(dom&&x.url.includes(dom))n+=1;if(x.ship)n+=.5;return n};
+  const top=E.map(x=>[score(x),x]).filter(([n])=>n>=2).sort((a,b)=>b[0]-a[0]||b[1].d.localeCompare(a[1].d)).slice(0,3);
+  if(!top.length)return '';
+  return `<details class="q-past"><summary>비슷한 지난 견적 ${top.length}건</summary>${top.map(([,x])=>`<div>${esc(x.d.slice(5))} · ${esc(x.shop)} · ${esc(x.item)}${x.size?` <span class="muted">(${esc(x.size.slice(0,60))})</span>`:''}<br>`+
+    `상품 ${yen(x.price)}${x.qty>1?` ×${x.qty}`:''} · 현지배송비 ${x.ship!=null?yen(x.ship):'—'} · 수수료 ${x.fee!=null?yen(x.fee):'—'}${x.rate?` · 환율 ${x.rate}`:''}`+
+    `${x.ship!=null?` <button type="button" class="mini" data-qship="${x.ship}">배송비 적용</button>`:''}</div>`).join('')}</details>`}
 function qeditors(){
   $('#qBuy').classList.toggle('hidden',Q.type!=='구매');$('#qLinesHead').firstChild.textContent=Q.type==='구매'?'추가 항목 ':'항목 ';
   $('#qVat').checked=Q.vat[Q.type];
   $('#qItems').innerHTML='<thead><tr><th>상품명</th><th>수량</th><th>가격(엔)</th><th>현지배송비(엔)</th><th></th></tr></thead><tbody>'+
-    (Q.items.map((it,i)=>`<tr data-qi="${i}"><td><input data-f="title" value="${esc(it.title||'')}" placeholder="상품명">${it.state?`<div class="small q-st ${it.state==='fail'?'bad':''}">${esc(it.msg||'')}</div>`:''}</td>
+    (Q.items.map((it,i)=>`<tr data-qi="${i}"><td><input data-f="title" value="${esc(it.title||'')}" placeholder="상품명">${it.state?`<div class="small q-st ${it.state==='fail'?'bad':''}">${esc(it.msg||'')}</div>`:''}${qpast(it)}</td>
       <td><input data-f="qty" value="${esc(it.qty??1)}" inputmode="numeric" class="q-num"></td><td><input data-f="price" value="${esc(it.price??'')}" inputmode="numeric" class="q-num"></td>
       <td><input data-f="ship" value="${esc(it.ship??'')}" inputmode="numeric" class="q-num" placeholder="모름"></td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`).join('')||
      '<tr><td colspan="5" class="muted small">링크를 넣고 [자동 견적]을 누르거나, 직접 추가하세요.</td></tr>')+'</tbody>';
@@ -697,8 +714,10 @@ function qreset(keepType){Q.items=[];Q.lines={'구매':QLINES['구매'].map(l=>[
   $('#qTo').value='';$('#qLinks').value='';$('#qAutoMsg').textContent='';$('#qMakeMsg').textContent='';if(!keepType)Q.type='구매';
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave()}
 async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
+  // 적용 환율 = 시장 환율 × 1.02: what 2026 quotes used (applied ÷ market, monthly median 1.018–1.021 since August)
   try{const r=await (await fetch('https://open.er-api.com/v6/latest/JPY')).json();const v=r.rates&&r.rates.KRW;if(!v)throw 0;
-    $('#qRate').value=(Math.round(v*100)/100).toString();$('#qRateNote').textContent=`오늘 시장 환율 ${v.toFixed(2)}원을 넣었어요 (${new Date(r.time_last_update_unix*1e3).toLocaleDateString('ko-KR')} 기준). 회사 적용 환율이 다르면 고쳐 주세요.`;qdoc();qsave()}
+    $('#qRate').value=(Math.round(v*1.02*100)/100).toString();
+    $('#qRateNote').textContent=`시장 환율 ${v.toFixed(2)}원 × 1.02 = ${$('#qRate').value}원 (${new Date(r.time_last_update_unix*1e3).toLocaleDateString('ko-KR')} 기준, 지난 견적과 같은 방식). 필요하면 고쳐 주세요.`;qdoc();qsave()}
   catch{$('#qRateNote').textContent='환율을 불러오지 못했어요. 직접 넣어 주세요.'}}
 function qinit(){if(qinit.done||!D)return;qinit.done=true;
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
@@ -719,24 +738,25 @@ async function qfetchLink(it){
       if(/^실패/.test(q.status||'')){it.state='fail';it.msg=`읽지 못했어요 (${q.status.replace(/^실패:?\s*/,'')}). 직접 입력해 주세요.`;qeditors();return}}
     it.state='fail';it.msg='15분 동안 답이 없어요. Claude가 꺼져 있을 수 있어요 — 직접 입력해 주세요.';qeditors()}
   catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}}
-function qfill(it,r){Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:r.shop||it.shop||''});
+function qfill(it,r){Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:it.shop==='ticket'?'ticket':r.shop||it.shop||''});
   it.state='ok';it.msg=r.price?`읽었어요: ${yen(r.price)}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:'가격을 찾지 못했어요. 직접 입력해 주세요.';
   if(!r.price)it.state='fail';qeditors();qsave()}
 $('#qAuto').onclick=()=>{const urls=[...new Set($('#qLinks').value.split(/\s+/).filter(u=>/^https?:\/\/\S{4,}$/.test(u)))];
   if(!urls.length){$('#qAutoMsg').textContent='http로 시작하는 상품 링크를 넣어 주세요.';return}
   $('#qAutoMsg').textContent=`링크 ${urls.length}개를 확인해요.`;
-  const shopOf=u=>/(auctions|page\.auctions)\.yahoo\.co\.jp|mercari\.com|paypayfleamarket/i.test(u)?'auction':'';
+  const shopOf=u=>/(auctions|page\.auctions)\.yahoo\.co\.jp|mercari\.com|paypayfleamarket/i.test(u)?'auction':/l-tike|t\.pia\.jp|eplus|ticket/i.test(u)?'ticket':'';
   const fresh=urls.filter(u=>!Q.items.some(it=>it.url===u)).map(u=>({url:u,title:'',qty:1,price:'',ship:'',shop:shopOf(u)}));
   Q.items.push(...fresh);qeditors();qsave();fresh.forEach(qfetchLink)};
 $('#qAddItem').onclick=()=>{Q.items.push({url:'',title:'',qty:1,price:'',ship:'',shop:''});qeditors();qsave()};
 $('#qAddLine').onclick=()=>{Q.lines[Q.type].push(['',1,'','']);qeditors();qsave()};
 $('#tabQuote').addEventListener('input',e=>{const el=e.target,tr=el.closest('tr');
-  if(tr&&tr.dataset.qi!=null){const it=Q.items[+tr.dataset.qi];it[el.dataset.f]=el.value}
+  if(tr&&tr.dataset.qi!=null){const it=Q.items[+tr.dataset.qi];it[el.dataset.f]=el.value;if(el.dataset.f==='ship')it.shipGuess=false}
   else if(tr&&tr.dataset.ql!=null)Q.lines[Q.type][+tr.dataset.ql][+el.dataset.f]=el.value;
   else if(el.id==='qVat')Q.vat[Q.type]=el.checked;
   qdoc();qsave()});
 $('#qGrade').addEventListener('change',()=>{qdoc();qsave()});
-$('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel],[data-qldel],[data-qtype]');if(!b)return;
+$('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel],[data-qldel],[data-qtype],[data-qship]');if(!b)return;
+  if(b.dataset.qship!=null){const it=Q.items[+b.closest('tr').dataset.qi];it.ship=b.dataset.qship;it.shipGuess=true;qeditors();qsave();return}
   if(b.dataset.qdel!=null)Q.items.splice(+b.dataset.qdel,1);
   else if(b.dataset.qldel!=null)Q.lines[Q.type].splice(+b.dataset.qldel,1);
   else{Q.type=b.dataset.qtype;Q.no='';document.querySelectorAll('[data-qtype]').forEach(x=>x.classList.toggle('on',x===b))}
