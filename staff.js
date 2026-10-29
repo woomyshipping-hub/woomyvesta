@@ -699,7 +699,7 @@ function qeditors(){
   $('#qBuy').classList.toggle('hidden',Q.type!=='구매');$('#qLinesHead').firstChild.textContent=Q.type==='구매'?'추가 항목 ':'항목 ';
   $('#qVat').checked=Q.vat[Q.type];
   $('#qItems').innerHTML='<thead><tr><th>상품명</th><th>수량</th><th>가격(엔)</th><th>현지배송비(엔)</th><th></th></tr></thead><tbody>'+
-    (Q.items.map((it,i)=>`<tr data-qi="${i}"><td><input data-f="title" value="${esc(it.title||'')}" placeholder="상품명">${it.state?`<div class="small q-st ${it.state==='fail'?'bad':''}">${esc(it.msg||'')}</div>`:''}${qpast(it)}</td>
+    (Q.items.map((it,i)=>`<tr data-qi="${i}"><td><input data-f="title" value="${esc(it.title||'')}" placeholder="상품명">${it.state?`<div class="small q-st ${it.state==='fail'?'bad':it.state==='wait'?'wait':''}">${esc(it.msg||'')}</div>`:''}${qpast(it)}</td>
       <td><input data-f="qty" value="${esc(it.qty??1)}" inputmode="numeric" class="q-num"></td><td><input data-f="price" value="${esc(it.price??'')}" inputmode="numeric" class="q-num"></td>
       <td><input data-f="ship" value="${esc(it.ship??'')}" inputmode="numeric" class="q-num" placeholder="모름"></td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`).join('')||
      '<tr><td colspan="5" class="muted small">링크를 넣고 [자동 견적]을 누르거나, 직접 추가하세요.</td></tr>')+'</tbody>';
@@ -724,29 +724,48 @@ function qinit(){if(qinit.done||!D)return;qinit.done=true;
   qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,vat:s.vat||Q.vat,no:s.no||''});
     $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=s.grade||'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave();qloadRate()}
-// One link -> 접수창구; a link the script could not read is polled until Claude marks it (up to 15 minutes).
+// One link -> 접수창구, which reads most shops itself in 3–15 s (the shop's own page speed: 라쿠텐 ~10 s, 이케아 ~3 s).
+// A link it cannot read (메루카리·아마존) waits for Claude on the Mac, polled every 5 s for up to 15 minutes. While a link
+// is out, its row shows a live timer and how long that step usually takes; only the status text is redrawn, so typing in
+// the other fields is not interrupted.
+const QWAIT={read:[3,15,'쇼핑몰 페이지를 읽는 중'],claude:[60,180,'Claude가 링크를 열어 확인하는 중']};
+const mmss=s=>s>=60?`${Math.floor(s/60)}분`+(s%60?` ${s%60}초`:''):`${s}초`;
+function qtick(){let busy=0;
+  Q.items.forEach((it,i)=>{if(it.state!=='wait')return;busy++;
+    const el=document.querySelector(`#qItems tr[data-qi="${i}"] .q-st`);if(!el)return;
+    const [lo,hi,what]=QWAIT[it.step||'read'],t=Math.round((Date.now()-it.t0)/1000);
+    el.textContent=`⏳ ${what}… ${mmss(t)} 지남 · `+(t<lo?`보통 ${mmss(lo)}~${mmss(hi)}`:t<hi?`약 ${mmss(hi-t)} 남음`:it.step==='claude'?'조금 늦어지고 있어요 (최대 15분)':'곧 끝나요')});
+  const b=$('#qAuto');b.disabled=!!busy;b.textContent=busy?`확인 중… (${Q.items.filter(x=>x.state&&x.state!=='wait').length}/${Q.items.filter(x=>x.state).length})`:'자동 견적';
+  if(!busy){clearInterval(qtick.t);qtick.t=null;const ok=Q.items.filter(x=>x.state==='ok').length,bad=Q.items.filter(x=>x.state==='fail').length;
+    if(ok+bad)$('#qAutoMsg').textContent=`끝났어요 · ${ok}개 채움${bad?` · ${bad}개는 직접 입력이 필요해요`:''}`}}
 async function qfetchLink(it){
-  const at=new Date().toISOString();it.state='wait';it.msg='상품 정보를 읽는 중…';qeditors();
+  const at=new Date().toISOString();Object.assign(it,{state:'wait',step:'read',t0:Date.now(),msg:''});qeditors();qtick();
   try{if(!D.smsIntake)throw Error('no intake');
     const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'quote',url:it.url,at})})).json();
     if(!r.ok)throw Error(r.error||'fail');
     if(r.status==='자동완료'&&r.result)return qfill(it,r.result);
-    it.msg='이 쇼핑몰은 바로 읽히지 않아 Claude가 링크를 열어 확인하고 있어요 (보통 몇 분)…';qeditors();
-    for(const t0=Date.now();Date.now()-t0<15*60e3;){await new Promise(z=>setTimeout(z,5000));
+    Object.assign(it,{step:'claude',t0:Date.now()});qtick();
+    for(;Date.now()-it.t0<15*60e3;){await new Promise(z=>setTimeout(z,5000));
       let q;try{q=await (await fetch(`${D.smsIntake}?action=quoteStatus&at=${encodeURIComponent(at)}`)).json()}catch{continue}
       if(q.status==='완료'&&q.result)return qfill(it,q.result);
       if(/^실패/.test(q.status||'')){it.state='fail';it.msg=`읽지 못했어요 (${q.status.replace(/^실패:?\s*/,'')}). 직접 입력해 주세요.`;qeditors();return}}
     it.state='fail';it.msg='15분 동안 답이 없어요. Claude가 꺼져 있을 수 있어요 — 직접 입력해 주세요.';qeditors()}
-  catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}}
+  catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}
+  finally{qtick()}}
 function qfill(it,r){Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:it.shop==='ticket'?'ticket':r.shop||it.shop||''});
-  it.state='ok';it.msg=r.price?`읽었어요: ${yen(r.price)}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:'가격을 찾지 못했어요. 직접 입력해 주세요.';
+  const took=it.t0?` (${mmss(Math.round((Date.now()-it.t0)/1000))})`:'';
+  it.state='ok';it.msg=r.price?`✓ 읽었어요${took}: ${yen(r.price)}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:'가격을 찾지 못했어요. 직접 입력해 주세요.';
   if(!r.price)it.state='fail';qeditors();qsave()}
+// Every link in the box is (re)read on each press, including ones already in the list: before, a second press on the
+// same links added nothing and looked like no reaction.
 $('#qAuto').onclick=()=>{const urls=[...new Set($('#qLinks').value.split(/\s+/).filter(u=>/^https?:\/\/\S{4,}$/.test(u)))];
   if(!urls.length){$('#qAutoMsg').textContent='http로 시작하는 상품 링크를 넣어 주세요.';return}
-  $('#qAutoMsg').textContent=`링크 ${urls.length}개를 확인해요.`;
   const shopOf=u=>/(auctions|page\.auctions)\.yahoo\.co\.jp|mercari\.com|paypayfleamarket/i.test(u)?'auction':/l-tike|t\.pia\.jp|eplus|ticket/i.test(u)?'ticket':'';
-  const fresh=urls.filter(u=>!Q.items.some(it=>it.url===u)).map(u=>({url:u,title:'',qty:1,price:'',ship:'',shop:shopOf(u)}));
-  Q.items.push(...fresh);qeditors();qsave();fresh.forEach(qfetchLink)};
+  const todo=urls.map(u=>{let it=Q.items.find(x=>x.url===u);if(!it){it={url:u,title:'',qty:1,price:'',ship:'',shop:shopOf(u)};Q.items.push(it)}return it})
+    .filter(it=>it.state!=='wait');
+  Q.items.forEach(it=>{if(!todo.includes(it)&&it.state!=='wait'){it.state='';it.msg=''}});
+  $('#qAutoMsg').textContent=`링크 ${urls.length}개를 확인해요. 라쿠텐 같은 큰 쇼핑몰은 10초쯤 걸려요.`;
+  qeditors();qsave();todo.forEach(qfetchLink);if(!qtick.t)qtick.t=setInterval(qtick,1000);qtick()};
 $('#qAddItem').onclick=()=>{Q.items.push({url:'',title:'',qty:1,price:'',ship:'',shop:''});qeditors();qsave()};
 $('#qAddLine').onclick=()=>{Q.lines[Q.type].push(['',1,'','']);qeditors();qsave()};
 $('#tabQuote').addEventListener('input',e=>{const el=e.target,tr=el.closest('tr');
