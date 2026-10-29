@@ -312,3 +312,29 @@ td.kclick:hover{background:var(--blue-soft);text-decoration:underline dotted}
 .kb-sec{margin-top:10px}
 .kb-sec>b{display:block;color:var(--blue);font-size:12.5px;margin-bottom:2px}
 @media (max-width:860px){.kmerge-grid{grid-template-columns:1fr}.kmerge .kclog{max-height:40vh}.kmerge-right{max-height:none;overflow:visible}}
+/* 주문일별 진행: stacked bars (stage colors run light blue → blue, 완료 = green) */
+.blegend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:12px 0 14px;font-size:12.5px;color:var(--muted)}
+.blegend span{display:inline-flex;align-items:center;gap:6px}.blegend i{width:12px;height:12px;border-radius:4px;display:inline-block}
+.bchart{display:grid;gap:8px}
+.brow{display:grid;grid-template-columns:76px minmax(0,1fr) 96px;align-items:center;gap:12px}
+.bdate{font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.btrack{background:color-mix(in srgb,var(--line) 45%,transparent);border-radius:8px;min-width:0}
+.bbar{display:flex;height:28px;border-radius:8px;overflow:hidden;min-width:28px}
+.bbar :where(button){all:unset}.bbar button{box-sizing:border-box;min-width:3px;display:grid;place-items:center;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;cursor:pointer;overflow:hidden;white-space:nowrap;border-right:1px solid var(--card);transition:filter .15s}
+.bbar button:last-child{border-right:0}.bbar button:hover,.bbar button:focus-visible{filter:brightness(1.12) saturate(1.1);outline:none}
+.bs0{background:color-mix(in srgb,var(--blue) 22%,var(--card));color:var(--ink)}
+.bs1{background:color-mix(in srgb,var(--blue) 45%,var(--card));color:var(--ink)}
+.bs2{background:color-mix(in srgb,var(--blue) 72%,var(--card));color:#fff}
+.bs3{background:var(--blue);color:#fff}
+.bs4{background:var(--good);color:#fff}
+.bl{background:var(--bad)}
+.btot{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);white-space:nowrap}.btot b{color:var(--ink);font-size:14px}
+.btot :where(.blate){all:unset}.btot .blate{cursor:pointer;min-width:18px;padding:1px 7px;border-radius:999px;background:var(--bad);color:#fff;font-size:11.5px;font-weight:700;text-align:center}
+.blate:hover{filter:brightness(1.1)}
+:where(.daychip){all:unset}#count .daychip{cursor:pointer;padding:2px 9px;border-radius:999px;background:var(--blue-soft);color:var(--blue);font-weight:600}
+@media(max-width:560px){.brow{grid-template-columns:62px minmax(0,1fr) 70px;gap:8px}.bdate{font-size:12px}.bbar{height:24px}.bbar button{font-size:11px}}
+.bbar button.tiny{font-size:0}
+.bmore{margin-top:12px}
+.brow[hidden]{display:none}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .bs0{background:color-mix(in srgb,var(--blue) 38%,var(--card))}:root:not([data-theme="light"]) .bs1{background:color-mix(in srgb,var(--blue) 58%,var(--card));color:#fff}:root:not([data-theme="light"]) .bs2{background:color-mix(in srgb,var(--blue) 78%,var(--card))}}
+:root[data-theme="dark"] .bs0{background:color-mix(in srgb,var(--blue) 38%,var(--card))}:root[data-theme="dark"] .bs1{background:color-mix(in srgb,var(--blue) 58%,var(--card));color:#fff}:root[data-theme="dark"] .bs2{background:color-mix(in srgb,var(--blue) 78%,var(--card))}

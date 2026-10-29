@@ -84,16 +84,21 @@ function renderAlerts(){
   shownAlerts=sorted(shown,'alerts');
   $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||'<tr><td colspan="14" class="muted">검색 결과가 없어요.</td></tr>')+'</tbody>';
 }
+let dayFilter='';
 function renderList(){
   const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value;
-  const list=D.orders.filter(o=>(!st||String(o.stage)===st)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
-  $('#count').textContent=`${list.length.toLocaleString()}건${list.length>300?' · 처음 300건만 표시 (오른쪽 위 검색으로 좁혀 보세요)':''}`;
+  const list=D.orders.filter(o=>(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
+  $('#count').innerHTML=(dayFilter?`<button class="daychip" data-clearday title="주문일 필터 해제">${md(dayFilter)} 주문만 ✕</button> `:'')+`${list.length.toLocaleString()}건${list.length>300?' · 처음 300건만 표시 (오른쪽 위 검색으로 좁혀 보세요)':''}`;
   $('#orders').innerHTML=HEAD+'<tbody>'+sorted(list,'orders').slice(0,300).map(row).join('')+'</tbody>';
 }
+document.addEventListener('click',e=>{const b=e.target.closest('[data-day],[data-clearday]');if(!b)return;
+  dayFilter=b.dataset.day||'';if(b.dataset.day){$('#stage').value=b.dataset.st==='alert'?'':b.dataset.st;$('#flag').value=b.dataset.st==='alert'?'alert':''}
+  renderList();if(b.dataset.day)$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
+document.addEventListener('click',e=>{const m=e.target.closest('[data-bmore]');if(!m)return;document.querySelectorAll('#batches .brow[hidden]').forEach(r=>r.hidden=false);m.remove()});
 document.addEventListener('click',e=>{const c=e.target.closest('[data-kind]');if(!c)return;kindFilter=c.dataset.kind;renderAlerts()});
 document.addEventListener('click',e=>{const k=e.target.closest('[data-go]');if(!k)return;const go=k.dataset.go;
   if(go==='alert'){kindFilter='';renderAlerts();$('#alertSec').scrollIntoView({behavior:'smooth',block:'start'});return}
-  $('#stage').value=go;$('#flag').value='';renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
+  $('#stage').value=go;$('#flag').value='';dayFilter='';renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 function render(){
   $('#updated').textContent=`· ${new Date(D.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${D.range[0]} ~ ${D.range[1]} 주문`;
   // Cards in the order staff should look at them; each jumps to the table holding those orders.
@@ -101,8 +106,13 @@ function render(){
     KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
   $('#rules').textContent=`기준: 해운 출발 후 영업일로 +${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (+1일까지는 정상, 주말·공휴일 제외, ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
   renderAlerts();renderKakao();
-  $('#batches').innerHTML='<thead><tr><th>주문일</th>'+D.stages.map(s=>`<th>${esc(s)}</th>`).join('')+'<th>합계</th></tr></thead><tbody>'+
-    D.batches.map(b=>`<tr><td class="num">${esc(b.orderDate)}</td>${D.stages.map(s=>`<td class="num">${b[s]||''}</td>`).join('')}<td class="num">${D.stages.reduce((a,s)=>a+(b[s]||0),0)}</td></tr>`).join('')+'</tbody>';
+  // 주문일별 진행: one stacked bar per order date (length = orders, color = stage), red badge = 확인 필요.
+  const tot=b=>D.stages.reduce((a,s)=>a+(b[s]||0),0),most=Math.max(1,...D.batches.map(tot));
+  const late={};D.orders.forEach(o=>{if(o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
+  $('#blegend').innerHTML=D.stages.map((s,i)=>`<span><i class="bs${i}"></i>${esc(s)}</span>`).join('')+'<span><i class="bl"></i>확인 필요</span>';
+  const BSHOW=14;$('#batches').innerHTML=D.batches.map((b,n)=>{const t=tot(b);return `<div class="brow"${n>=BSHOW?' hidden':''}><span class="bdate">${md(b.orderDate)}</span>
+    <div class="btrack"><div class="bbar" style="width:${t/most*100}%">${D.stages.map((s,i)=>b[s]?`<button class="bs${i}${b[s]/most<.04?' tiny':''}" style="flex:${b[s]}" data-day="${esc(b.orderDate)}" data-st="${i}" title="${esc(md(b.orderDate))} · ${esc(s)} ${b[s]}건">${b[s]}</button>`:'').join('')}</div></div>
+    <span class="btot"><b>${t}</b>건${late[b.orderDate]?`<button class="blate" data-day="${esc(b.orderDate)}" data-st="alert" title="확인 필요 ${late[b.orderDate]}건만 보기">${late[b.orderDate]}</button>`:''}</span></div>`}).join('')+(D.batches.length>BSHOW?`<button class="btn small-btn bmore" data-bmore>이전 주문일 ${D.batches.length-BSHOW}개 더 보기</button>`:'');
   $('#stage').innerHTML='<option value="">전체 단계</option>'+D.stages.map((s,i)=>`<option value="${i}">${esc(s)}</option>`).join('');
   renderList();
 }
