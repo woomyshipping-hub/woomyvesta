@@ -684,7 +684,7 @@ function qfee(){const sh=qship(),{fee,note,short}=qfeeAll(sh.yen),own=qnum(Q.adj
   return {auto:fee,autoNote:fee?`${yen(fee)} · ${note}`:'',yen:own??fee,note:Q.adj.feeNote||(own!=null?yen(own):fee?`${yen(fee)} · ${short}`:'')}}
 function qrows(){const r=qrate(),out=[];
   if(Q.type==='구매'&&Q.items.length){
-    Q.items.forEach((it,i)=>{if(qnum(it.price))out.push({k:'p'+i,name:(it.title||'상품').slice(0,40),qty:qnum(it.qty)||1,unit:Math.round(qnum(it.price)*r),note:yen(it.price)})});
+    Q.items.forEach((it,i)=>{if(qnum(it.price))out.push({k:'p'+i,name:(it.title||'상품').slice(0,40),qty:qnum(it.qty)||1,unit:Math.round(qnum(it.price)*r),note:it.note||yen(it.price)})});
     const sh=qship();out.push({k:'ship',name:'현지배송비',qty:1,unit:Math.round(sh.yen*r),note:sh.note});
     const f=qfee();if(f.yen)out.push({k:'fee',name:'구매수수료',qty:1,unit:Math.round(f.yen*r),note:f.note})}
   Q.lines[Q.type].forEach((l,i)=>{if(l[2]!==''&&qnum(l[2])!=null)out.push({k:'l'+i,name:l[0],qty:qnum(l[1])||1,unit:qnum(l[2]),note:l[3]})});
@@ -734,7 +734,7 @@ function qeditors(){
   $('#qBuy').classList.toggle('hidden',Q.type!=='구매');$('#qAddItem').classList.toggle('hidden',Q.type!=='구매');
   let n=0;const rows=[],krw=k=>`<td class="q-krw" data-krw="${k}"></td>`;
   if(Q.type==='구매'){
-    Q.items.forEach((it,i)=>{rows.push(`<tr data-qi="${i}"><td class="q-n">${++n}</td><td>${qin('title',it.title,{ph:'상품명'})}</td><td>${qin('qty',it.qty??1,{num:1})}</td><td><span class="q-cur">¥</span>${qin('price',it.price,{num:1,ph:'1개 가격'})}</td>${krw('p'+i)}<td class="small muted">비고: 상품가 ¥</td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`);
+    Q.items.forEach((it,i)=>{rows.push(`<tr data-qi="${i}"><td class="q-n">${++n}</td><td>${qin('title',it.title,{ph:'상품명'})}</td><td>${qin('qty',it.qty??1,{num:1})}</td><td><span class="q-cur">¥</span>${qin('price',it.price,{num:1,ph:'1개 가격'})}</td>${krw('p'+i)}<td>${qin('note',it.note,{ph:qnum(it.price)?yen(it.price):'비고'})}</td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`);
       const st=it.state?`<div class="small q-st ${it.state==='fail'?'bad':it.state==='wait'?'wait':''}">${esc(it.msg||'')}</div>`:'',past=qpast(it,i);
       if(st||past||it.url)rows.push(`<tr class="q-sub" data-qi="${i}"><td></td><td colspan="6">${it.url?`<a class="small muted q-link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url.replace(/^https?:\/\/(www\.)?/,'').slice(0,60))} ↗</a>`:''}${st}${past}</td></tr>`)});
     if(!Q.items.length)rows.push('<tr><td></td><td colspan="6" class="muted small">링크를 넣고 [자동 견적]을 누르거나, [+ 상품 추가]로 직접 넣으세요.</td></tr>');
@@ -747,6 +747,7 @@ function qeditors(){
 // 원 환산 cells follow every keystroke without redrawing the inputs.
 function qkrw(){const m=Object.fromEntries(qrows().map(x=>[x.k,x]));
   document.querySelectorAll('#qTable [data-krw]').forEach(td=>{const x=m[td.dataset.krw];td.textContent=x?won(x.qty*x.unit)+'원':'—'});
+  document.querySelectorAll('#qTable tr[data-qi]:not(.q-sub) [data-f="note"]').forEach(el=>{const it=Q.items[+el.closest('tr').dataset.qi];if(it)el.placeholder=qnum(it.price)?yen(it.price):'비고'});
   for(const [k,f] of [['ship',qship],['fee',qfee]]){const tr=document.querySelector(`#qTable tr[data-qa="${k}"]`);if(!tr)continue;const v=f();
     tr.querySelector('[data-f="'+k+'"]').placeholder=v.auto?'자동 '+v.auto.toLocaleString():k==='ship'?'모름':'자동';tr.querySelector('[data-f="'+k+'Note"]').placeholder=v.autoNote||''}}
 function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,...x})=>x),lines:Q.lines,no:Q.no,adj:Q.adj,
@@ -892,7 +893,7 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
   // The quote itself goes with its number (sheet 견적번호, column 견적 내용) so Claude can write the 구매 정리 row once the
   // customer says they paid; making the image again after edits updates it.
   const detail=()=>{const sh=qship(),f=qfee(),{total}=qdoc();return {type:Q.type,to:$('#qTo').value.trim(),grade:$('#qGrade').value,rate:qrate(),
-    items:Q.items.map(({url,title,qty,price,ship,shop})=>({url,title,qty,price,ship,shop})),ship:sh.yen,shipNote:sh.note,fee:f.yen,feeNote:f.note,
+    items:Q.items.map(({url,title,qty,price,ship,shop,note})=>({url,title,qty,price,ship,shop,note})),ship:sh.yen,shipNote:sh.note,fee:f.yen,feeNote:f.note,
     lines:Q.lines[Q.type],total}};
   try{if(Q.no&&D.smsIntake)fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
       body:JSON.stringify({kind:'quoteSave',no:Q.no,total:qdoc().total,detail:detail()})}).catch(()=>{});
