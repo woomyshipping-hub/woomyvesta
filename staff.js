@@ -777,13 +777,47 @@ const mmss=s=>s>=60?`${Math.floor(s/60)}분`+(s%60?` ${s%60}초`:''):`${s}초`;
 // While links are out, a model of each product's type (made in Blender: vesta-tools/quote-models.blend -> models/*.glb)
 // turns slowly in the middle of the screen. The type comes from words in the link and product name; anything else is a
 // parcel box. Several links take turns every 6 s. model-viewer is loaded from the CDN the first time it is needed.
-const Q3D=[['sofa','소파',/sofa|ソファ|소파|togo|couch|カウチ/],['chair','의자',/chair|チェア|椅子|의자|スツール|stool|체어/],
-  ['table','테이블·선반',/table|テーブル|테이블|desk|デスク|책상|食卓|shelf|shelving|シェルフ|棚|선반|rack|ラック|収納/],['lamp','조명',/lamp|ランプ|照明|조명|akari|ライト|light/],
-  ['watch','시계',/watch|時計|시계|seiko|rolex|casio|citizen|omega|richard-?mille/],['bicycle','자전거',/bicycle|bike|自転車|자전거|cycle|surly|strider/],
-  ['sneaker','신발',/shoe|sneaker|スニーカー|靴|신발|nike|hoka|vans|adidas|new-?balance|asics/],['bag','가방',/bag|バッグ|가방|tote|goyard|hermes|louis|wallet|財布/],
-  ['ticket','티켓',/ticket|チケット|티켓|l-tike|t\.pia|eplus/],['vase','유리·도자기',/glass|グラス|花瓶|vase|陶器|도자기|유리|食器|器|cup|カップ|usuhari/]];
-function q3dType(it){let s=String(it.title||'')+' '+String(it.url||'');try{s+=' '+decodeURIComponent(it.url||'')}catch{}s=s.toLowerCase();
-  return Q3D.find(([,,re])=>re.test(s))||['box','상품',null]}
+const Q3D=[['wallclock','벽시계',/clock|クロック|掛け?時計|置き?時計|目覚まし|벽시계|벽걸이 ?시계|탁상 ?시계/],
+  ['watch','손목시계',/watch|ウォッチ|ウオッチ|時計|시계|seiko|rolex|\bcasio|g-?shock|citizen|omega|richard-?mille|hamilton|longines|tissot|tudor/],
+  ['stroller','유모차·카시트',/stroller|ベビーカー|유모차|buggy|バギー|カーシート|チャイルドシート|카시트|car-?seat/],
+  ['helmet','헬멧',/helmet|ヘルメット|헬멧/],
+  ['motorbike','오토바이',/motorcycle|motorbike|オートバイ|오토바이|honda|ホンダ|yamaha|kawasaki|カワサキ|ducati|agusta|アグスタ|スーパーフォア|フュージョン|scooter|スクーター|스쿠터|cb\d{3,4}/],
+  ['car','자동차·미니카',/\bcar\b|自動車|자동차|차량|ミニカー|minicar|1\/18|1:18|ラジコン|rc ?(car|카)|rc자동차|toyota|トヨタ|nissan|日産|bmw|porsche|ポルシェ|mazda|lancia|スープラ|スカイライン|bumper|バンパー|범퍼|フロントガラス|スポイラー/],
+  ['tire','타이어·휠',/tire|tyre|タイヤ|타이어|ホイール|휠|geolandar|mudstar/],
+  ['lighter','라이터·담배',/lighter|ライター|라이터|zippo|ジッポ|dupont|デュポン|iqos|アイコス|아이코스|담배|タバコ|煙草|cigar|vape/],
+  ['sofa','소파',/sofa|ソファ|소파|쇼파|togo|トーゴ|オットマン|ottoman|couch|カウチ/],['chair','의자',/chair|チェア|椅子|의자|スツール|stool|체어|アームチェ/],
+  ['bed','침대',/\bbed|ベッド|침대|mattress|マットレス|매트리스/],
+  ['mirror','거울',/mirror|ミラー|거울|鏡|ドレッサー|dresser|드레서/],
+  ['suitcase','캐리어',/suitcase|スーツケース|캐리어|rimowa|リモワ|trunk|トランク|트렁크|キャリー/],
+  ['drawer','서랍장',/drawer|チェスト|\bchest|引出|引き出し|서랍|タンス|箪笥|수납장|ワゴン/],
+  ['fridge','냉장고',/冷蔵|冷凍|refrigerator|fridge|냉장고|냉동|ショーケース|熟成庫/],
+  ['table','테이블·선반',/table|テーブル|테이블|desk|デスク|책상|食卓|shelf|shelving|シェルフ|棚|선반|rack|(?<![ブト])ラック|収納/],['lamp','조명',/lamp|ランプ|照明|조명|akari|ライト|light/],
+  ['bicycle','자전거',/bicycle|bike|自転車|자전거|cycle|surly|strider|電動アシスト|フォーク|ペダル|pedal/],
+  ['sneaker','신발',/shoe|sneaker|スニーカー|靴|신발|운동화|nike|hoka|vans|adidas|new-?balance|asics|onitsuka|mexico ?66/],
+  ['shirt','의류',/scarf|スカーフ|스카프/],
+  ['bag','가방',/bag|バッグ|가방|tote|goyard|hermes|louis|wallet|財布|지갑|pouch|ポーチ|파우치/],
+  ['ticket','티켓',/ticket|チケット|티켓|l-tike|t\.pia|eplus|fチケ/],
+  ['cards','카드·복권',/card|カード|카드|pokemon|ポケモン|ポケカ|遊戯王|トレカ|booster|拡張パック|복권|宝くじ|lottery|loto/],
+  ['figure','피규어·인형',/figure|フィギュア|피규어|인형|ぬいぐるみ|plush|doll|ドール|ねんどろいど|nendoroid|bandai|バンダイ|반다이|ドラえもん|도라에몽|一番くじ|이치방|ガンプラ|プラモ|ホビー|ソフビ|레진|resin|ヒロアカ/],
+  ['keyring','키링·굿즈',/キーホルダー|keyring|key-?chain|키링|열쇠고리|アクスタ|アクリルスタンド|acrylic|아크릴|缶バッジ|뱃지|badge|ステッカー|sticker|스티커|シール|グッズ|굿즈|응원봉|ペンライト/],
+  ['book','책·악보',/楽譜|악보|book|ブック|書籍|서적|도서|다이어리|diary|手帳|漫画|コミック|manga|雑誌|magazine/],
+  ['guitar','악기',/guitar|ギター|악기|ベース|ukulele|ウクレレ|piano|ピアノ|楽器|esp ?snapper/],
+  ['disc','CD·DVD',/\bcd\b|dvd|blu-?ray|ブルーレイ|レコード|vinyl|アルバム|album|음반/],
+  ['racket','스포츠용품',/racket|ラケット|라켓|yonex|ヨネックス|tennis|テニス|badminton|卓球|탁구|golf|ゴルフ|釣|fishing|リール|낚시|ユニフォーム|유니폼/],
+  ['drill','공구·기계',/drill|ドリル|インパクト|impact|드릴|工具|공구|ヤスリ|wrench|レンチ|makita|マキタ|農機|コンバイン|田植|クボタ|kubota|iseki|イセキ|エンジン|engine|엔진/],
+  ['faucet','수전·싱크',/混合栓|水栓|faucet|수전|수도꼭지|蛇口|sink|シンク|싱크|세면대|洗面|개수대/],
+  ['fan','선풍기',/扇風機|\bfan\b|선풍기|サーキュレーター|circulator/],
+  ['pot','주방용품',/鍋|\bpot\b|냄비|フライパン|\bpan\b|le-?creuset|staub|ストウブ|kettle|ケトル|주방/],
+  ['snack','식품·과자',/お菓子|菓子|snack|スナック|과자|food|食品|식품|食材|식자재|粉|밀가루|わさび|wasabi|와사비|梅|매실|海苔|茶|\btea\b|호지차|chocolate|チョコ|초콜|candy|飴|ラーメン|noodle|調味|sauce|ソース|소스|시즈닝|seasoning|coffee|コーヒー|커피|우유|milk|ミルク|케이크|cake|ケーキ/],
+  ['bottle','술·음료',/whisky|whiskey|ウイスキー|위스키|焼酎|소주|sake|日本酒|酒|beer|ビール|맥주|wine|ワイン|와인|ハイボール|liquor|(^|\s)술/],
+  ['cosmetic','화장품·헤어·영양제',/화장품|cosmetic|コスメ|化粧|skincare|lotion|ローション|serum|美容|shampoo|シャンプー|ヘア|hair|헤어|염색|탈색|ブリーチ|bleach|k\.?fix|ナプラ|napla|립스틱|lipstick|口紅|サプリ|supplement|영양제|ビタミン|vitamin|救心|医薬|perfume|香水|향수/],
+  ['basket','바구니·러그',/basket|バスケット|바구니|かご|カゴ|籠|ラタン|rattan|\brug\b|ラグ(?!ジュ)|러그|カーペット|carpet|cushion|クッション|쿠션/],
+  ['firepit','캠핑·화로대',/キャンプ|캠핑|\bcamping\b|焚.?火|화로|fire-?pit|outdoor|アウトドア|bbq|バーベキュー/],
+  ['shirt','의류',/shirt|シャツ|셔츠|\btee\b|jacket|ジャケット|자켓|재킷|\bcoat\b|コート|pants|パンツ|바지|denim|デニム|jeans|ジーンズ|청바지|hoodie|パーカー|sweater|ニット|knit|scarf|スカーフ|스카프|ワンピース|의류|아동복|잠옷|socks|靴下|levi|arc.?teryx|アークテリクス|patagonia|mccoy/],
+  ['vase','유리·도자기',/glass|グラス|花瓶|vase|陶器|도자기|유리|食器|器|cup|カップ|usuhari|그릇|tray|トレイ|タンブラー|tumbler|オブジェ/]];
+function q3dType(it){let u=String(it.url||'');try{u+=' '+decodeURIComponent(u)}catch{}
+  const t=String(it.title||'').toLowerCase(),find=s=>s&&Q3D.find(([,,re])=>re.test(s));  // page title wins over words in the URL
+  return find(t)||find(u.toLowerCase())||['box','상품',null]}
 function q3d(){const box=$('#q3d'),wait=Q.items.filter(x=>x.state==='wait');
   if(!wait.length){box.classList.add('hidden');q3d.off=false;return}
   if(q3d.off||$('#tabQuote').classList.contains('hidden')){box.classList.add('hidden');return}
