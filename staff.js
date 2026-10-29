@@ -806,10 +806,11 @@ function qprefill(it){const mem=(D.quoteMemory||{})[qkey(it.url)],past=qpastOf(i
   if(it.shop==='ticket'){
     it.title=mem?.title||qticketName(it.url)||last?.item||'';it.state='ok';
     it.msg='티켓 · 좌석 등급마다 가격이 달라요. 고른 좌석의 1매 가격과 매수를 넣어 주세요.'+(past.length?` 같은 공연 지난 구매 ${past.length}건이 아래에 있어요.`:'');return true}
-  if(mem&&mem.price){Object.assign(it,{title:mem.title||'',price:mem.price,ship:mem.ship??'',state:'ok',
-    msg:`✓ 기억된 결과 (${mem.at.slice(5).replace('-','/')} Claude 확인): ${yen(mem.price)}${mem.shipNote?` · ${mem.shipNote}`:''} — 가격이 바뀌었을 수 있어요`});return true}
-  if(last&&last.price){Object.assign(it,{title:last.title||last.item,price:Math.round(last.price/(last.combined?1:1)),ship:last.ship??''});
-    it.pre=`지난 구매 (${last.d.slice(5).replace('-','/')}) ${yen(last.price)}로 먼저 채웠어요 · `}
+  // Remembered or past prices only get the row started: the current page is always read again, and qfill says if it moved.
+  const prev=mem&&mem.price?{price:mem.price,ship:mem.ship,title:mem.title,when:`${mem.at.slice(5).replace('-','/')} 확인`}
+    :last&&last.price?{price:last.price,ship:last.ship,title:last.title||last.item,when:`${last.d.slice(5).replace('-','/')} 구매`}:null;
+  if(prev){Object.assign(it,{title:prev.title||'',price:prev.price,ship:prev.ship??'',prev});
+    it.pre=`지난 가격 (${prev.when}) ${yen(prev.price)}로 먼저 채움 · 현재 가격 확인 중 · `}
   return false}
 async function qfetchLink(it){
   const at=new Date().toISOString();Object.assign(it,{state:'wait',step:'read',t0:Date.now(),msg:''});qeditors();qtick();
@@ -827,8 +828,9 @@ async function qfetchLink(it){
   finally{qtick()}}
 function qfill(it,r){if(!Q.items.includes(it))return;Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:it.url?qshopOf(it.url):r.shop||it.shop||''});
   const took=it.t0?` (${mmss(Math.round((Date.now()-it.t0)/1000))})`:'';
-  it.state='ok';it.msg=r.price?`✓ 읽었어요${took}: ${yen(r.price)}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:`가격을 찾지 못했어요. ${r.shipNote||'직접 입력해 주세요.'}`;
-  if(!r.price)it.state='fail';qeditors();qsave()}
+  const moved=it.prev&&r.price&&r.price!==it.prev.price?` (지난 ${yen(it.prev.price)} → 지금 ${yen(r.price)}, 가격이 바뀌었어요)`:it.prev&&r.price?' (지난 가격과 같아요)':'';
+  it.state='ok';it.msg=r.price?`✓ 현재 가격 확인${took}: ${yen(r.price)}${moved}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:`가격을 찾지 못했어요. ${r.shipNote||'직접 입력해 주세요.'}`;
+  if(!r.price){it.state='fail';if(it.prev)it.msg+=` 지난 가격 ${yen(it.prev.price)} (${it.prev.when})이 들어 있으니 현재 가격을 확인해 주세요.`}qeditors();qsave()}
 // Each press starts a new 구매 견적서 from the links in the box: products and added rows are cleared and the next
 // [견적서 제작] takes a new 견적번호. 수신, 등급 and 환율 stay, since staff usually set them just before pressing.
 $('#qAuto').onclick=()=>{const urls=[...new Set($('#qLinks').value.split(/\s+/).filter(u=>/^https?:\/\/\S{4,}$/.test(u)))];
