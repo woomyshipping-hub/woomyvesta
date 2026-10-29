@@ -154,8 +154,8 @@ th[data-sort="asc"]::before{content:'▲ ';font-size:9px;color:var(--blue)}th[da
 /* staff: center what is short or symmetric; keep reading text (번호·이름·상품·사유) left */
 #app .vesta-myth{text-align:center}#app .vesta-myth p{margin:0 auto}
 #app .kpi{text-align:center}
-#app table.sheet :is(th,td):is(:nth-child(1),:nth-child(4),:nth-child(7),:nth-child(n+9)){text-align:center}
-#app table.sheet th:nth-child(8) .thnote{text-align:left}
+#app table.sheet :is(th,td):is(:nth-child(1),:nth-child(2),:nth-child(5),:nth-child(8),:nth-child(n+10)){text-align:center}
+#app table.sheet th:nth-child(9) .thnote{text-align:left}
 #app #batches :is(th,td){text-align:center}#app #batches :is(th,td):first-child{text-align:left}
 #app .chips{justify-content:flex-start}
 .msgdlg h3,.cusdlg h3{text-align:center}.dlgbtns{justify-content:center}
@@ -347,3 +347,4 @@ td.kclick:hover{background:var(--blue-soft);text-decoration:underline dotted}
 .odhow input{accent-color:var(--good);margin:0}
 #odMemo{margin-top:6px}
 .msgcell{white-space:nowrap}
+.odbtn{border-color:color-mix(in srgb,var(--good) 50%,var(--line))!important;color:var(--good)!important}

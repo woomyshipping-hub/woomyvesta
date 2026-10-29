@@ -49,6 +49,8 @@ function row(o){
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
   const dm=o.doneMark,howTxt=dm&&(ODMEMO[dm.how]||dm.how),alerts=dm?`✓ 완료 처리 · ${howTxt}${dm.memo&&dm.memo!==howTxt?` · ${dm.memo}`:''}${dm.ts?` · ${when(dm.ts)}`:''}`:o.alerts.join(' · ');
   return `<tr${o.alerts.length?' class="warnrow"':''}>
+  <td>${o.alerts.length?`<button class="mini odbtn" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
+    dm?`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`:''}</td>
   <td>${o.hbl?`<button class="mini" data-cus="${esc(o.order)}" title="통관 진행정보 보기">통관조회</button>`:''}</td>
   <td class="mono" title="ERP: ${esc(o.order)}">${esc(adm(o))}<button class="copybtn" data-copy="${esc(adm(o))}" title="주문번호 복사" aria-label="주문번호 복사">⧉</button>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}</td>
   <td class="mono waybill">${no}</td><td>${esc(o.name)}</td>
@@ -57,14 +59,13 @@ function row(o){
   <td class="clip alertline ${dm?'k-done':o.kind?KIND[o.kind][1]:''}" title="${esc(alerts)}">${esc(alerts)}</td>
   <td class="num">${md(o.orderDate)}</td><td class="num">${md(o.obDate)}</td><td class="num">${md(o.arDate)}</td><td class="num">${since}</td>
   <td>${esc(o.courier||'미정')}</td>
-  <td class="msgcell">${msgCell(o)}${o.alerts.length?` <button class="mini" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
-    dm?`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`:''}</td></tr>`;
+  <td class="msgcell">${msgCell(o)}</td></tr>`;
 }
-const HEAD='<thead><tr><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="문자: 작성자에게 지연 안내 (우마이직구 관리자에서 발송) · 완료: 독차 등으로 이미 나간 주문을 완료로 넘기기">문자 · 완료</th></tr></thead>';
+const HEAD='<thead><tr><th title="독차 등으로 이미 나간 주문을 완료로 넘기기 · 완료 처리한 주문은 되돌리기">완료</th><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="작성자에게 지연 안내 문자 (우마이직구 관리자에서 발송)">문자</th></tr></thead>';
 const matches=(o,q)=>!q||[o.order,adm(o),o.hbl,o.courierNo,o.item,o.name,o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
 // 정렬: click a column title (not its border) to sort ▲, again ▼, a third time back to the default order.
 const KORDER={customs:0,handover:1,unknown:2,domestic:3};
-const SORTKEY=[o=>o.hbl,o=>adm(o),o=>o.courierNo,o=>o.name,o=>o.writer?o.writer.name:'',o=>o.item,o=>o.stage,
+const SORTKEY=[o=>o.doneMark?o.doneMark.ts||'1':'',o=>o.hbl,o=>adm(o),o=>o.courierNo,o=>o.name,o=>o.writer?o.writer.name:'',o=>o.item,o=>o.stage,
   o=>(KORDER[o.kind]??9)*1000-(+(o.alerts.join(' ').match(/\+(\d+)일/)||[0,0])[1]),o=>o.orderDate,o=>o.obDate,o=>o.arDate,
   o=>o.sinceDeparture??-1,o=>o.courier,o=>o.smsSent?o.smsSent.at:''];
 const sortBy={alerts:null,orders:null};  // {col, dir: 1|-1}
@@ -90,14 +91,14 @@ function renderAlerts(){
     (dn.length?`<button class="chip k-done${kindFilter==='done'?' on':''}" data-kind="done" title="독차 등으로 직원이 완료로 넘긴 주문">✓ 완료 처리 ${dn.length}</button>`:'');
   if(kindFilter==='done')$('#alertCount').textContent=`완료 처리 ${shown.length}건`;
   shownAlerts=sorted(shown,'alerts');
-  $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||`<tr><td colspan="14" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
+  $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
 }
 let dayFilter='';
 function renderList(){
   const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value;
   const list=D.orders.filter(o=>(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
   $('#count').innerHTML=(dayFilter?`<button class="daychip" data-clearday title="주문일 필터 해제">${md(dayFilter)} 주문만 ✕</button> `:'')+`${list.length.toLocaleString()}건${list.length>300?' · 처음 300건만 표시 (오른쪽 위 검색으로 좁혀 보세요)':''}`;
-  $('#orders').innerHTML=HEAD+'<tbody>'+(sorted(list,'orders').slice(0,300).map(row).join('')||`<tr><td colspan="14" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
+  $('#orders').innerHTML=HEAD+'<tbody>'+(sorted(list,'orders').slice(0,300).map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-day],[data-clearday]');if(!b)return;
   dayFilter=b.dataset.day||'';if(b.dataset.day){$('#stage').value=b.dataset.st==='alert'?'':b.dataset.st;$('#flag').value=b.dataset.st==='alert'?'alert':''}
@@ -263,7 +264,7 @@ async function goSend(){
   catch{toast('발송 요청을 전달하지 못해 이 브라우저에 발송 대기로 남겨 뒀어요. 관리자에게 알려 주세요.')}}
 // 열 너비: drag a column border to resize; click it (like Excel's double-click) to fit the widest content.
 // Widths are remembered per table in this browser and re-applied whenever a table is redrawn.
-const COLW='woomyvesta-colw';
+const COLW='woomyvesta-colw2';  // v2: 완료 column added on the left, old widths no longer line up
 const colw=()=>{try{return JSON.parse(localStorage.getItem(COLW)||'{}')}catch{return {}}};
 function setCol(table,i,w){
   for(const r of table.rows){const c=r.cells[i];if(!c)continue;
