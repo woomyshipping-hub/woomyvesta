@@ -732,7 +732,27 @@ function qinit(){if(qinit.done||!D)return;qinit.done=true;
 // the other fields is not interrupted.
 const QWAIT={read:[3,15,'쇼핑몰 페이지를 읽는 중'],claude:[60,180,'Claude가 링크를 열어 확인하는 중']};
 const mmss=s=>s>=60?`${Math.floor(s/60)}분`+(s%60?` ${s%60}초`:''):`${s}초`;
-function qtick(){let busy=0;
+// While links are out, a model of each product's type (made in Blender: vesta-tools/quote-models.blend -> models/*.glb)
+// turns slowly in the middle of the screen. The type comes from words in the link and product name; anything else is a
+// parcel box. Several links take turns every 6 s. model-viewer is loaded from the CDN the first time it is needed.
+const Q3D=[['sofa','소파',/sofa|ソファ|소파|togo|couch|カウチ/],['chair','의자',/chair|チェア|椅子|의자|スツール|stool|체어/],
+  ['table','테이블·선반',/table|テーブル|테이블|desk|デスク|책상|食卓|shelf|shelving|シェルフ|棚|선반|rack|ラック|収納/],['lamp','조명',/lamp|ランプ|照明|조명|akari|ライト|light/],
+  ['watch','시계',/watch|時計|시계|seiko|rolex|casio|citizen|omega|richard-?mille/],['bicycle','자전거',/bicycle|bike|自転車|자전거|cycle|surly|strider/],
+  ['sneaker','신발',/shoe|sneaker|スニーカー|靴|신발|nike|hoka|vans|adidas|new-?balance|asics/],['bag','가방',/bag|バッグ|가방|tote|goyard|hermes|louis|wallet|財布/],
+  ['ticket','티켓',/ticket|チケット|티켓|l-tike|t\.pia|eplus/],['vase','유리·도자기',/glass|グラス|花瓶|vase|陶器|도자기|유리|食器|器|cup|カップ|usuhari/]];
+function q3dType(it){let s=String(it.title||'')+' '+String(it.url||'');try{s+=' '+decodeURIComponent(it.url||'')}catch{}s=s.toLowerCase();
+  return Q3D.find(([,,re])=>re.test(s))||['box','상품',null]}
+function q3d(){const box=$('#q3d'),wait=Q.items.filter(x=>x.state==='wait');
+  if(!wait.length){box.classList.add('hidden');q3d.off=false;return}
+  if(q3d.off||$('#tabQuote').classList.contains('hidden')){box.classList.add('hidden');return}
+  if(!q3d.lib){q3d.lib=document.createElement('script');q3d.lib.type='module';q3d.lib.src='https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';document.head.appendChild(q3d.lib)}
+  const it=wait[Math.floor(Date.now()/6000)%wait.length],[key,name]=q3dType(it),v=$('#q3dView'),src=`models/${key}.glb`;
+  if(v.getAttribute('src')!==src)v.setAttribute('src',src);
+  const [,,what]=QWAIT[it.step||'read'];
+  $('#q3dCap').innerHTML=`<b>${esc(name)}</b> · ${esc(what)}… ${mmss(Math.round((Date.now()-it.t0)/1000))}${wait.length>1?` · ${wait.length}개 확인 중`:''}`;
+  box.classList.remove('hidden')}
+$('#q3dHide').onclick=()=>{q3d.off=true;$('#q3d').classList.add('hidden')};
+function qtick(){q3d();let busy=0;
   Q.items.forEach((it,i)=>{if(it.state!=='wait')return;busy++;
     const el=document.querySelector(`#qItems tr[data-qi="${i}"] .q-st`);if(!el)return;
     const [lo,hi,what]=QWAIT[it.step||'read'],t=Math.round((Date.now()-it.t0)/1000);
