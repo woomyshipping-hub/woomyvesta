@@ -776,7 +776,7 @@ async function qfetchLink(it){
   finally{qtick()}}
 function qfill(it,r){Object.assign(it,{title:it.title||r.title||'',price:r.price??it.price,ship:r.ship??it.ship,shop:it.shop==='ticket'?'ticket':r.shop||it.shop||''});
   const took=it.t0?` (${mmss(Math.round((Date.now()-it.t0)/1000))})`:'';
-  it.state='ok';it.msg=r.price?`✓ 읽었어요${took}: ${yen(r.price)}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:'가격을 찾지 못했어요. 직접 입력해 주세요.';
+  it.state='ok';it.msg=r.price?`✓ 읽었어요${took}: ${yen(r.price)}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:`가격을 찾지 못했어요. ${r.shipNote||'직접 입력해 주세요.'}`;
   if(!r.price)it.state='fail';qeditors();qsave()}
 // Every link in the box is (re)read on each press, including ones already in the list: before, a second press on the
 // same links added nothing and looked like no reaction.
