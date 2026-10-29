@@ -676,13 +676,15 @@ function qdoc(){const I=D.quoteInfo||{},rows=qrows(),sub=rows.reduce((a,x)=>a+x.
       <table class="qd-sup"><tr><th colspan="2" class="qd-cap">공급자</th></tr>${sup}</table></div>
     <table class="qd-items"><thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>공급가액</th><th>비고</th></tr></thead><tbody>${
       rows.map((x,i)=>`<tr><td>${i+1}</td><td>${esc(x.name)}</td><td>${x.qty}</td><td class="n">${won(x.unit)}</td><td class="n">${won(x.qty*x.unit)}</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
-      '<tr><td colspan="6" class="qd-empty">항목이 없어요</td></tr>'}</tbody></table>
+      '<tr><td colspan="6" class="qd-empty">항목이 없어요</td></tr>'}${
+      // blank ruled rows up to 12, like the Excel template's empty lines, so the page reads as a full A4 sheet
+      '<tr class="qd-blank"><td></td><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(Math.max(0,12-Math.max(rows.length,1)))}</tbody></table>
     <table class="qd-sum"><tr><th>소계</th><td>${won(sub)}원</td></tr><tr><th>부가세</th><td>${Q.vat[Q.type]?won(vat)+'원':'미포함'}</td></tr>
       <tr class="qd-total"><th>최종 견적가</th><td>${won(sub+vat)}원</td></tr></table>
     ${Q.type==='구매'&&qrows().some(x=>x.name==='상품가')?`<p class="qd-rate">적용 환율 1엔 = ${qrate()}원 (${esc(qtoday())} 기준)</p>`:''}
-    <div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div>
+    <div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div>
       <div class="qd-sign"><span>SIGNED BY:</span>${I.sign?`<img src="${I.sign}" alt="">`:''}</div></div>
-    <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p>`;
+    <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p></div>`;
   return {sub,vat,total:sub+vat}}
 // 비슷한 지난 견적 (D.quoteExamples, the staff sheet without names): same shop or shared words in the item name, newest
 // first. Shows what we charged for 현지배송비·수수료 and the size, so staff can judge an unknown 送料.

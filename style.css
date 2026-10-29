@@ -417,3 +417,5 @@ label[for=odMemo]{display:block;margin-top:16px}
 .gate-motto{margin:14px 0 0;padding-left:12px;border-left:3px solid #e2552b;font-size:15px;font-weight:600;line-height:1.6;color:var(--ink);word-break:keep-all}
 .gate-note{margin:10px 0 4px;font-size:12.5px;color:var(--muted)}
 .q-st.wait{color:var(--blue);font-weight:600}
+/* A4 (210×297) at 760px wide: the bank/sign block and fine print sit at the bottom of the sheet */
+.q-doc{min-height:1075px;display:flex;flex-direction:column}.qd-bottom{margin-top:auto}.qd-blank td{height:30px}
