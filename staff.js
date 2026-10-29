@@ -659,7 +659,7 @@ const QNOCARD=/(auctions|page\.auctions|shopping)\.yahoo\.co\.jp|mercari\.com|pa
 const qshopOf=u=>QNOCARD.test(u)?'auction':/l-tike|t\.pia\.jp|eplus|ticket/i.test(u)?'ticket':'';
 function qfeeAll(shipTotal){
   const priced=Q.items.filter(it=>qnum(it.price)),tickets=priced.filter(it=>it.shop==='ticket'),goods=priced.filter(it=>it.shop!=='ticket');
-  const tfee=tickets.reduce((a,it)=>{const q=qnum(it.qty)||1;return a+(q>1?2500*q:3000)},0),parts=[];
+  const tfee=tickets.reduce((a,it)=>{const q=qnum(it.qty)||1;return a+(q>1?2500*q:3000)},0),parts=[],short=[];
   let fee=tfee;
   if(goods.length){const biz=$('#qGrade').value==='biz',pct=biz?3:5,nocard=goods.some(it=>it.shop==='auction');
     const total=goods.reduce((a,it)=>a+qnum(it.price)*(qnum(it.qty)||1),0)+(shipTotal||0),raw=Math.floor(total*pct/100);
@@ -668,20 +668,23 @@ function qfeeAll(shipTotal){
     const extra=orders.slice(5).reduce((a,it)=>a+(it.shop==='auction'?2000:1500),0);
     fee+=base+extra;
     parts.push(`${goods.length>1?`상품 ${goods.length}개 합계 `:''}${yen(total)} × ${pct}%${raw<min?` → 최소 ${yen(min)}${nocard?' (야후·메루카리는 한국 카드 결제 불가)':goods.length>1?' (여러 상품)':''}`:` = ${yen(raw)}`}`);
-    if(extra)parts.push(`주문 ${orders.length}건 중 5건 초과 ${orders.length-5}건 +${yen(extra)}`)}
+    if(extra)parts.push(`주문 ${orders.length}건 중 5건 초과 ${orders.length-5}건 +${yen(extra)}`);
+    // one line on the document: the rule that set the fee, without the arithmetic
+    short.push(raw<min?"최소 수수료":`결제금액의 ${pct}%`);if(extra)short.push(`주문 초과 ${orders.length-5}건`)}
+  if(tfee)short.push(`티켓 ${tickets.reduce((a,it)=>a+(qnum(it.qty)||1),0)}매`);
   if(tfee)parts.push(`티켓 ${yen(tfee)} (1매 3,000엔 · 2매부터 매당 2,500엔)`);
-  return {fee,note:parts.join(' · ')}}
+  return {fee,note:parts.join(' · '),short:short.join(' + ')}}
 // The lines the document shows, each with the key of the editor row that feeds it: 구매 = 상품가 per product (p0…),
 // 현지배송비 (ship), 구매수수료 (fee), then the added rows (l0…). Rows without a price are left out of the document.
 // 현지배송비 and 구매수수료 take staff's own 엔 value when one is typed, else the automatic one.
 function qship(){const known=Q.items.filter(it=>qnum(it.ship)!=null),auto=known.reduce((a,it)=>a+qnum(it.ship),0);
-  const autoNote=known.length<Q.items.length?(auto?`${yen(auto)} · 일부 판매자 확인 후 변동 가능`:'판매자 확인 후 안내 (변동 가능)'):auto?yen(auto):'무료 (送料込み)';
+  const autoNote=known.length<Q.items.length?(auto?`${yen(auto)} · 일부 구매처 확인 후 변동 가능`:'구매처 확인 후 안내 (변동 가능)'):auto?yen(auto):'무료 (送料込み)';
   const own=qnum(Q.adj.ship);return {auto,autoNote,yen:own??auto,note:Q.adj.shipNote||(own!=null?yen(own):autoNote)}}
-function qfee(){const sh=qship(),{fee,note}=qfeeAll(sh.yen),own=qnum(Q.adj.fee);
-  return {auto:fee,autoNote:fee?`${yen(fee)} · ${note}`:'',yen:own??fee,note:Q.adj.feeNote||(own!=null?`${yen(own)} (직원 입력)`:fee?`${yen(fee)} · ${note}`:'')}}
+function qfee(){const sh=qship(),{fee,note,short}=qfeeAll(sh.yen),own=qnum(Q.adj.fee);
+  return {auto:fee,autoNote:fee?`${yen(fee)} · ${note}`:'',yen:own??fee,note:Q.adj.feeNote||(own!=null?yen(own):fee?`${yen(fee)} · ${short}`:'')}}
 function qrows(){const r=qrate(),out=[];
   if(Q.type==='구매'&&Q.items.length){
-    Q.items.forEach((it,i)=>{if(qnum(it.price))out.push({k:'p'+i,name:(it.title||'상품').slice(0,40),qty:qnum(it.qty)||1,unit:Math.round(qnum(it.price)*r),note:`상품가 ${yen(it.price)}`})});
+    Q.items.forEach((it,i)=>{if(qnum(it.price))out.push({k:'p'+i,name:(it.title||'상품').slice(0,40),qty:qnum(it.qty)||1,unit:Math.round(qnum(it.price)*r),note:yen(it.price)})});
     const sh=qship();out.push({k:'ship',name:'현지배송비',qty:1,unit:Math.round(sh.yen*r),note:sh.note});
     const f=qfee();if(f.yen)out.push({k:'fee',name:'구매수수료',qty:1,unit:Math.round(f.yen*r),note:f.note})}
   Q.lines[Q.type].forEach((l,i)=>{if(l[2]!==''&&qnum(l[2])!=null)out.push({k:'l'+i,name:l[0],qty:qnum(l[1])||1,unit:qnum(l[2]),note:l[3]})});
@@ -689,7 +692,7 @@ function qrows(){const r=qrate(),out=[];
 // The document, laid out like a Japanese 見積書: title 見積書, the customer's name + 様 on the left and the date on the right
 // of the first line, then the quote facts beside the company block with its seal, then 항목 (상품명) · 수량 · 단가 · 비고 and
 // one 총 합계. Labels are Korean only (the company's katakana name stays). 단가 already include 부가세: no 부가세 line.
-const qdate=()=>{const [y,m,d]=qtoday().split('-').map(Number);return `${y}년 ${m}월 ${d}일`};
+const qdate=()=>{const [y,m,d]=qtoday().split('-').map(Number);return `${y}年 ${m}月 ${d}日`};
 function qdoc(){const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+x.qty*x.unit,0),sup=Object.fromEntries(I.supplier||[]);
   $('#qDoc').innerHTML=`<h2 class="qd-title">見積書</h2>
     <div class="qd-line"><div class="qd-to"><span class="qd-toname">${esc($('#qTo').value.trim()||'　')}</span><span class="qd-sama">様</span></div>
