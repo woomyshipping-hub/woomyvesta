@@ -317,7 +317,7 @@ document.addEventListener('click',e=>{const c=e.target.closest('[data-copy]');if
     setTimeout(()=>{c.textContent='⧉';c.classList.remove('ok')},1200)},()=>toast('복사하지 못했어요. 직접 선택해서 복사해 주세요.'))});
 // 카카오 누락: three ways a chat can be left hanging. Data comes from vesta-tools/kakao_missed.py (D.kakao).
 const KTYPE={unread:['안 읽음','k-customs','아직 아무도 읽지 않은 상담'],noReply:['읽고 답 안함','k-handover','읽었지만 고객 메시지에 아무도 답하지 않은 상담'],
-  pending:['확인 후 안내 대기','k-domestic','"확인해 보겠습니다"라고 답한 뒤 추가 안내가 없는 상담'],
+  pending:['확인 후 안내 필요','k-domestic','"확인해 보겠습니다"라고 답한 뒤 추가 안내가 없는 상담'],
   bot:['챗봇만 응대','k-unknown','마지막 대화 뒤 고객이 챗봇 메뉴만 눌렀고 직원 답이 없는 상담']};
 let kFilter='',kTopic=null;
 // [처리완료]: staff tick a row to set it aside until the customer writes again (the mark is tied to the message time
