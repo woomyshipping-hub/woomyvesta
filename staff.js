@@ -1087,33 +1087,47 @@ $('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel
   else{Q.type=b.dataset.qtype;Q.no='';document.querySelectorAll('[data-qtype]').forEach(x=>x.classList.toggle('on',x===b))}
   qeditors();qsave()});
 $('#qReset').onclick=()=>{if(confirm('입력한 내용을 지우고 새 견적을 시작할까요?'))qreset(true)};
+// [견적서 제작] copies the message staff paste in Kakao before attaching the saved image(s) (user, 2026-10-30).
+function qmsg(total,pages){const no=Q.no,amt=`₩${won(total)}`,many=pages>1?`\n견적서가 ${pages}장이라 나누어 보내드립니다.`:'';
+  // the texts the user chose on 2026-10-30: 구매 = B 입금 안내형, 배송비 = A 입고 안내형
+  return Q.type==='배송'
+    ?`안녕하세요 고객님, 우마이직구입니다.\n주문하신 상품이 일본 센터에 입고되어 배송비 견적서를 전달드립니다.${many}\n\n· 견적번호: ${no}\n· 배송비 합계: ${amt}\n\n견적서 하단의 계좌로 입금해 주시면 확인 후 출고 준비를 진행하겠습니다.\n궁금하신 점은 편하게 말씀해 주세요.\n감사합니다.`
+    :`안녕하세요 고객님, 우마이직구입니다.\n요청하신 상품의 구매 견적서를 보내드립니다.${many}\n\n· 견적번호: ${no}\n· 입금하실 금액: ${amt}\n\n견적서 하단의 계좌로 입금해 주시면 확인 후 바로 구매를 진행해 드리겠습니다.\n상품 가격은 구매 시점에 따라 변동될 수 있으니 참고 부탁드립니다.\n감사합니다.`}
 $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textContent=t;
   if(!$('#qTo').value.trim()){msg('수신(고객 이름)을 먼저 넣어 주세요.');$('#qTo').focus();return}
   if(!qrows().length){msg('견적 항목이 없어요.');return}
   b.disabled=true;
+  // the clipboard write starts inside the click (browsers need that); its text follows once the 견적번호 is known
+  let give;const text=new Promise(r=>give=r);
+  const copy=navigator.clipboard.write([new ClipboardItem({'text/plain':text})]).then(()=>true,()=>false);
   // The quote itself goes with its number (sheet 견적번호, column 견적 내용) so Claude can write the 구매 정리 row once the
   // customer says they paid; making the image again after edits updates it.
   const detail=()=>{const sh=qship(),f=qfee(),{total}=qdoc();return {type:Q.type,to:$('#qTo').value.trim(),grade:$('#qGrade').value,rate:qrate(),
     items:Q.items.map(({url,title,qty,price,ship,shop,note})=>({url,title,qty,price,ship,shop,note})),ship:sh.yen,shipNote:sh.note,fee:f.yen,feeNote:f.note,
-    lines:Q.lines[Q.type],total}};
-  try{if(Q.no&&D.smsIntake)fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({kind:'quoteSave',no:Q.no,total:qdoc().total,detail:detail()})}).catch(()=>{});
+    lines:Q.lines[Q.type],orders:Q.type==='배송'?(Q.ship||[]).map(x=>x.order):[],total}};
+  let pa=null;   // 페이액션 registration (the 접수창구 registers the 견적번호 so the deposit is matched automatically)
+  try{const saved=Q.no&&D.smsIntake?fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({kind:'quoteSave',no:Q.no,total:qdoc().total,detail:detail()})}).then(r=>r.json()).then(r=>{pa=r.pa||null}).catch(()=>{}):null;
     if(!Q.no){msg('견적번호를 받는 중…');const {total}=qdoc();
       try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({kind:'quoteNo',type:Q.type,to:$('#qTo').value.trim(),total,detail:detail(),at:new Date().toISOString()})})).json();if(!r.ok||!r.no)throw 0;Q.no=r.no}
+        body:JSON.stringify({kind:'quoteNo',type:Q.type,to:$('#qTo').value.trim(),total,detail:detail(),at:new Date().toISOString()})})).json();if(!r.ok||!r.no)throw 0;Q.no=r.no;pa=r.pa||null}
       catch{const day=qtoday().replace(/-/g,''),k='woomyvesta-qno-'+day,n=(+localStorage.getItem(k)||100)+1;localStorage.setItem(k,n);Q.no=`${day}_${n}`;
         toast('공용 견적번호를 받지 못해 이 PC 번호로 만들었어요. 다른 직원 번호와 겹칠 수 있어요.')}
       qsave()}
     const {pages}=qdoc(),base=`견적서_${Q.no}_${$('#qTo').value.trim().replace(/[\\/:*?"<>|\s]+/g,'_').slice(0,30)}`;
-    // every page is its own A4 PNG (…_1of2.png); the clipboard holds page 1, and the pager's [이 페이지 복사] copies the others
-    const first=qpng(0);let copied=false;try{await navigator.clipboard.write([new ClipboardItem({'image/png':first})]);copied=true}catch{}
+    // the clipboard gets the 전달 멘트; every page is saved as its own A4 PNG (…_1of2.png) to attach in Kakao,
+    // and the pager's [이 페이지 복사] still copies a page image when that is easier
+    const words=qmsg(qdoc().total,pages);give(new Blob([words],{type:'text/plain'}));
+    let copied=await copy;if(!copied)try{await navigator.clipboard.writeText(words);copied=true}catch{}
     const names=[];
     for(let k=0;k<pages;k++){const name=pages>1?`${base}_${k+1}of${pages}.png`:`${base}.png`;names.push(name);
-      const a=document.createElement('a');a.href=URL.createObjectURL(k?await qpng(k):await first);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3);
+      const a=document.createElement('a');a.href=URL.createObjectURL(await qpng(k));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3);
       if(pages>1)await new Promise(r=>setTimeout(r,400))}   // browsers drop downloads fired in the same instant
-    msg(pages>1?`견적번호 ${Q.no} · A4 ${pages}페이지를 파일 ${pages}개로 저장했어요${copied?' (1페이지는 복사됨 — 다른 페이지는 위쪽 ◀▶로 넘겨 [이 페이지 복사])':''}.`
-      :`견적번호 ${Q.no} · ${copied?'이미지를 복사하고 ':''}${names[0]} 파일로 저장했어요.${copied?' 카카오톡에 붙여넣기(⌘V / Ctrl+V) 하면 돼요.':''}`)}
-  catch{msg('이미지를 만들지 못했어요. 다시 눌러 주세요.')}
+    if(saved)await saved;
+    const paNote=pa?(pa.ok?` · 페이액션 입금 대기 등록 (입금자명 ${pa.name})`:` · 페이액션 등록 안 됨 (${pa.error})`):'';
+    msg(`견적번호 ${Q.no} · ${copied?'전달 멘트를 복사했어요 (카카오톡에 붙여넣기 ⌘V / Ctrl+V) · ':'멘트를 복사하지 못했어요 · '}`+
+      `견적서 이미지${pages>1?` ${pages}장을 파일 ${pages}개로`:`를 ${names[0]} 파일로`} 저장했어요. 멘트 다음에 이미지 파일을 보내 주세요.${paNote}`)}
+  catch{give(new Blob([''],{type:'text/plain'}));msg('견적서를 만들지 못했어요. 다시 눌러 주세요.')}
   finally{b.disabled=false}};
 $('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});
 function setTab(t,push){
