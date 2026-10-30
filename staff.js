@@ -407,12 +407,13 @@ let kFilter='',kTopic=null;
 // [처리완료]: staff tick a row to set it aside until the customer writes again (the mark is tied to the message time
 // it answers). Marks are shared through the 접수창구 (sheet 처리완료); this browser's own ticks show at once and win
 // for a few minutes until the shared list has them. Chats answered in Kakao itself arrive as K.resolved.
-const KDONE='woomyvesta-kdone';let KMARKS={};
+// KMARKS = everyone's 처리완료 from the intake sheet; the last list is kept so the first count is right before doneList answers
+const KDONE='woomyvesta-kdone',KMARKC='woomyvesta-kmarks';let KMARKS=(()=>{try{return JSON.parse(localStorage.getItem(KMARKC)||'{}')}catch{return {}}})();
 const localDone=()=>{try{return JSON.parse(localStorage.getItem(KDONE)||'{}')}catch{return {}}};
 const markOf=id=>{const l=localDone()[id],s=KMARKS[id];return l&&(!s||Date.now()-l.since<5*60e3)?l:s};
 const isDone=x=>{const m=markOf(x.id);return !!(m&&m.done&&m.at===x.at)};
 async function loadDone(){if(!D?.smsIntake)return;try{const r=await (await fetch(`${D.smsIntake}?action=doneList`)).json();
-  if(r.ok){KMARKS=r.marks||{};renderKakao()}}catch{}}
+  if(r.ok){KMARKS=r.marks||{};try{localStorage.setItem(KMARKC,JSON.stringify(KMARKS))}catch{}renderKakao()}}catch{}}
 let kMoveT=null;
 function moveMsg(t){const m=$('#kMoveMsg');m.textContent=t;m.classList.add('on');clearTimeout(kMoveT);kMoveT=setTimeout(()=>m.classList.remove('on'),3000)}
 async function setDone(x,done){
