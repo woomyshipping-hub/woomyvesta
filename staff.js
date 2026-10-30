@@ -1177,12 +1177,19 @@ function mFigure(name){   // -> blob URL of the decrypted pose (.glb) or poster 
     const plain=await crypto.subtle.decrypt({name:'AES-CBC',iv},ak,ct);
     return URL.createObjectURL(new Blob([plain],{type:name.endsWith('.png')?'image/png':'model/gltf-binary'}))})();
   p.catch(()=>MFIG.delete(name));MFIG.set(name,p);return p}
+// 배송현황 findings for orders a person already marked 완료 (live ticks, applyMarks) are not Mercury's business: drop them, and their count.
+function mData(){
+  const M=D&&D.mercury;if(!M)return null;
+  const done=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),hid=(M.items||[]).filter(i=>i.kind==='배송현황'&&done.has(i.no)).length;
+  if(!hid)return M;
+  const left=(M.items||[]).filter(i=>!(i.kind==='배송현황'&&done.has(i.no)));
+  return {...M,items:left,situations:(M.situations||[]).map(x=>x.id==='parcel'?{...x,count:(x.count||0)-hid}:x).filter(x=>x.id!=='parcel'||x.count>0)}}
 function mSituation(){   // the situation Mercury is really in right now
-  const M=D&&D.mercury,act=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]).sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri);
+  const M=mData(),act=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]).sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri);
   return act[0]||{id:'calm'}}
 function renderMercury(){
   if(!D)return;
-  const M=D.mercury||null,items=(M&&M.items)||[],real=mSituation(),show=mPreviewId&&M_SIT[mPreviewId]?{id:mPreviewId}:real,sit=M_SIT[show.id],view=$('#mView'),stage=$('#mStage');
+  const M=mData(),items=(M&&M.items)||[],real=mSituation(),show=mPreviewId&&M_SIT[mPreviewId]?{id:mPreviewId}:real,sit=M_SIT[show.id],view=$('#mView'),stage=$('#mStage');
   mvLoad();
   if(view._pose!==sit.pose){view._pose=sit.pose;stage.classList.remove('ready');
     mFigure(sit.pose+'.png').then(u=>{if(view._pose===sit.pose)$('#mFallback').src=u}).catch(()=>{});
