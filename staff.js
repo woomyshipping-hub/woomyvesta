@@ -708,8 +708,13 @@ function qrows(){const r=qrate(),out=[];
 // of the first line, then the quote facts beside the company block with its seal, then 항목 (상품명) · 수량 · 단가 · 비고 and
 // one 총 합계. Labels are Korean only (the company's katakana name stays). 단가 already include 부가세: no 부가세 line.
 const qdate=()=>{const [y,m,d]=qtoday().split('-').map(Number);return `${y}年 ${m}月 ${d}日`};
-function qdoc(){const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+x.qty*x.unit,0),sup=Object.fromEntries(I.supplier||[]);
-  $('#qDoc').innerHTML=`<h2 class="qd-title">見積書</h2>
+// A4 pages (760 × 1075px = 210 × 297mm). Page 1 carries the title, customer, 견적번호 and the company block; a later page
+// starts with a short 見積書 (계속) line. Rows fill each page until it would overflow; the last page ends with 총 합계,
+// 입금안내 and the fine print, and its spare space gets ruled blank rows like the Excel template. More rows -> more pages.
+const QPAGE_H=1075;
+function qhead(first,I,sup,page,pages){
+  if(!first)return `<div class="qd-cont"><b>見積書</b> <span>(계속)</span><span class="qd-contno">${esc($('#qTo').value.trim())} 様 · 견적번호 ${esc(Q.no||'(제작 시 발급)')}</span></div>`;
+  return `<h2 class="qd-title">見積書</h2>
     <div class="qd-line"><div class="qd-to"><span class="qd-toname">${esc($('#qTo').value.trim()||'　')}</span><span class="qd-sama">様</span></div>
       <div class="qd-date">${esc(qdate())}</div></div>
     <div class="qd-top"><div class="qd-left">
@@ -719,17 +724,48 @@ function qdoc(){const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+
       <div class="qd-co"><div class="qd-coname">${esc(sup['상호명']||'우마이직구')} <span class="qd-ja">${esc(I.nameJa||'')}</span>${I.stamp?`<img class="qd-stamp" src="${I.stamp}" alt="">`:''}</div>
         <p>${esc(sup['사업장주소']||'')}</p><p>tel ${esc(sup['전화번호']||'')}</p>
         <p>사업자등록번호 ${esc(sup['사업자등록번호']||'')} · ${esc(sup['업태']||'')}</p>
-        <p class="qd-rep">대표 ${esc(sup['대표자']||'')}</p></div></div>
-    <table class="qd-items"><thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>비고</th></tr></thead><tbody>${
-      rows.map((x,i)=>`<tr><td>${i+1}</td><td class="qd-item">${esc(x.name)}</td><td>${x.qty}</td><td>₩${won(x.unit)}</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
-      '<tr><td colspan="5" class="qd-empty">항목이 없어요</td></tr>'}${
-      // blank ruled rows up to 12, like the Excel template's empty lines, so the page reads as a full A4 sheet
-      '<tr class="qd-blank"><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(Math.max(0,12-Math.max(rows.length,1)))}
-      <tr class="qd-total"><td colspan="2">총 합계</td><td colspan="2">₩${won(total)}</td><td>입금하실 금액</td></tr></tbody></table>
-    <div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
-    <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p></div>`;
+        <p class="qd-rep">대표 ${esc(sup['대표자']||'')}</p></div></div>`}
+function qpage(o){const {I,sup,rows,from,last,blank,total,page,pages}=o;
+  const body=rows.map((x,k)=>`<tr><td>${from+k+1}</td><td class="qd-item">${esc(x.name)}</td><td>${x.qty}</td><td>₩${won(x.unit)}</td><td class="qd-note">${esc(x.note||'')}</td></tr>`).join('')||
+    (last&&!from?'<tr><td colspan="5" class="qd-empty">항목이 없어요</td></tr>':'');
+  return `<div class="q-doc">${qhead(page===1,I,sup,page,pages)}
+    <table class="qd-items"><thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>비고</th></tr></thead><tbody>${body}${
+      '<tr class="qd-blank"><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(blank)}${
+      last?`<tr class="qd-total"><td colspan="2">총 합계</td><td colspan="2">₩${won(total)}</td><td>입금하실 금액</td></tr>`:''}</tbody></table>
+    ${last?`<div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
+    <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p></div>`:'<div class="qd-bottom"></div>'}
+    ${pages>1?`<p class="qd-pageno">${page} / ${pages}</p>`:''}</div>`}
+function qdoc(){const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+x.qty*x.unit,0),sup=Object.fromEntries(I.supplier||[]);
+  // measure in an off-screen copy of the preview: does this page's content still fit in one A4 sheet?
+  const m=qdoc.m||(qdoc.m=Object.assign(document.createElement('div'),{className:'q-pages q-measure'}));if(!m.isConnected)document.body.appendChild(m);
+  const fits=o=>{m.innerHTML=qpage({...o,pages:2});const d=m.firstElementChild;return d.scrollHeight<=QPAGE_H+1};
+  const parts=[];let i=0;
+  for(let guard=0;guard<60;guard++){const page=parts.length+1,base={I,sup,from:i,total,page,blank:0};
+    if(fits({...base,rows:rows.slice(i),last:true})){parts.push({from:i,rows:rows.slice(i),last:true});break}
+    let j=i+1;while(j<rows.length&&fits({...base,rows:rows.slice(i,j+1),last:false}))j++;
+    if(j>=rows.length){   // the rest fits without 총 합계 but not with it: share it between this page and the last one
+      const rest=rows.length-i;let k=1;   // k = rows the last page holds above 총 합계
+      while(k<rest-1&&fits({I,sup,from:rows.length-k-1,total,page:page+1,blank:0,rows:rows.slice(rows.length-k-1),last:true}))k++;
+      j=Math.max(i+1,rows.length-Math.min(k,Math.ceil(rest/2)))}
+    parts.push({from:i,rows:rows.slice(i,j),last:false});i=j}
+  const L=parts.at(-1);let blank=0;   // ruled blank rows on the last page, up to 12 lines in all on a single page
+  const cap=parts.length===1?Math.max(0,12-Math.max(rows.length,1)):40;
+  while(blank<cap&&fits({I,sup,...L,total,page:parts.length,blank:blank+1}))blank++;
+  L.blank=blank;m.innerHTML='';
+  const pages=parts.length;Q.page=Math.min(Q.page||1,pages);
+  $('#qDoc').innerHTML=parts.map((x,k)=>qpage({I,sup,total,blank:0,...x,page:k+1,pages})).join('');
+  $('#qDoc').querySelectorAll('.q-doc').forEach((d,k)=>d.classList.toggle('qd-off',k+1!==Q.page));
+  $('#qPager').classList.toggle('hidden',pages<2);$('#qPageNo').textContent=`${Q.page} / ${pages} 페이지`;
   if($('#qTable tbody'))qkrw();
-  return {sub:total,vat:0,total}}
+  return {sub:total,vat:0,total,pages}}
+$('#qPager').addEventListener('click',e=>{const b=e.target.closest('[data-qpg]');if(!b)return;
+  const n=$('#qDoc').children.length;Q.page=Math.min(n,Math.max(1,(Q.page||1)+ +b.dataset.qpg));qdoc()});
+// one page as a PNG blob (pages the pager hides are shown just for the capture)
+async function qpng(k){const d=$('#qDoc').children[k],off=d.classList.contains('qd-off');d.classList.remove('qd-off');
+  try{const c=await (await loadH2C())(d,{scale:2,backgroundColor:'#ffffff',logging:false});return await new Promise(r=>c.toBlob(r,'image/png'))}
+  finally{if(off)d.classList.add('qd-off')}}
+$('#qCopyPage').onclick=async()=>{const k=(Q.page||1)-1;
+  try{await navigator.clipboard.write([new ClipboardItem({'image/png':qpng(k)})]);toast(`${k+1}페이지를 복사했어요. 카카오톡에 붙여넣기 하면 돼요.`)}catch{toast('복사하지 못했어요. 저장된 파일을 보내 주세요.')}};
 // 비슷한 지난 견적 (D.quoteExamples, the staff sheet without names): same shop or shared words in the item name, newest
 // first. Shows what we charged for 현지배송비·수수료 and the size, so staff can judge an unknown 送料.
 const qwords=t=>new Set(String(t||'').toLowerCase().match(/[a-z0-9]{3,}|[\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7a3]{2,}/g)||[]);
@@ -1068,11 +1104,15 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
       catch{const day=qtoday().replace(/-/g,''),k='woomyvesta-qno-'+day,n=(+localStorage.getItem(k)||100)+1;localStorage.setItem(k,n);Q.no=`${day}_${n}`;
         toast('공용 견적번호를 받지 못해 이 PC 번호로 만들었어요. 다른 직원 번호와 겹칠 수 있어요.')}
       qsave()}
-    qdoc();const name=`견적서_${Q.no}_${$('#qTo').value.trim().replace(/[\\/:*?"<>|\s]+/g,'_').slice(0,30)}.png`;
-    const blob=loadH2C().then(f=>f($('#qDoc'),{scale:2,backgroundColor:'#ffffff',logging:false})).then(c=>new Promise(r=>c.toBlob(r,'image/png')));
-    let copied=false;try{await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);copied=true}catch{}
-    const a=document.createElement('a');a.href=URL.createObjectURL(await blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3);
-    msg(`견적번호 ${Q.no} · ${copied?'이미지를 복사하고 ':''}${name} 파일로 저장했어요.${copied?' 카카오톡에 붙여넣기(⌘V / Ctrl+V) 하면 돼요.':''}`)}
+    const {pages}=qdoc(),base=`견적서_${Q.no}_${$('#qTo').value.trim().replace(/[\\/:*?"<>|\s]+/g,'_').slice(0,30)}`;
+    // every page is its own A4 PNG (…_1of2.png); the clipboard holds page 1, and the pager's [이 페이지 복사] copies the others
+    const first=qpng(0);let copied=false;try{await navigator.clipboard.write([new ClipboardItem({'image/png':first})]);copied=true}catch{}
+    const names=[];
+    for(let k=0;k<pages;k++){const name=pages>1?`${base}_${k+1}of${pages}.png`:`${base}.png`;names.push(name);
+      const a=document.createElement('a');a.href=URL.createObjectURL(k?await qpng(k):await first);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3);
+      if(pages>1)await new Promise(r=>setTimeout(r,400))}   // browsers drop downloads fired in the same instant
+    msg(pages>1?`견적번호 ${Q.no} · A4 ${pages}페이지를 파일 ${pages}개로 저장했어요${copied?' (1페이지는 복사됨 — 다른 페이지는 위쪽 ◀▶로 넘겨 [이 페이지 복사])':''}.`
+      :`견적번호 ${Q.no} · ${copied?'이미지를 복사하고 ':''}${names[0]} 파일로 저장했어요.${copied?' 카카오톡에 붙여넣기(⌘V / Ctrl+V) 하면 돼요.':''}`)}
   catch{msg('이미지를 만들지 못했어요. 다시 눌러 주세요.')}
   finally{b.disabled=false}};
 $('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});

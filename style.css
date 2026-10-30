@@ -418,7 +418,14 @@ label[for=odMemo]{display:block;margin-top:16px}
 .gate-note{margin:10px 0 4px;font-size:12.5px;color:var(--muted)}
 .q-st.wait{color:var(--blue);font-weight:600}
 /* A4 (210×297) at 760px wide: the bank/sign block and fine print sit at the bottom of the sheet */
-.q-doc{min-height:1075px;display:flex;flex-direction:column}.qd-bottom{margin-top:auto}.qd-blank td{height:30px}
+.q-doc{height:1075px;overflow:hidden;display:flex;flex-direction:column}.qd-bottom{margin-top:auto}.qd-blank td{height:30px}
+/* more rows than one A4 holds -> more pages; the preview shows one page at a time with ◀ ▶ */
+.q-pages{display:grid;gap:16px}.q-doc.qd-off{display:none}
+.q-measure{position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none}
+.q-pager{display:flex;align-items:center;gap:8px;margin-bottom:8px}.q-pager #qCopyPage{margin-left:auto}
+.q-doc .qd-cont{display:flex;align-items:baseline;gap:8px;padding-bottom:10px;margin-bottom:12px;border-bottom:2px solid #1d2433;font-size:15px}
+.q-doc .qd-cont b{font-size:20px;letter-spacing:.2em}.q-doc .qd-contno{margin-left:auto;font-size:12.5px;color:#5b6475}
+.q-doc .qd-pageno{text-align:center;font-size:11.5px;color:#7a8394;margin-top:8px}
 /* 견적서: while a link is being read, a Blender-made model of its product type turns slowly in the middle of the screen */
 .q3d{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:40}
 .q3d-card{position:relative;pointer-events:auto;width:min(360px,86vw);background:var(--card);border:1px solid var(--line);border-radius:20px;padding:14px 14px 16px;box-shadow:0 18px 60px #19243a2e;text-align:center;animation:q3dIn .35s ease-out}
