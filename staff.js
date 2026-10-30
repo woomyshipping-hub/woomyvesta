@@ -169,8 +169,22 @@ document.addEventListener('click',e=>{if(e.target.id!=='odSave'||!odOrder)return
   setODone(odOrder,true,'기타',$('#odMemo').value.trim().slice(0,100));$('#odDlg').close()});
 document.addEventListener('click',e=>{const b=e.target.closest('[data-odundo]');if(!b)return;
   const o=D.orders.find(x=>x.order===b.dataset.odundo);if(o)setODone(o,false,o.doneMark?.how||'기타',o.doneMark?.memo||'')});
+// 업데이트 멈춤 경고: 배송현황 is due on weekdays at 8·12·18시 (+90분), 카카오 누락 every hour 8:30–21:30 (late after 2h).
+// Mirrors vesta-tools/freshness.py (which also skips public holidays) so a stalled update is seen on the page too.
+function staleCheck(){
+  const now=new Date(),kst=new Date(now.getTime()+9*36e5),late=[];
+  const slot=()=>{for(let d=0;d<10;d++){const t=new Date(Date.UTC(kst.getUTCFullYear(),kst.getUTCMonth(),kst.getUTCDate()-d));if(t.getUTCDay()%6===0)continue;
+    for(const h of [18,12,8]){const s=t.getTime()+(h-9)*36e5;if(s+90*6e4<=now)return s}}};
+  const ago=t=>{const m=Math.round((now-t)/6e4);return m>=1440?`${Math.floor(m/1440)}일 ${Math.floor(m%1440/60)}시간`:`${Math.floor(m/60)}시간 ${m%60}분`};
+  const due=slot(),s=new Date(D.updatedAt);if(due&&s<due)late.push(`배송현황이 ${ago(s)}째 업데이트되지 않았어요 (마지막 ${when(D.updatedAt)})`);
+  const h=kst.getUTCHours()+kst.getUTCMinutes()/60;
+  if(D.kakao&&h>=10.5&&h<=22.5&&now-new Date(D.kakao.updatedAt)>2*36e5)late.push(`카카오 누락이 ${ago(new Date(D.kakao.updatedAt))}째 업데이트되지 않았어요`);
+  $('#stale').classList.toggle('hidden',!late.length);
+  $('#stale').innerHTML=late.length?`⚠️ ${late.map(esc).join('<br>')}<span class="small"> · 아래 정보가 최신이 아닐 수 있어요. 담당자에게 알려 주세요.</span>`:'';
+}
+setInterval(()=>{if(typeof D!=='undefined'&&D)safe(staleCheck)},5*60e3);
 function render(){
-  applyMarks();
+  applyMarks();safe(staleCheck);
   $('#updated').textContent=`· ${new Date(D.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${D.range[0]} ~ ${D.range[1]} 주문`;
   // Cards in the order staff should look at them; each jumps to the table holding those orders.
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
