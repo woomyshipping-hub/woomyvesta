@@ -646,8 +646,7 @@ $('#kChips').addEventListener('click',e=>{const b=e.target.closest('[data-k]');i
 // adj: staff's own 현지배송비 / 구매수수료 (엔) and their 비고; '' = the automatic value
 const QADJ=()=>({ship:'',shipNote:'',fee:'',feeNote:''});
 const Q={type:'구매',items:[],lines:{'구매':[],'배송':[]},no:'',adj:QADJ()};
-const QLINES={'구매':[],'배송':[['중대형 화물 입고비',1,100000,'1PL 당 100,000원'],['사이즈 오버비용',1,20000,'박스당 20,000원'],
-  ['재포장',1,'',''],['국내화물택배비',1,'','픽업 업체 확인 후 변동될 수 있음']]};
+const QLINES={'구매':[],'배송':[]};   // 배송비 견적서 lines come from [배송비 계산] (or + 항목 추가)
 const QNOTE={'구매':'우마이직구 이용 시 제품에 따라 입고비, 해외배송비, 사이즈 오버비용, 재포장비용, 국내화물 택배비 등이 추가로 발생할 수 있습니다. 상품 가격·현지배송비는 구매 시점의 판매 가격과 환율에 따라 달라질 수 있습니다.',
   '배송':'실제 입고 후 무게·부피 실측에 따라 비용이 달라질 수 있으며, 해외배송비·사업자통관비용·관부가세는 별도로 안내드립니다.'};
 const QKEY='woomyvesta-quote';
@@ -742,12 +741,96 @@ function qpast(it){const E=D.quoteExamples||[];if(!E.length||!(it.title||it.url)
   return `<details class="q-past"><summary>비슷한 지난 견적 ${top.length}건</summary>${top.map(([,x])=>`<div>${esc(x.d.slice(5))} · ${esc(x.shop)} · ${esc(x.item)}${x.size?` <span class="muted">(${esc(x.size.slice(0,60))})</span>`:''}<br>`+
     `상품 ${yen(x.price)}${x.qty>1?` ×${x.qty}`:''} · 현지배송비 ${x.ship!=null?yen(x.ship):'—'} · 수수료 ${x.fee!=null?yen(x.fee):'—'}${x.rate?` · 환율 ${x.rate}`:''}`+
     `${x.ship!=null?` <button type="button" class="mini" data-qship="${x.ship}">배송비 적용</button>`:''}</div>`).join('')}</details>`}
+// 배송비 견적서 (user, 2026-10-30). A 배송비 quote is needed once a bought item reached the 일본 센터 and was put in the
+// 팬스타 ERP, so 수신 lists that customer's ERP shipments (D.shipQuote.recent, ship_quote.py) to pick from. Each picked
+// shipment is priced by the rules:
+//   해외배송비  해운 요금표 column C (엔) at the ERP W/T × the 우마이직구 적용환율 of its 주문일자
+//   사이즈오버  per box by 세변합: <180 none · 180–199 1.5만 … 291–300+ 5만;  입고비 per box: ≥180 5만 · ≥300 10만
+//   재포장      what staff charged for the most similar past shipment, else the usual amount for the item type
+//   국내화물    경동택배 표준운임 (택배, 경남권 → 고객 권역, 박스마다, 무게는 올림 정수) through the 접수창구
+// The box is bigger than the product: the page's 梱包 size when known, else product size + the padding learned from
+// past shipments, else a guess from the weight. Staff see the basis of every number and can change it before [넣기].
+const SQ=()=>D.shipQuote||{};
+const qsNames=t=>[...new Set((String(t).match(/[가-힣]{2,5}|[A-Za-z]{3,}/g)||[]).filter(w=>!/^(주식회사|상점|님|고객|사업자|개인)$/.test(w)))];
+function qsCands(){const to=$('#qTo').value,ns=qsNames(to);if(!ns.length)return [];
+  return (SQ().recent||[]).filter(r=>{const n=String(r.name||'').replace(/\s/g,'');return ns.some(w=>n===w||n.includes(w)&&w.length>=3)})
+    .sort((a,b)=>b.date.localeCompare(a.date)||b.order.localeCompare(a.order)).slice(0,20)}
+const qsYen=kg=>{const F=SQ().fee||[];for(const [to,y] of F)if(kg<=to+1e-9)return y;if(F.length<2)return 0;
+  const [a,ya]=F.at(-2),[b,yb]=F.at(-1);return Math.round(yb+(yb-ya)*(kg-b)/(b-a))};
+const qsOverFee=s=>{let f=50000;for(const [upto,v] of SQ().over||[])if(s<upto)return v;return f};
+const qsIn=s=>s>=300?100000:s>=180?50000:0;
+// rate per 100엔 → per 엔. The 접수창구 log (qsRate.log) wins, then the rates staff's own past 해외배송비 imply.
+function qsRate(date){const all={...Object.fromEntries(Object.entries(SQ().rates||{}).map(([d,r])=>[d,r*100])),...(qsRate.log||{})};
+  if(all[date])return {r:all[date]/100,note:`${date} 적용환율`};
+  const prev=Object.keys(all).filter(d=>d<=date).sort().pop(),any=Object.keys(all).sort().pop();
+  const d=prev||any;return d?{r:all[d]/100,note:`${d} 적용환율${d!==date?` (${date} 기록 없음, 가장 가까운 날)`:''}`}:{r:0,note:'환율 기록 없음 — 직접 넣어 주세요'}}
+async function qsLoadRates(){if(qsRate.log||!D.smsIntake)return;try{const r=await (await fetch(`${D.smsIntake}?action=siteRate`)).json();if(r.ok)qsRate.log=r.rates}catch{}}
+// The box: the page's 梱包 size, else product size + learned padding, else the 세변합 band staff charged for the most
+// similar past shipment, else 세변합 from the weight per box (fit on past shipments). Shape 1.6 : 1 : 0.7 when only the
+// 세변합 is known.
+const qsWords=t=>new Set(String(t||'').toLowerCase().match(/[a-z0-9]{2,}|[぀-ヿ一-鿿가-힣]{2,}/g)||[]);
+// past shipments by shared item words (2+ words, or the same product link)
+function qsSimilar(r,has){const w=qsWords(r.item+' '+r.buyItem);
+  return (SQ().past||[]).filter(has).map(x=>{let n=0;for(const t of qsWords(x.item+' '+x.erpItem))if(w.has(t))n++;if(r.url&&x.url&&x.url===r.url)n+=5;return [n,x]})
+    .filter(([n])=>n>=2).sort((a,b)=>b[0]-a[0])[0]}
+const qsShape=s=>[1.6,1,0.7].map(k=>Math.round(s*k/3.3));
+function qsBox(r){const sp=r.spec||{},M=SQ().model||{},pad=M.padCm||6,b=r.boxes||1;
+  if(sp.pdims)return {d:sp.pdims.map(Math.round),why:'상품 페이지 梱包 사이즈'};
+  if(sp.dims)return {d:sp.dims.map(x=>Math.round(x+pad)),why:`상품 사이즈 ${sp.dims.join('×')}cm + 포장 ${pad}cm (지난 배송에서 배운 값)`};
+  const sim=qsSimilar(r,x=>x.sum);
+  if(sim)return {d:qsShape(sim[1].sum),why:`비슷한 지난 배송 "${sim[1].item}"의 사이즈오버로 본 세변합 약 ${sim[1].sum}cm — 꼭 확인해 주세요`};
+  const s=Math.round((M.sumA??60)+(M.sumB??60)*Math.cbrt(r.kg/b));
+  return {d:qsShape(s),why:`상품 사이즈를 몰라 박스당 무게 ${Math.round(r.kg/b*10)/10}kg로 추정 (지난 ${M.sumN||0}건 기준) — 꼭 확인해 주세요`}}
+function qsRepack(r){const top=qsSimilar(r,x=>x.re!=null);
+  if(top)return {v:top[1].re,why:`비슷한 지난 배송 "${top[1].item}"에 ${won(top[1].re)}원`};
+  const t=Object.entries(SQ().retype||{}).find(([,v])=>new RegExp(v.rx,'i').test(r.item+' '+r.buyItem));
+  return t?{v:t[1].median,why:`${t[0]} 재포장 보통 ${won(t[1].median)}원 (지난 ${t[1].n}건)`}:{v:0,why:'비슷한 지난 배송이 없어요 — 판단해 넣어 주세요'}}
+const QAREA=['수도권','경남권','경북권','전남권','충청권','강원권','전북권','제주권'];
+function qsList(){const box=$('#qShipList'),C=qsCands();Q.ship=Q.ship||[];
+  if(!SQ().recent){box.innerHTML='<p class="small bad">배송비 데이터가 아직 없어요 (Claude가 ERP 기록을 모으면 나와요).</p>';return}
+  if(!qsNames($('#qTo').value).length){box.innerHTML='';return}
+  if(!C.length){box.innerHTML=`<p class="small muted">"${esc($('#qTo').value.trim())}" 이름으로 최근 75일 ERP 화물을 찾지 못했어요. 이름을 ERP 수취인과 같게 넣어 보세요.</p>`;return}
+  box.innerHTML=`<p class="small"><b>${C.length}건</b> · ERP 수취인 이름이 같은 화물 (최근 순) — 견적이 필요한 것을 고르세요</p>`+C.map(r=>{const on=Q.ship.some(x=>x.order===r.order);
+    return `<label class="qs-c${on?' on':''}"><input type="checkbox" data-qs="${esc(r.order)}"${on?' checked':''}><span><b>${esc(r.buyItem||r.item)}</b>${r.buyItem?` <span class="muted">(${esc(r.item)})</span>`:''}<br>`+
+      `<span class="small muted">${esc(r.date.slice(5))} 주문 · ${esc(r.order)} · ${r.kg}kg · ${r.boxes}박스 · ${esc(r.status)}${r.region?' · '+esc(r.region):''}</span></span></label>`}).join('')}
+function qsPick(order,on){const r=(SQ().recent||[]).find(x=>x.order===order);if(!r)return;Q.ship=(Q.ship||[]).filter(x=>x.order!==order);
+  if(on){const bx=qsBox(r),rp=qsRepack(r);Q.ship.push({order,date:r.date,item:r.buyItem||r.item,kg:r.kg,boxes:r.boxes||1,dims:bx.d.join('×'),dimsWhy:bx.why,
+    re:rp.v,reWhy:rp.why,region:r.region||'수도권'})}
+  qsCalc();qsave()}
+function qsCalc(){const S=Q.ship||[];$('#qShipAuto').classList.toggle('hidden',!S.length);
+  $('#qShipCalc').innerHTML=S.length?`<div class="tablewrap"><table class="q-edit qs-calc"><thead><tr><th>화물</th><th>W/T kg</th><th>박스</th><th>박스 크기 cm (가로×세로×높이)</th><th>재포장 ₩</th><th>도착 권역</th></tr></thead><tbody>`+
+    S.map((x,i)=>`<tr data-qsi="${i}"><td class="small"><b>${esc(x.item)}</b><br><span class="muted">${esc(x.order)}</span></td><td><input data-s="kg" class="q-num" inputmode="decimal" value="${esc(x.kg)}"></td>`+
+      `<td><input data-s="boxes" class="q-num" inputmode="numeric" value="${esc(x.boxes)}"></td><td><input data-s="dims" value="${esc(x.dims)}"><div class="small muted">${esc(x.dimsWhy)}</div></td>`+
+      `<td><input data-s="re" class="q-num" inputmode="numeric" value="${esc(x.re)}"><div class="small muted">${esc(x.reWhy)}</div></td>`+
+      `<td><select data-s="region">${QAREA.map(a=>`<option${a===x.region?' selected':''}>${a}</option>`).join('')}</select></td></tr>`).join('')+'</tbody></table></div>':''}
+async function qsFill(){const S=Q.ship||[],msg=t=>$('#qShipMsg').textContent=t;if(!S.length)return;
+  const b=$('#qShipAuto');b.disabled=true;msg('경동택배 운임을 계산하는 중…');await qsLoadRates();
+  const lines=[],many=S.length>1,tag=x=>many?` (${x.item.slice(0,14)})`:'';
+  try{for(const x of S){const kg=qnum(x.kg)||0,n=Math.max(1,qnum(x.boxes)||1),d=String(x.dims).split(/[x×*,\s]+/).map(Number).filter(v=>v>0);
+    if(d.length!==3)throw Error(`${x.item}: 박스 크기를 가로×세로×높이로 넣어 주세요`);
+    const sum=d[0]+d[1]+d[2],y=qsYen(kg),rt=qsRate(x.date);
+    lines.push(['해외배송비'+tag(x),1,Math.round(y*rt.r),`W/T ${kg}kg · ¥${y.toLocaleString()} × ${(rt.r*100).toFixed(1)}원/100엔 (${rt.note})`]);
+    const ov=qsOverFee(sum);if(ov)lines.push(['사이즈오버'+tag(x),n,ov,`세변합 ${sum}cm`]);
+    const inn=qsIn(sum);if(inn)lines.push(['입고비'+tag(x),n,inn,`세변합 ${sum}cm (${sum>=300?'300':'180'}cm 이상)`]);
+    if(qnum(x.re))lines.push(['재포장'+tag(x),1,qnum(x.re),'포장 상태에 따라 변동 가능']);
+    let dom=null;
+    try{const box=Array.from({length:n},()=>[...d,kg/n].join(',')).join('|');
+      const r=await (await fetch(`${D.smsIntake}?action=kdFare&to=${encodeURIComponent(x.region)}&box=${encodeURIComponent(box)}`)).json();
+      if(r.ok)dom=r.fares.reduce((a,f)=>a+f.pay,0)}catch{}
+    lines.push(['국내화물 택배비'+tag(x),1,dom??'',dom!=null?`경동택배 경남권→${x.region} · ${n}박스 · 박스당 ${Math.ceil(kg/n)}kg`:'경동택배 운임을 못 불러왔어요 — 직접 넣어 주세요'])}
+    Q.lines['배송']=lines;Q.no='';qeditors();qsave();msg(`견적 항목 ${lines.length}줄을 넣었어요. 환율·크기·재포장은 비고의 근거를 보고 고쳐 주세요.`)}
+  catch(e){msg(e.message||'계산하지 못했어요.')}finally{b.disabled=false}}
+$('#qShipList').addEventListener('change',e=>{const c=e.target.closest('[data-qs]');if(c)qsPick(c.dataset.qs,c.checked),qsList()});
+$('#qShipCalc').addEventListener('input',e=>{const el=e.target.closest('[data-s]'),tr=el&&el.closest('[data-qsi]');if(!tr)return;Q.ship[+tr.dataset.qsi][el.dataset.s]=el.value;qsave()});
+$('#qShipCalc').addEventListener('change',e=>{const el=e.target.closest('select[data-s]'),tr=el&&el.closest('[data-qsi]');if(tr){Q.ship[+tr.dataset.qsi].region=el.value;qsave()}});
+$('#qShipAuto').onclick=qsFill;
 // The editor is laid out like the document: 구분 · 항목 (상품명) · 수량 · 단가 · 비고. 상품가·현지배송비·구매수수료 are typed
 // in 엔 (the 원 환산 column shows the 원 the document will print); added rows are in 원. Each product's reading status and
 // 비슷한 지난 견적 sit in a thin row under it.
 const qin=(f,v,o={})=>`<input data-f="${f}" value="${esc(v??'')}"${o.num?' inputmode="numeric" class="q-num"':''}${o.ph?` placeholder="${esc(o.ph)}"`:''}>`;
 function qeditors(){
   $('#qBuy').classList.toggle('hidden',Q.type!=='구매');$('#qAddItem').classList.toggle('hidden',Q.type!=='구매');
+  if($('#qShipBox').classList.toggle('hidden',Q.type!=='배송')===false){qsList();qsCalc();qsLoadRates()}
   let n=0;const rows=[];
   if(Q.type==='구매'){
     Q.items.forEach((it,i)=>{rows.push(`<tr data-qi="${i}"><td class="q-n">${++n}</td><td><textarea data-f="title" rows="2" class="q-title" placeholder="상품명">${esc(it.title||'')}</textarea></td><td>${qin('qty',it.qty??1,{num:1})}</td><td><span class="q-cur">¥</span>${qin('price',it.price,{num:1,ph:'1개 가격'})}<div class=\"q-krw\" data-krw=\"${'p'+i}\"></div></td><td>${qin('note',it.note,{ph:qnum(it.price)?yen(it.price):'비고'})}</td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`);
@@ -766,9 +849,9 @@ function qkrw(){const m=Object.fromEntries(qrows().map(x=>[x.k,x]));
   document.querySelectorAll('#qTable tr[data-qi]:not(.q-sub) [data-f="note"]').forEach(el=>{const it=Q.items[+el.closest('tr').dataset.qi];if(it)el.placeholder=qnum(it.price)?yen(it.price):'비고'});
   for(const [k,f] of [['ship',qship],['fee',qfee]]){const tr=document.querySelector(`#qTable tr[data-qa="${k}"]`);if(!tr)continue;const v=f();
     tr.querySelector('[data-f="'+k+'"]').placeholder=v.auto?'자동 '+v.auto.toLocaleString():k==='ship'?'모름':'자동';tr.querySelector('[data-f="'+k+'Note"]').placeholder=v.autoNote||''}}
-function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,...x})=>x),lines:Q.lines,no:Q.no,adj:Q.adj,
+function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,...x})=>x),lines:Q.lines,no:Q.no,adj:Q.adj,ship:Q.ship||[],
   to:$('#qTo').value,links:$('#qLinks').value,grade:$('#qGrade').value,rate:$('#qRate').value,rateManual:Q.rateManual}))}catch{}}
-function qreset(keepType){Q.items=[];Q.adj=QADJ();Q.lines={'구매':QLINES['구매'].map(l=>[...l]),'배송':QLINES['배송'].map(l=>[...l])};Q.no='';
+function qreset(keepType){Q.items=[];Q.adj=QADJ();Q.ship=[];Q.lines={'구매':QLINES['구매'].map(l=>[...l]),'배송':QLINES['배송'].map(l=>[...l])};Q.no='';
   $('#qTo').value='';$('#qLinks').value='';$('#qAutoMsg').textContent='';$('#qMakeMsg').textContent='';if(!keepType)Q.type='구매';
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave()}
 async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
@@ -779,7 +862,7 @@ async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
   catch{$('#qRateNote').textContent='환율을 불러오지 못했어요. 직접 넣어 주세요.'}}
 function qinit(){if(qinit.done||!D)return;qinit.done=true;
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
-  qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,no:s.no||'',adj:{...QADJ(),...s.adj}});
+  qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,no:s.no||'',adj:{...QADJ(),...s.adj},ship:s.ship||[]});
     $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=['normal','biz','fix1500','fix2000'].includes(s.grade)?s.grade:'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave();qloadRate()}
 // One link -> 접수창구, which reads most shops itself in 3–15 s (the shop's own page speed: 라쿠텐 ~10 s, 이케아 ~3 s).
@@ -938,7 +1021,7 @@ $('#tabQuote').addEventListener('input',e=>{const el=e.target,tr=el.closest('tr'
   else if(tr&&tr.dataset.qa){Q.adj[el.dataset.f]=el.value}
   else if(tr&&tr.dataset.ql!=null)Q.lines[Q.type][+tr.dataset.ql][+el.dataset.f]=el.value;
   else if(el.id==='qRate')Q.rateManual=!!qnum(el.value);   // a rate staff typed is kept; otherwise today's is loaded
-  else if(el.id==='qTo')qguess();
+  else if(el.id==='qTo'){qguess();if(Q.type==='배송')qsList()}
   qdoc();qsave()});
 $('#qGrade').addEventListener('change',()=>{Q.gradeManual=true;$('#qGradeNote').textContent='직원이 고른 등급이에요.';qdoc();qsave()});
 // 고객 등급 guess from 수신: D.quoteCustomers (vesta-tools/quote_customers.py) holds names with evidence from the 우마이직구
