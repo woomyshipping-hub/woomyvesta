@@ -528,6 +528,17 @@ label[for=odMemo]{display:block;margin-top:16px}
 .qs-calc td{vertical-align:top}
 .qs-calc .small{max-width:16em;margin-top:2px}
 /* AI전령 머큐리 tab */
+.m-stage{display:flex;flex-direction:column;align-items:center;gap:12px;margin:10px auto 4px;text-align:center}
+.m-bubble{position:relative;max-width:min(440px,90vw);background:var(--blue-soft);border:1px solid var(--line);border-radius:16px;padding:11px 18px;font-weight:650}
+.m-bubble::after{content:'';position:absolute;left:50%;bottom:-8px;width:14px;height:14px;background:var(--blue-soft);border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:translateX(-50%) rotate(45deg)}
+.m-viewer{position:relative;width:min(340px,82vw);height:min(380px,92vw);animation:mfloat 4.5s ease-in-out infinite}
+.m-viewer::after{content:'';position:absolute;left:18%;right:18%;bottom:6px;height:16px;border-radius:50%;background:radial-gradient(closest-side,#19243a33,transparent);z-index:0}
+.m-viewer model-viewer,.m-viewer .m-fallback{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:transparent;--poster-color:transparent;z-index:1}
+.m-viewer model-viewer{opacity:0;transition:opacity .3s;--progress-bar-color:transparent;--progress-bar-height:0}.m-stage.ready .m-viewer model-viewer{opacity:1}.m-stage.ready .m-fallback{opacity:0}
+@keyframes mfloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@media (prefers-reduced-motion:reduce){.m-viewer{animation:none}}
+.m-now{min-height:28px}.m-now-pill{background:var(--blue-soft);color:var(--blue);font-weight:700}.m-now-pill.prev{background:var(--warn-soft);color:var(--warn)}
+.m-preview{margin-top:14px;text-align:center}.m-preview .chips{justify-content:center;margin-top:8px}
 .m-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
 .m-check{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--card)}
 .m-check .m-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.m-check h3{margin:0;font-size:15px}

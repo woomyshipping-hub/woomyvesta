@@ -1130,16 +1130,45 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
   catch{give(new Blob([''],{type:'text/plain'}));msg('견적서를 만들지 못했어요. 다시 눌러 주세요.')}
   finally{b.disabled=false}};
 $('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});
-// AI전령 머큐리 (user, 2026-10-30): checks that every 구매대행 request and 배송비 견적 deposit was matched by 페이액션 and reached the sheets.
-// Reads D.mercury = {checkedAt, checks:[{id,name,desc,state:'ok'|'warn'|'wait',summary}], items:[{kind,no,customer,amount,issue,since}]};
-// until Mercury writes that into the vault, the tab shows the two checks as "준비 중".
+// AI전령 머큐리 (user, 2026-10-30). 3D character in the middle of the tab (models/mercury/<pose>.glb, original character made in Blender),
+// shown in the pose that fits the situation. D.mercury (written by Mercury's checks into the vault) feeds it:
+//   {checkedAt, situations:[{id,count?,note?}], checks:[{id,state:'ok'|'warn'|'wait',summary}], items:[{kind,no,customer,amount,issue,since}]}
+// The highest-priority situation in D.mercury.situations wins; with none, Mercury is calm. 미리보기 chips show every situation.
+const M_SIT={
+  calm:{label:'평온',pose:'stand',pri:0,line:'지금은 조용해요. 계속 지켜보고 있을게요.'},
+  hello:{label:'인사',pose:'wave',pri:1,line:'안녕하세요! 머큐리예요. 필요한 게 있으면 불러 주세요.'},
+  allgood:{label:'이상 없음',pose:'thumbsup',pri:2,line:'확인할 건이 없어요. 모두 정상이에요!'},
+  done:{label:'처리 완료',pose:'celebrate',pri:3,line:'밀린 일을 모두 끝냈어요!'},
+  thinking:{label:'살펴보는 중',pose:'think',pri:4,line:'살펴보는 중이에요. 잠깐만요…'},
+  message:{label:'메시지 도착',pose:'letter',pri:5,line:'새 메시지가 도착했어요.'},
+  parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송 확인이 필요한 주문이 있어요.'},
+  question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.'},
+  deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.'},
+  late:{label:'오래 기다린 상담',pose:'run',pri:9,line:'오래 기다린 고객님이 계세요. 서둘러 주세요!'},
+  alert:{label:'확인 필요',pose:'alert',pri:10,line:'바로 확인이 필요한 일이 생겼어요!'},
+  sms_urgent:{label:'급한 문자',pose:'phone',pri:11,line:'지금 바로 문자를 보내야 해요!'},
+  angry:{label:'화난 고객',pose:'bow',pri:12,line:'화가 난 고객님이 계세요. 먼저 사과하고 차분히 들어 주세요.'}};
 const M_CHECKS=[
   {id:'purchase',name:'구매대행 요청 입금 확인',desc:'견적 후 입금이 페이액션에 매칭됐는지, 구매 정리 시트에 반영됐는지 봐요.'},
   {id:'ship',name:'배송비 견적 입금 확인',desc:'배송비 입금이 페이액션에 매칭돼 출고정리 시트의 결제여부에 반영됐는지 봐요.'}];
 const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
+let mPreviewId=null;
+function mvLoad(){   // model-viewer from the CDN, once; shares the flag the quote 3D viewer uses so the library is never added twice
+  if(customElements.get('model-viewer')||q3d.lib)return;
+  q3d.lib=document.createElement('script');q3d.lib.type='module';q3d.lib.src='https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';document.head.appendChild(q3d.lib)}
+function mSituation(){   // the situation Mercury is really in right now
+  const M=D&&D.mercury,act=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]).sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri);
+  return act[0]||{id:'calm'}}
 function renderMercury(){
   if(!D)return;
-  const M=D.mercury||null,items=(M&&M.items)||[];
+  const M=D.mercury||null,items=(M&&M.items)||[],real=mSituation(),show=mPreviewId&&M_SIT[mPreviewId]?{id:mPreviewId}:real,sit=M_SIT[show.id],view=$('#mView'),stage=$('#mStage');
+  mvLoad();
+  const src=`models/mercury/${sit.pose}.glb`,poster=`models/mercury/${sit.pose}.png`;
+  if(view.getAttribute('src')!==src){stage.classList.remove('ready');$('#mFallback').src=poster;view.setAttribute('poster',poster);view.setAttribute('src',src)}
+  if(!view._m){view._m=1;view.addEventListener('load',()=>$('#mStage').classList.add('ready'))}
+  $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
+  $('#mNow').innerHTML=`<span class="pill m-now-pill${mPreviewId?' prev':''}">${mPreviewId?'미리보기':'지금 상황'} · ${esc(sit.label)}</span>`+(mPreviewId?` <button class="mini" id="mBack">지금 상황으로</button>`:'');
+  $('#mPreview').innerHTML=Object.entries(M_SIT).sort((a,b)=>a[1].pri-b[1].pri).map(([id,v])=>`<button class="chip${show.id===id?' on':''}" data-ms="${id}">${esc(v.label)}</button>`).join('');
   const checks=M_CHECKS.map(c=>{const r=((M&&M.checks)||[]).find(x=>x.id===c.id)||{};const st=M_STATE[r.state]||M_STATE.wait;
     return `<div class="m-check ${st[1]}"><div class="m-head"><h3>${esc(c.name)}</h3><span class="m-state">${st[0]}</span></div>
       <p class="muted small">${esc(r.desc||c.desc)}</p><p class="m-sum">${esc(r.summary||(M?'':'머큐리가 페이액션 연결을 준비하고 있어요.'))}</p></div>`}).join('');
@@ -1153,6 +1182,8 @@ function renderMercury(){
     :'';
   $('#mNote').textContent=items.length?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
 }
+$('#tabMercury').addEventListener('click',e=>{const c=e.target.closest('[data-ms]');if(c){mPreviewId=c.dataset.ms===mSituation().id?null:c.dataset.ms;safe(renderMercury);return}
+  if(e.target.closest('#mBack')){mPreviewId=null;safe(renderMercury)}});
 function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
   $('#tabShip').classList.toggle('hidden',t!=='ship');$('#tabKakao').classList.toggle('hidden',t!=='kakao');$('#tabQuote').classList.toggle('hidden',t!=='quote');$('#tabMercury').classList.toggle('hidden',t!=='mercury');
