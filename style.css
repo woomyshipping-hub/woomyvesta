@@ -527,3 +527,12 @@ label[for=odMemo]{display:block;margin-top:16px}
 .qs-calc input[data-s="dims"]{min-width:9em}
 .qs-calc td{vertical-align:top}
 .qs-calc .small{max-width:16em;margin-top:2px}
+/* AI전령 머큐리 tab */
+.m-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:14px}
+.m-check{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:var(--card)}
+.m-check .m-head{display:flex;justify-content:space-between;align-items:center;gap:10px}.m-check h3{margin:0;font-size:15px}
+.m-check p{margin:6px 0 0}.m-check .m-sum{font-weight:600}
+.m-state{font-size:12px;font-weight:700;padding:2px 9px;border-radius:999px;white-space:nowrap;background:var(--bg);color:var(--muted)}
+.m-check.ok .m-state{background:var(--good-soft);color:var(--good)}.m-check.warn{border-color:color-mix(in srgb,var(--bad) 40%,var(--line))}
+.m-check.warn .m-state{background:var(--bad-soft);color:var(--bad)}
+.mercury .ai-tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:6px;margin-right:6px;vertical-align:2px;background:linear-gradient(135deg,var(--blue),#a36bff);color:#fff}

@@ -190,7 +190,7 @@ function render(){
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
     KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
   $('#rules').textContent=`기준: 해운 출발 후 영업일로 +${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (+1일까지는 정상, 주말·공휴일 제외, ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
-  safe(renderAlerts);safe(renderKakao);
+  safe(renderAlerts);safe(renderKakao);safe(renderMercury);
   // 주문일별 진행: one stacked bar per order date (length = orders, color = stage), red badge = 확인 필요.
   const tot=b=>D.stages.reduce((a,s)=>a+(b[s]||0),0),most=Math.max(1,...D.batches.map(tot));
   const late={};D.orders.forEach(o=>{if(o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
@@ -1130,14 +1130,38 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
   catch{give(new Blob([''],{type:'text/plain'}));msg('견적서를 만들지 못했어요. 다시 눌러 주세요.')}
   finally{b.disabled=false}};
 $('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});
+// AI전령 머큐리 (user, 2026-10-30): checks that every 구매대행 request and 배송비 견적 deposit was matched by 페이액션 and reached the sheets.
+// Reads D.mercury = {checkedAt, checks:[{id,name,desc,state:'ok'|'warn'|'wait',summary}], items:[{kind,no,customer,amount,issue,since}]};
+// until Mercury writes that into the vault, the tab shows the two checks as "준비 중".
+const M_CHECKS=[
+  {id:'purchase',name:'구매대행 요청 입금 확인',desc:'견적 후 입금이 페이액션에 매칭됐는지, 구매 정리 시트에 반영됐는지 봐요.'},
+  {id:'ship',name:'배송비 견적 입금 확인',desc:'배송비 입금이 페이액션에 매칭돼 출고정리 시트의 결제여부에 반영됐는지 봐요.'}];
+const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
+function renderMercury(){
+  if(!D)return;
+  const M=D.mercury||null,items=(M&&M.items)||[];
+  const checks=M_CHECKS.map(c=>{const r=((M&&M.checks)||[]).find(x=>x.id===c.id)||{};const st=M_STATE[r.state]||M_STATE.wait;
+    return `<div class="m-check ${st[1]}"><div class="m-head"><h3>${esc(c.name)}</h3><span class="m-state">${st[0]}</span></div>
+      <p class="muted small">${esc(r.desc||c.desc)}</p><p class="m-sum">${esc(r.summary||(M?'':'머큐리가 페이액션 연결을 준비하고 있어요.'))}</p></div>`}).join('');
+  $('#mChecks').innerHTML=checks;
+  $('#mCount').textContent=items.length?`· ${items.length}건`:'';
+  $('#mChecked').textContent=M&&M.checkedAt?`마지막 점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}`:'';
+  $('#mercuryBadge').textContent=items.length||'';
+  $('#mTable').innerHTML=items.length
+    ?`<thead><tr><th>구분</th><th>견적번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th></tr></thead><tbody>`+
+      items.map(i=>`<tr><td>${esc(i.kind)}</td><td>${esc(i.no)}</td><td>${esc(i.customer)}</td><td>${i.amount!=null?Number(i.amount).toLocaleString()+'원':''}</td><td>${esc(i.issue)}</td><td>${esc(i.since||'')}</td></tr>`).join('')+`</tbody>`
+    :'';
+  $('#mNote').textContent=items.length?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
+}
 function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
-  $('#tabShip').classList.toggle('hidden',t!=='ship');$('#tabKakao').classList.toggle('hidden',t!=='kakao');$('#tabQuote').classList.toggle('hidden',t!=='quote');
+  $('#tabShip').classList.toggle('hidden',t!=='ship');$('#tabKakao').classList.toggle('hidden',t!=='kakao');$('#tabQuote').classList.toggle('hidden',t!=='quote');$('#tabMercury').classList.toggle('hidden',t!=='mercury');
   if(t==='quote')qinit();
+  if(t==='mercury')safe(renderMercury);
   if(push){const u=new URL(location.href);t==='ship'?u.searchParams.delete('tab'):u.searchParams.set('tab',t);history.replaceState(null,'',u)}
   heal()}
 $('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(b)setTab(b.dataset.tab,true)});
-setTab(['kakao','quote'].includes(new URLSearchParams(location.search).get('tab'))?new URLSearchParams(location.search).get('tab'):'ship');
+setTab(['kakao','quote','mercury'].includes(new URLSearchParams(location.search).get('tab'))?new URLSearchParams(location.search).get('tab'):'ship');
 async function unlock(pw){const d=await open(pw);if(D)return;D=d;try{sessionStorage.setItem(SS,pw)}catch{}$('#gate')?.remove();$('#app').classList.remove('hidden');render();
   if(!$('#tabQuote').classList.contains('hidden'))qinit();
   try{const req=JSON.parse(localStorage.getItem(RREQ)||'null');if(req&&D.smsIntake&&Date.now()-req.since<40*60e3)watchRefresh(req)}catch{}watchSends();
