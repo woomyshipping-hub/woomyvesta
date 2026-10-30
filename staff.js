@@ -183,9 +183,17 @@ function staleCheck(){
   $('#stale').innerHTML=late.length?`⚠️ ${late.map(esc).join('<br>')}<span class="small"> · 아래 정보가 최신이 아닐 수 있어요. 담당자에게 알려 주세요.</span>`:'';
 }
 setInterval(()=>{if(typeof D!=='undefined'&&D)safe(staleCheck)},5*60e3);
+// The "… 기준" line beside the logo describes the open tab: ERP data for 배송 현황, the last Kakao refresh for 카카오 누락,
+// Mercury's last check for 머큐리; 견적서 has none (it is written on the spot).
+let curTab='ship';
+function updatedLine(){if(!D)return;
+  const f=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}),K=D.kakao,M=D.mercury;
+  $('#updated').textContent=curTab==='ship'?`· ${f(D.updatedAt)} 기준 · 최근 ${D.range[0]} ~ ${D.range[1]} 주문`:
+    curTab==='kakao'?(K?`· 카카오 상담 ${f(K.updatedAt)} 새로고침 기준 · 최근 ${K.windowDays}일 상담`:''):
+    curTab==='mercury'?(M&&M.checkedAt?`· 머큐리 ${f(M.checkedAt)} 점검 기준`:''):''}
 function render(){
   applyMarks();safe(staleCheck);
-  $('#updated').textContent=`· ${new Date(D.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${D.range[0]} ~ ${D.range[1]} 주문`;
+  safe(updatedLine);
   // Cards in the order staff should look at them; each jumps to the table holding those orders.
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
     KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
@@ -1200,6 +1208,7 @@ $('#tabMercury').addEventListener('click',e=>{const c=e.target.closest('[data-ms
   if(e.target.closest('#mBack')){mPreviewId=null;safe(renderMercury)}});
 function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
+  curTab=t;safe(updatedLine);
   $('#tabShip').classList.toggle('hidden',t!=='ship');$('#tabKakao').classList.toggle('hidden',t!=='kakao');$('#tabQuote').classList.toggle('hidden',t!=='quote');$('#tabMercury').classList.toggle('hidden',t!=='mercury');
   if(t==='quote')qinit();
   if(t==='mercury')safe(renderMercury);
