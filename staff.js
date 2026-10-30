@@ -1156,6 +1156,18 @@ let mPreviewId=null;
 function mvLoad(){   // model-viewer from the CDN, once; shares the flag the quote 3D viewer uses so the library is never added twice
   if(customElements.get('model-viewer')||q3d.lib)return;
   q3d.lib=document.createElement('script');q3d.lib.type='module';q3d.lib.src='https://cdn.jsdelivr.net/npm/@google/model-viewer@3.5.0/dist/model-viewer.min.js';document.head.appendChild(q3d.lib)}
+// The figure poses are encrypted like the vault (vesta-tools/encrypt_mercury.py): data/mercury/<pose>.bin = iv|mac|ct, own fixed salt in manifest.json.
+const MFIG=new Map();let MMAN=null;
+function mFigure(name){   // -> blob URL of the decrypted pose (.glb) or poster (.png), cached
+  if(MFIG.has(name))return MFIG.get(name);
+  const p=(async()=>{
+    MMAN=MMAN||fetch('data/mercury/manifest.json').then(r=>r.json());const man=await MMAN,{mk,ak}=await keysFor(PW,man);
+    const buf=new Uint8Array(await (await fetch(`data/mercury/${name.replace(/\.glb$/,'.bin').replace(/\.png$/,'.png.bin')}`)).arrayBuffer());
+    const iv=buf.slice(0,16),mac=buf.slice(16,48),ct=buf.slice(48),msg=new Uint8Array(16+ct.length);msg.set(iv);msg.set(ct,16);
+    if(!await crypto.subtle.verify('HMAC',mk,mac,msg))throw Error('mercury');
+    const plain=await crypto.subtle.decrypt({name:'AES-CBC',iv},ak,ct);
+    return URL.createObjectURL(new Blob([plain],{type:name.endsWith('.png')?'image/png':'model/gltf-binary'}))})();
+  p.catch(()=>MFIG.delete(name));MFIG.set(name,p);return p}
 function mSituation(){   // the situation Mercury is really in right now
   const M=D&&D.mercury,act=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]).sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri);
   return act[0]||{id:'calm'}}
@@ -1163,8 +1175,9 @@ function renderMercury(){
   if(!D)return;
   const M=D.mercury||null,items=(M&&M.items)||[],real=mSituation(),show=mPreviewId&&M_SIT[mPreviewId]?{id:mPreviewId}:real,sit=M_SIT[show.id],view=$('#mView'),stage=$('#mStage');
   mvLoad();
-  const src=`models/mercury/${sit.pose}.glb`,poster=`models/mercury/${sit.pose}.png`;
-  if(view.getAttribute('src')!==src){stage.classList.remove('ready');$('#mFallback').src=poster;view.setAttribute('poster',poster);view.setAttribute('src',src)}
+  if(view._pose!==sit.pose){view._pose=sit.pose;stage.classList.remove('ready');
+    mFigure(sit.pose+'.png').then(u=>{if(view._pose===sit.pose)$('#mFallback').src=u}).catch(()=>{});
+    mFigure(sit.pose+'.glb').then(u=>{if(view._pose===sit.pose)view.setAttribute('src',u)}).catch(()=>{if(view._pose===sit.pose)stage.classList.add('ready')})}
   if(!view._m){view._m=1;view.addEventListener('load',()=>$('#mStage').classList.add('ready'))}
   $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
   $('#mNow').innerHTML=`<span class="pill m-now-pill${mPreviewId?' prev':''}">${mPreviewId?'미리보기':'지금 상황'} · ${esc(sit.label)}</span>`+(mPreviewId?` <button class="mini" id="mBack">지금 상황으로</button>`:'');
