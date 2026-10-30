@@ -671,8 +671,15 @@ function qfeeAll(shipTotal){
 // The lines the document shows, each with the key of the editor row that feeds it: 구매 = 상품가 per product (p0…),
 // 현지배송비 (ship), 구매수수료 (fee), then the added rows (l0…). Rows without a price are left out of the document.
 // 현지배송비 and 구매수수료 take staff's own 엔 value when one is typed, else the automatic one.
-function qship(){const known=Q.items.filter(it=>qnum(it.ship)!=null),auto=known.reduce((a,it)=>a+qnum(it.ship),0);
-  const autoNote=known.length<Q.items.length?(auto?`${yen(auto)} · 일부 구매처 확인 후 변동 가능`:'구매처 확인 후 안내 (변동 가능)'):auto?yen(auto):'무료 (送料込み)';
+// 현지배송비 of one product for the quantity on the quote. Claude reads 送料 for one piece from the detail page, plus the
+// page's own rule when it states one (shipRule): unit = 送料 per piece, box = pieces per 1個口 (3개, box 2 -> 送料 × 2),
+// freeOver = 상품가×수량 at or above this is 送料無料. Without a rule the product pays its 送料 once, whatever the quantity.
+function qshipOf(it){const s=qnum(it.ship);if(s==null)return null;const r=it.shipRule||{},q=qnum(it.qty)||1;
+  if(r.freeOver&&qnum(it.price)*q>=r.freeOver)return 0;
+  return r.unit?s*q:r.box?s*Math.ceil(q/r.box):s}
+function qship(){const known=Q.items.filter(it=>qshipOf(it)!=null),auto=known.reduce((a,it)=>a+qshipOf(it),0);
+  const byQty=known.some(it=>qshipOf(it)!==qnum(it.ship))?' (수량별 送料 적용)':'';
+  const autoNote=known.length<Q.items.length?(auto?`${yen(auto)}${byQty} · 일부 구매처 확인 후 변동 가능`:'구매처 확인 후 안내 (변동 가능)'):auto?yen(auto)+byQty:'무료 (送料込み)';
   const own=qnum(Q.adj.ship);return {auto,autoNote,yen:own??auto,note:Q.adj.shipNote||(own!=null?yen(own):autoNote)}}
 function qfee(){const sh=qship(),{fee,note,short}=qfeeAll(sh.yen),own=qnum(Q.adj.fee);
   return {auto:fee,autoNote:fee?`${yen(fee)} · ${note}`:'',yen:own??fee,note:Q.adj.feeNote||(own!=null?yen(own):fee?`${yen(fee)} · ${short}`:'')}}
@@ -764,7 +771,7 @@ function qinit(){if(qinit.done||!D)return;qinit.done=true;
 // A link it cannot read (메루카리·아마존) waits for Claude on the Mac, polled every 5 s for up to 15 minutes. While a link
 // is out, its row shows a live timer and how long that step usually takes; only the status text is redrawn, so typing in
 // the other fields is not interrupted.
-const QWAIT={read:[3,15,'쇼핑몰 페이지를 읽는 중'],claude:[60,180,'Claude가 링크를 열어 확인하는 중']};
+const QWAIT={read:[3,15,'쇼핑몰 페이지를 읽는 중'],claude:[60,180,'Claude가 링크를 열어 확인하는 중'],ship:[60,180,'Claude가 상세페이지에서 현지배송비 확인 중']};
 const mmss=s=>s>=60?`${Math.floor(s/60)}분`+(s%60?` ${s%60}초`:''):`${s}초`;
 // While links are out, a model of each product's type (made in Blender: vesta-tools/quote-models.blend -> models/*.glb)
 // turns slowly in the middle of the screen. The type comes from words in the link and product name; anything else is a
@@ -839,7 +846,7 @@ function qtick(){q3d();let busy=0;
   Q.items.forEach((it,i)=>{if(it.state!=='wait')return;busy++;
     const el=document.querySelector(`#qTable tr.q-sub[data-qi="${i}"] .q-st`);if(!el)return;
     const [lo,hi,what]=QWAIT[it.step||'read'],t=Math.round((Date.now()-it.t0)/1000);
-    el.textContent=`${it.pre||''}⏳ ${what}… ${mmss(t)} 지남 · `+(t<lo?`보통 ${mmss(lo)}~${mmss(hi)}`:t<hi?`약 ${mmss(hi-t)} 남음`:it.step==='claude'?'조금 늦어지고 있어요 (최대 15분)':'곧 끝나요')});
+    el.textContent=`${it.pre||''}⏳ ${what}… ${mmss(t)} 지남 · `+(t<lo?`보통 ${mmss(lo)}~${mmss(hi)}`:t<hi?`약 ${mmss(hi-t)} 남음`:it.step!=='read'?'조금 늦어지고 있어요 (최대 15분)':'곧 끝나요')});
   const b=$('#qAuto');b.disabled=!!busy;b.textContent=busy?`확인 중… (${Q.items.filter(x=>x.state&&x.state!=='wait').length}/${Q.items.filter(x=>x.state).length})`:'자동 견적';
   if(!busy){clearInterval(qtick.t);qtick.t=null;const ok=Q.items.filter(x=>x.state==='ok').length,bad=Q.items.filter(x=>x.state==='fail').length;
     if(ok+bad)$('#qAutoMsg').textContent=`끝났어요 · ${ok}개 채움${bad?` · ${bad}개는 직접 입력이 필요해요`:''}`}}
@@ -871,13 +878,19 @@ async function qfetchLink(it){
     const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'quote',url:it.url,at})})).json();
     if(!r.ok)throw Error(r.error||'fail');
     if(r.status==='자동완료'&&r.result)return qfill(it,r.result);
-    if(r.result?.title)it.hint=r.result.title;   // the script found the name but no price: the 3D model can match it now
-    Object.assign(it,{step:'claude',t0:Date.now()});qtick();
+    // 가격완료: the price is in now; Claude still opens the detail page for its 送料 (and any 수량별 rule)
+    if(r.status==='가격완료'&&r.result){qfill(it,r.result);Object.assign(it,{state:'wait',step:'ship',t0:Date.now(),pre:`✓ 현재 가격 ${yen(r.result.price)} · `})}
+    else{if(r.result?.title)it.hint=r.result.title;   // the script found the name but no price: the 3D model can match it now
+      Object.assign(it,{step:'claude',t0:Date.now()})}
+    qtick();
     for(;Date.now()-it.t0<15*60e3;){await new Promise(z=>setTimeout(z,5000));
       let q;try{q=await (await fetch(`${D.smsIntake}?action=quoteStatus&at=${encodeURIComponent(at)}`)).json()}catch{continue}
       if(q.status==='완료'&&q.result)return qfill(it,q.result);
       if(q.result?.title)it.hint=q.result.title;
-      if(/^실패/.test(q.status||'')){it.state='fail';it.msg=`읽지 못했어요 (${q.status.replace(/^실패:?\s*/,'')}). 직접 입력해 주세요.`;qeditors();return}}
+      if(/^실패/.test(q.status||'')){const why=q.status.replace(/^실패:?\s*/,'');
+        if(it.step==='ship'){it.state='ok';it.msg=`✓ 현재 가격 ${yen(it.price)} · 현지배송비는 읽지 못했어요 (${why}). 직접 확인해 주세요.`}
+        else{it.state='fail';it.msg=`읽지 못했어요 (${why}). 직접 입력해 주세요.`}qeditors();return}}
+    if(it.step==='ship'){it.state='ok';it.msg=`✓ 현재 가격 ${yen(it.price)} · 현지배송비는 15분 동안 답이 없어 직접 확인해 주세요.`;qeditors();return}
     it.state='fail';it.msg='15분 동안 답이 없어요. Claude가 꺼져 있을 수 있어요 — 직접 입력해 주세요.';qeditors()}
   catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}
   finally{qtick()}}
@@ -890,7 +903,7 @@ function qshort(t){t=String(t||'').replace(/【[^】]*】|\[[^\]]*\]|［[^］]*�
   let out=w.slice(0,2).join(' ');if(model&&!out.includes(model))out=(w[0]===model?model:w[0]+' '+model);
   for(const x of w.slice(2)){if((out+' '+x).length>28)break;if(out.length<14)out+=' '+x;else break}
   return out.slice(0,32)}
-function qfill(it,r){if(!Q.items.includes(it))return;Object.assign(it,{fullTitle:r.title||it.fullTitle,title:it.title||qshort(r.title),price:r.price??it.price,ship:r.ship??it.ship,shop:it.url?qshopOf(it.url):r.shop||it.shop||''});
+function qfill(it,r){if(!Q.items.includes(it))return;Object.assign(it,{fullTitle:r.title||it.fullTitle,title:it.title||qshort(r.title),price:r.price??it.price,ship:r.ship??it.ship,shipRule:r.shipRule??it.shipRule,shop:it.url?qshopOf(it.url):r.shop||it.shop||''});
   const took=it.t0?` (${mmss(Math.round((Date.now()-it.t0)/1000))})`:'';
   const moved=it.prev&&r.price&&r.price!==it.prev.price?` (지난 ${yen(it.prev.price)} → 지금 ${yen(r.price)}, 가격이 바뀌었어요)`:it.prev&&r.price?' (지난 가격과 같아요)':'';
   it.state='ok';it.msg=r.price?`✓ 현재 가격 확인${took}: ${yen(r.price)}${moved}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:`가격을 찾지 못했어요. ${r.shipNote||'직접 입력해 주세요.'}`;
