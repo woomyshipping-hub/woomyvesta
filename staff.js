@@ -747,7 +747,8 @@ function qpast(it){const E=D.quoteExamples||[];if(!E.length||!(it.title||it.url)
 //   해외배송비  해운 요금표 column C (엔) at the ERP W/T × the 우마이직구 적용환율 of its 주문일자
 //   사이즈오버  per box by 세변합: <180 none · 180–199 1.5만 … 291–300+ 5만;  입고비 per box: ≥180 5만 · ≥300 10만
 //   재포장      what staff charged for the most similar past shipment, else the usual amount for the item type
-//   국내화물    경동택배 표준운임 (택배, 경남권 → 고객 권역, 박스마다, 무게는 올림 정수) through the 접수창구
+//   국내화물    경동택배 표준운임 (택배, 경남권 → 고객 권역, 박스마다, 무게는 올림 정수): max(부피 운임, 무게 운임) ×
+//               (1 + 권역 %), 100원 반올림, from kdexp.com's own tables (D.shipQuote.kd; matched its calculator 40/40)
 // The box is bigger than the product: the page's 梱包 size when known, else product size + the padding learned from
 // past shipments, else a guess from the weight. Staff see the basis of every number and can change it before [넣기].
 const SQ=()=>D.shipQuote||{};
@@ -759,6 +760,8 @@ const qsYen=kg=>{const F=SQ().fee||[];for(const [to,y] of F)if(kg<=to+1e-9)retur
   const [a,ya]=F.at(-2),[b,yb]=F.at(-1);return Math.round(yb+(yb-ya)*(kg-b)/(b-a))};
 const qsOverFee=s=>{let f=50000;for(const [upto,v] of SQ().over||[])if(s<upto)return v;return f};
 const qsIn=s=>s>=300?100000:s>=180?50000:0;
+function qsKd(to,d,kg){const K=SQ().kd;if(!K)return null;const at=(T,x)=>(T.find(([u])=>x<=u)||T.at(-1))[1];
+  const base=Math.max(at(K.vol,d[0]*d[1]*d[2]),at(K.kg,Math.ceil(kg)));return Math.round(base*(100+(K.region[to]??25))/100/100)*100}
 // rate per 100엔 → per 엔. The 접수창구 log (qsRate.log) wins, then the rates staff's own past 해외배송비 imply.
 function qsRate(date){const all={...Object.fromEntries(Object.entries(SQ().rates||{}).map(([d,r])=>[d,r*100])),...(qsRate.log||{})};
   if(all[date])return {r:all[date]/100,note:`${date} 적용환율`};
@@ -804,7 +807,7 @@ function qsCalc(){const S=Q.ship||[];$('#qShipAuto').classList.toggle('hidden',!
       `<td><input data-s="re" class="q-num" inputmode="numeric" value="${esc(x.re)}"><div class="small muted">${esc(x.reWhy)}</div></td>`+
       `<td><select data-s="region">${QAREA.map(a=>`<option${a===x.region?' selected':''}>${a}</option>`).join('')}</select></td></tr>`).join('')+'</tbody></table></div>':''}
 async function qsFill(){const S=Q.ship||[],msg=t=>$('#qShipMsg').textContent=t;if(!S.length)return;
-  const b=$('#qShipAuto');b.disabled=true;msg('경동택배 운임을 계산하는 중…');await qsLoadRates();
+  const b=$('#qShipAuto');b.disabled=true;msg('계산하는 중…');await qsLoadRates();
   const lines=[],many=S.length>1,tag=x=>many?` (${x.item.slice(0,14)})`:'';
   try{for(const x of S){const kg=qnum(x.kg)||0,n=Math.max(1,qnum(x.boxes)||1),d=String(x.dims).split(/[x×*,\s]+/).map(Number).filter(v=>v>0);
     if(d.length!==3)throw Error(`${x.item}: 박스 크기를 가로×세로×높이로 넣어 주세요`);
@@ -813,11 +816,8 @@ async function qsFill(){const S=Q.ship||[],msg=t=>$('#qShipMsg').textContent=t;i
     const ov=qsOverFee(sum);if(ov)lines.push(['사이즈오버'+tag(x),n,ov,`세변합 ${sum}cm`]);
     const inn=qsIn(sum);if(inn)lines.push(['입고비'+tag(x),n,inn,`세변합 ${sum}cm (${sum>=300?'300':'180'}cm 이상)`]);
     if(qnum(x.re))lines.push(['재포장'+tag(x),1,qnum(x.re),'포장 상태에 따라 변동 가능']);
-    let dom=null;
-    try{const box=Array.from({length:n},()=>[...d,kg/n].join(',')).join('|');
-      const r=await (await fetch(`${D.smsIntake}?action=kdFare&to=${encodeURIComponent(x.region)}&box=${encodeURIComponent(box)}`)).json();
-      if(r.ok)dom=r.fares.reduce((a,f)=>a+f.pay,0)}catch{}
-    lines.push(['국내화물 택배비'+tag(x),1,dom??'',dom!=null?`경동택배 경남권→${x.region} · ${n}박스 · 박스당 ${Math.ceil(kg/n)}kg`:'경동택배 운임을 못 불러왔어요 — 직접 넣어 주세요'])}
+    const one=qsKd(x.region,d,kg/n),dom=one==null?null:one*n;
+    lines.push(['국내화물 택배비'+tag(x),1,dom??'',dom!=null?`경동택배 경남권→${x.region} · ${n}박스 × ${won(one)}원 (박스당 ${Math.ceil(kg/n)}kg)`:'경동택배 운임표가 없어요 — 직접 넣어 주세요'])}
     Q.lines['배송']=lines;Q.no='';qeditors();qsave();msg(`견적 항목 ${lines.length}줄을 넣었어요. 환율·크기·재포장은 비고의 근거를 보고 고쳐 주세요.`)}
   catch(e){msg(e.message||'계산하지 못했어요.')}finally{b.disabled=false}}
 $('#qShipList').addEventListener('change',e=>{const c=e.target.closest('[data-qs]');if(c)qsPick(c.dataset.qs,c.checked),qsList()});
