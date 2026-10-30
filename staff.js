@@ -1149,6 +1149,7 @@ const M_SIT={
   sms_urgent:{label:'급한 문자',pose:'phone',pri:11,line:'지금 바로 문자를 보내야 해요!'},
   angry:{label:'화난 고객',pose:'bow',pri:12,line:'화가 난 고객님이 계세요. 먼저 사과하고 차분히 들어 주세요.'}};
 const M_CHECKS=[
+  {id:'delivery',name:'배송현황 · 혼자만 다른 주문',desc:'다 같이 늦는 통관 지연은 알리지 않고, 뒤에 출발한 주문이 먼저 가는 등 혼자만 뒤처진 주문만 봐요.'},
   {id:'purchase',name:'구매대행 요청 입금 확인',desc:'견적 후 입금이 페이액션에 매칭됐는지, 구매 정리 시트에 반영됐는지 봐요.'},
   {id:'ship',name:'배송비 견적 입금 확인',desc:'배송비 입금이 페이액션에 매칭돼 출고정리 시트의 결제여부에 반영됐는지 봐요.'}];
 const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
@@ -1184,7 +1185,7 @@ function renderMercury(){
   $('#mPreview').innerHTML=Object.entries(M_SIT).sort((a,b)=>a[1].pri-b[1].pri).map(([id,v])=>`<button class="chip${show.id===id?' on':''}" data-ms="${id}">${esc(v.label)}</button>`).join('');
   const checks=M_CHECKS.map(c=>{const r=((M&&M.checks)||[]).find(x=>x.id===c.id)||{};const st=M_STATE[r.state]||M_STATE.wait;
     return `<div class="m-check ${st[1]}"><div class="m-head"><h3>${esc(c.name)}</h3><span class="m-state">${st[0]}</span></div>
-      <p class="muted small">${esc(r.desc||c.desc)}</p><p class="m-sum">${esc(r.summary||(M?'':'머큐리가 페이액션 연결을 준비하고 있어요.'))}</p></div>`}).join('');
+      <p class="muted small">${esc(r.desc||c.desc)}</p><p class="m-sum">${esc(r.summary||'머큐리가 페이액션 연결을 준비하고 있어요.')}</p></div>`}).join('');
   $('#mChecks').innerHTML=checks;
   $('#mCount').textContent=items.length?`· ${items.length}건`:'';
   $('#mChecked').textContent=M&&M.checkedAt?`마지막 점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}`:'';
