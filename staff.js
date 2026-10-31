@@ -1202,12 +1202,13 @@ function renderMercury(){
   $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(sit.to?` <button type="button" class="mini m-go" data-mgo="${sit.to}">확인하기</button>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
   // Other current problems are speech bubbles on both sides of the character, each with its own 확인하기 button. Few problems -> big bubbles,
   // many -> smaller ones (size class by count); nothing is drawn when there is no other problem.
-  const others=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id]&&x.id!==show.id)].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri),BMAX=8,shownB=others.slice(0,BMAX),k=shownB.length;
-  const size=k<=2?'l':k<=4?'m':'s';
-  const bub=(x,side)=>{const v=M_SIT[x.id];return `<div class="m-b ${side} m-b-${size}"><b>${esc(v.label)}${x.count?` ${Number(x.count)}건`:''}</b><span>${esc(x.note||v.line)}</span>`+
+  const act=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id])].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri),gi=act.findIndex(x=>x.id===show.id),others=act.filter((_,i)=>i!==gi),shownB=others,k=shownB.length;
+  const size=k<=2?'l':k<=4?'m':k<=8?'s':k<=12?'xs':'xxs';   // never dropped: the more problems, the smaller the bubbles
+  const bub=(x,side)=>{const v=M_SIT[x.id];return `<div class="m-b ${side} m-b-${size}${M_SIT[x.id].pri>=10?' hot':''}"><b>${esc(v.label)}${x.count?` ${Number(x.count)}건`:''}</b><span>${esc(x.note||v.line)}</span>`+
     (v.to?`<button type="button" class="mini m-go" data-mgo="${v.to}">확인하기</button>`:'')+`</div>`};
   const L=shownB.filter((_,i)=>i%2===0),R=shownB.filter((_,i)=>i%2===1);
-  $('#mSideL').innerHTML=L.map(x=>bub(x,'to-r')).join('');$('#mSideR').innerHTML=R.map(x=>bub(x,'to-l')).join('')+(others.length>BMAX?`<div class="m-b to-l m-b-s"><span>외 ${others.length-BMAX}건</span></div>`:'');
+  $('#mSideL').innerHTML=L.map(x=>bub(x,'to-r')).join('');$('#mSideR').innerHTML=R.map(x=>bub(x,'to-l')).join('');
+  $('.m-board').dataset.bs=size;
   $('.m-board').classList.toggle('alone',!k);
   $('#mNow').innerHTML=`<span class="pill m-now-pill${mPreviewId?' prev':''}">${mPreviewId?'미리보기':'지금 상황'} · ${esc(sit.label)}</span>`+(mPreviewId?` <button class="mini" id="mBack">지금 상황으로</button>`:'');
   $('#mPreview').innerHTML=Object.entries(M_SIT).sort((a,b)=>a[1].pri-b[1].pri).map(([id,v])=>`<button class="chip${show.id===id?' on':''}" data-ms="${id}">${esc(v.label)}</button>`).join('');

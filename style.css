@@ -568,3 +568,36 @@ label[for=odMemo]{display:block;margin-top:16px}
 .m-b-s{padding:8px 12px;font-size:12px;max-width:210px;gap:3px}.m-b-s b{font-size:13px}
 .m-side{align-items:stretch}.m-side .to-r{align-self:flex-end}.m-side .to-l{align-self:flex-start}
 @media (max-width:760px){.m-board{grid-template-columns:1fr}.m-board .m-stage{order:-1}.m-side{gap:10px}.m-side .m-b{align-self:stretch;max-width:none}.m-b::after{display:none}}
+
+.m-b-xs{padding:6px 10px;font-size:11px;max-width:200px;gap:2px;border-radius:12px}.m-b-xs b{font-size:12px}.m-b-xs>span{display:none}
+.m-b-xxs{padding:4px 8px;font-size:10px;max-width:170px;gap:0;border-radius:10px;flex-direction:row;align-items:center;flex-wrap:wrap}.m-b-xxs b{font-size:11px}.m-b-xxs>span{display:none}.m-b-xxs .m-go{margin:0 0 0 6px;padding:1px 6px;font-size:10px}
+.m-board[data-bs=xs] .m-side,.m-board[data-bs=xxs] .m-side{gap:8px}
+.m-board[data-bs=xxs] .m-side{gap:5px}
+
+/* round, free-floating bubbles (user, 2026-10-31) */
+.m-b{border-radius:50%;text-align:center;align-items:center;justify-content:center;border:1.5px solid color-mix(in srgb,var(--warn) 70%,transparent);
+  background:radial-gradient(circle at 30% 25%,color-mix(in srgb,var(--warn-soft) 70%,#fff 14%),var(--warn-soft));
+  box-shadow:0 8px 24px rgba(0,0,0,.22),inset 0 0 18px color-mix(in srgb,var(--warn) 14%,transparent);animation:mdrift 6s ease-in-out infinite}
+.m-b.hot{border-color:color-mix(in srgb,var(--bad) 75%,transparent);background:radial-gradient(circle at 30% 25%,color-mix(in srgb,var(--bad-soft) 70%,#fff 14%),var(--bad-soft));
+  box-shadow:0 8px 24px rgba(0,0,0,.22),inset 0 0 18px color-mix(in srgb,var(--bad) 16%,transparent)}
+.m-b .m-go{align-self:center;border-radius:999px}
+.m-b::before,.m-b::after{content:'';position:absolute;top:auto;bottom:6px;width:auto;height:auto;transform:none;border:none;background:inherit;border-radius:50%;box-shadow:0 0 0 1.5px color-mix(in srgb,var(--warn) 55%,transparent)}
+.m-b.hot::before,.m-b.hot::after{box-shadow:0 0 0 1.5px color-mix(in srgb,var(--bad) 60%,transparent)}
+.m-b::after{width:12px;height:12px}.m-b::before{width:7px;height:7px;bottom:-12px}
+.m-b.to-r::after{left:auto;right:-14px;top:60%;bottom:auto;border:none}.m-b.to-r::before{right:-26px;top:68%;bottom:auto}
+.m-b.to-l::after{right:auto;left:-14px;top:60%;bottom:auto;border:none}.m-b.to-l::before{left:-26px;top:68%;bottom:auto}
+.m-b-l{padding:30px 38px;max-width:300px}.m-b-m{padding:22px 28px;max-width:250px}.m-b-s{padding:15px 22px;max-width:210px}
+.m-b-xs{padding:8px 16px;max-width:200px;border-radius:999px}.m-b-xxs{padding:4px 10px;max-width:170px;border-radius:999px}
+.m-b-xs::before,.m-b-xs::after,.m-b-xxs::before,.m-b-xxs::after{display:none}
+.m-side{gap:26px}.m-board[data-bs=xs] .m-side{gap:9px}.m-board[data-bs=xxs] .m-side{gap:5px}
+.m-side .m-b:nth-child(3n+1){translate:-22px 0}.m-side .m-b:nth-child(3n+2){translate:14px -6px;animation-delay:-2s}.m-side .m-b:nth-child(3n){translate:-6px 8px;animation-delay:-4s}
+.m-side .to-l:nth-child(3n+1){translate:22px 0}.m-side .to-l:nth-child(3n+2){translate:-14px -6px}.m-side .to-l:nth-child(3n){translate:6px 8px}
+@keyframes mdrift{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@media (prefers-reduced-motion:reduce){.m-b{animation:none}}
+@media (max-width:760px){.m-side .m-b{translate:none!important;max-width:none;border-radius:28px}.m-b::before,.m-b::after{display:none}}
+.m-board[data-bs=xs] .m-side .m-b,.m-board[data-bs=xxs] .m-side .m-b{translate:0 0}
+.m-board[data-bs=xs] .m-side .m-b:nth-child(odd),.m-board[data-bs=xxs] .m-side .m-b:nth-child(odd){translate:-12px 0}
+.m-board[data-bs=xs] .m-side .m-b:nth-child(even),.m-board[data-bs=xxs] .m-side .m-b:nth-child(even){translate:10px 0}
+.m-board[data-bs=xs] .m-side .to-l:nth-child(odd),.m-board[data-bs=xxs] .m-side .to-l:nth-child(odd){translate:12px 0}
+.m-board[data-bs=xs] .m-side .to-l:nth-child(even),.m-board[data-bs=xxs] .m-side .to-l:nth-child(even){translate:-10px 0}
+.m-board[data-bs=xs] .m-side{gap:14px}.m-board[data-bs=xxs] .m-side{gap:9px}
