@@ -1179,7 +1179,7 @@ function mFigure(name){   // -> blob URL of the decrypted pose (.glb) or poster 
   if(MFIG.has(name))return MFIG.get(name);
   const p=(async()=>{
     MMAN=MMAN||fetch('data/mercury/manifest.json').then(r=>r.json());const man=await MMAN,{mk,ak}=await keysFor(PW,man);
-    const buf=new Uint8Array(await (await fetch(`data/mercury/${name.replace(/\.glb$/,'.bin').replace(/\.(png|webm)$/,'.$1.bin')}`)).arrayBuffer());
+    const buf=new Uint8Array(await (await fetch(`data/mercury/${name.replace(/\.glb$/,'.bin').replace(/\.(png|webm)$/,'.$1.bin')}?v=${encodeURIComponent(man.src||'')}`)).arrayBuffer());
     const iv=buf.slice(0,16),mac=buf.slice(16,48),ct=buf.slice(48),msg=new Uint8Array(16+ct.length);msg.set(iv);msg.set(ct,16);
     if(!await crypto.subtle.verify('HMAC',mk,mac,msg))throw Error('mercury');
     const plain=await crypto.subtle.decrypt({name:'AES-CBC',iv},ak,ct);
