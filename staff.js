@@ -1153,6 +1153,7 @@ const M_SIT={
   message:{label:'메시지 도착',pose:'letter',pri:5,line:'새 메시지가 도착했어요.',to:'mItems'},
   parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송현황 탭 확인이 필요해요!',to:'mItems'},
   shipunpaid:{label:'배송비 미입금',pose:'magnifier',pri:7.5,line:'이미 출고됐는데 배송비 입금 확인이 안 된 가구 건이 있어요.',to:'mc-shipfee'},
+  usc:{label:'대표님 결제 확인',pose:'magnifier',pri:7,line:'대표님 결제 건 중 USC 구매 탭 기록이 빠졌거나 진행 확인이 필요한 건이 있어요.',to:'mc-usc'},
   buy:{label:'구매 대기',pose:'run',pri:6.5,line:'구매대행 요청 후 3시간이 넘도록 구매가 안 된 건이 있어요.',to:'mc-buy'},
   question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.',to:'mItems'},
   deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.',to:'mc-payb'},
@@ -1166,6 +1167,7 @@ const M_CHECKS=[
   // mercury_check.py shippay (user, 10/31): 팬스타 ERP (주문번호·House) x 26년가구 출고정리 결제여부, every publish
   {id:'ship',name:'배송비 입금 · 출고된 가구 건',desc:'26년가구 출고정리(10월 탭부터)의 주문번호·House를 팬스타 ERP와 맞춰서, 팬스타에서 이미 출고(해운 출발 이후)됐는데 결제여부가 y가 아닌 건을 계속 추적해요. 페이액션에 배송비가 매칭되면 결제여부가 y로 바뀌어 빠져요.'},
   // purchase_nudge.py (user, 10/31): the same rules the purchase-nudge task uses to reply in the Slack request thread
+  {id:'usc',name:'대표님 결제 · USC 구매 탭',desc:'구매 정리에서 결제수행자가 대표님·USC인 건이 USC 구매 (목표 : 소비세환급) 탭에 기록되어 진행되는지 봐요. 색: 흰색 전달 전 → 회색 대표님께 전달 → 파랑 결제완료 → 초록 수령완료. 기록 누락, 결제 대기, 결제일자 빈칸, 예상 도착일이 지났는데 수령 전인 건을 알려요. 파랑·초록인데 구매일자가 비어 있으면 AI가 구매 표시를 해요.'},
   {id:'nudge',name:'구매대행 요청 · 구매 진행',desc:'슬랙 #일본-구매대행-요청에 올라온 요청 중 구매 정리 시트에 제품 구매일자가 없는 건이에요. 요청 3시간 뒤부터 3시간마다 그 요청 글에 댓글로 알려요 (0~9시 제외). 대표님 결제·구매처 직권 취소·구매처 답변처럼 외부를 기다리는 건과 주말에는 12시·18시에만 알려요.'}];
 const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
 const M_ANGRY_VIDEO=false;   // the customer-and-Sailor-Mercury scene video is retired with the original Mercury (2026-10-31); the angry situation uses her bow loop
@@ -1188,7 +1190,7 @@ function mFigure(name){   // -> blob URL of the decrypted pose (.glb) or poster 
 // What Mercury lists is what is still open: 배송현황 findings for orders a person marked 완료 and every other finding someone confirmed ("확인 완료", shared
 // like the 완료 ticks: odone rows keyed GRM_<kind>_<id>) drop out and go to the 확인 완료 card, where they can be sent back (되돌리기).
 const MKIND={'배송현황':{code:'del',sit:'parcel'},'구매대행 미구매':{code:'buy',sit:'buy'},'구매대행 입금 확인':{code:'payb',sit:'deposit'},'배송비 입금 확인':{code:'pays',sit:'deposit'},
-  '배송비 미입금':{code:'shipfee',sit:'shipunpaid'},'예치금 입금':{code:'dep',sit:'deposit'},'입금 확인':{code:'dep',sit:'deposit'},'카카오 화난 고객':{code:'ang',sit:'angry'}};
+  '배송비 미입금':{code:'shipfee',sit:'shipunpaid'},'예치금 입금':{code:'dep',sit:'deposit'},'입금 확인':{code:'dep',sit:'deposit'},'카카오 화난 고객':{code:'ang',sit:'angry'},'대표님 결제 (USC)':{code:'usc',sit:'usc'}};
 const mKeyOf=i=>('GRM_'+((MKIND[i.kind]||{}).code||'x')+'_'+String(i.no||i.customer||'').split('').map(c=>/\w/.test(c)?c:c.charCodeAt(0).toString(36)).join('')).slice(0,42);
 const mSnap=i=>[i.kind,i.customer||'',i.no||'',String(i.issue||'').slice(0,40)].join('|').slice(0,100);
 function mMarkOf(key){const l=oLocal()[key],sv=OMARKS[key];if(l&&(!sv||Date.now()-l.since<5*60e3))return l;return sv||null}
@@ -1244,6 +1246,10 @@ function mRenderCards(M){
   sheetCard('mc-payb','구매대행 견적 미입금','견적서를 보낸 지 30분이 넘었는데 페이액션 입금 확인이 안 된 건이에요 (구매 정리 시트 형태).',of('구매대행 입금 확인'),P_HEADS,true,'구매 정리');
   sheetCard('mc-pays','배송비 견적 미입금','배송비 견적서를 보낸 지 30분이 넘었는데 페이액션 입금 확인이 안 된 건이에요 (출고정리 시트 형태).',of('배송비 입금 확인'),S_HEADS,false,'출고정리');
   sheetCard('mc-shipfee','배송비 미입금 · 이미 출고된 가구','팬스타에서 이미 출고됐는데 26년가구 출고정리의 결제여부가 y가 아닌 건이에요.',of('배송비 미입금'),S_HEADS,false,'출고정리');
+  const usc=of('대표님 결제 (USC)');
+  if(usc.length)out.push(mCard('mc-usc','대표님 결제 · USC 구매 탭','대표님(USC) 결제 건이 USC 구매 (목표 : 소비세환급) 탭에 기록되어 흰색 → 회색 → 파랑 → 초록으로 진행되는지 봐요. 소비세 환급 때 이 기록을 써요.',
+    mLink('https://docs.google.com/spreadsheets/d/1J9LlRpO923782F7_CpDpMUweogocdvRPY67KfpPmK_4/edit#gid=261309109','USC 구매 탭 열기'),'<th>확인</th><th>번호</th><th>고객</th><th>USC 행</th><th class="m-whyhead">머큐리가 알리는 이유</th>',
+    usc.map(i=>{const sh=i.sheet||{};return `<tr class="warnrow"><td>${mBtn(i)}</td><td class="mono">${esc(i.no||'')}</td><td>${esc(i.customer||'')}</td><td>${sh.found?mLink(sh.url,`USC ${sh.row}행`):'<span class="muted">없음</span>'}</td>${mWhy(i)}</tr>`})));
   const dep=items.filter(i=>i.kind==='예치금 입금'||i.kind==='입금 확인');
   if(dep.length)out.push(mCard('mc-dep','예치금 놓친 입금','입금은 확인됐는데 승인이 안 됐거나, 입금 뒤 고객이 요청을 취소한 건이에요. 승인은 예치금 관리 페이지에서 해요.',
     mLink('https://woomyshipping.com/elpisadm/a_charge_01_no.php','예치금 승인 페이지'),'<th>확인</th><th>요청자</th><th>금액</th><th>결제번호</th><th>경과</th><th class="m-whyhead">머큐리가 알리는 이유</th>',
