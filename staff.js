@@ -1350,29 +1350,39 @@ function renderQSide(){
   if(!g)return;
   qsPlace();
   const won=v=>v!=null&&v!==''?'₩'+Number(v).toLocaleString():'';
-  body.innerHTML=`<div class="q-drawhead"><b>${esc(g.title)}</b><span class="muted small">${g.list.length}건</span></div>`+
+  body.innerHTML=QS_GRIPS+`<div class="q-drawin"><div class="q-drawhead"><b>${esc(g.title)}</b><span class="muted small">${g.list.length}건</span></div>`+
     (g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
       `<div class="small">${esc(i.issue||'')}</div>${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}`+
       `<div class="q-drawbtns">${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'')}${mBtn(i)}</div></div>`}).join('')
       :'<p class="muted small q-drawempty">지금은 확인할 건이 없어요.</p>')+
-    `<div class="q-drawfoot">${M&&M.checkedAt?`<span class="muted small">점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>`:'<span></span>'}<button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div>`}
-// The open list lies over the 견적서 form card at the same size (user, 11/01); its corner handle resizes it, and the size a
-// person sets is kept per PC.
-const QSIZE='woomyvesta-qside-size';
+    `<div class="q-drawfoot">${M&&M.checkedAt?`<span class="muted small">점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>`:'<span></span>'}<button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div></div>`}
+// The open list lies over the 견적서 form card at the same size (user, 11/01). A handle on each of the four corners resizes it
+// from that corner (user, 11/01); the box a person sets (offset from the form card + size) is kept per PC.
+let qsDragEnd=0;   // a corner drag that ends outside the list must not count as a click outside it
+const QSIZE='woomyvesta-qside-size',QS_GRIPS=['nw','ne','sw','se'].map(c=>`<span class="q-grip q-grip-${c}" data-grip="${c}" aria-hidden="true"></span>`).join('');
 function qsPlace(){const d=$('#qSideBody'),f=$('.q-form'),side=$('#qSide');if(!d||!f||!side)return;
-  if(matchMedia('(max-width:760px)').matches){d.style.cssText='';d._set=null;return}   // phones: the list sits under the rail
-  const fr=f.getBoundingClientRect(),sr=side.getBoundingClientRect();let sz=null;try{sz=JSON.parse(localStorage.getItem(QSIZE)||'null')}catch{}
-  d.style.left=(fr.left-sr.left)+'px';d.style.top=(fr.top-sr.top)+'px';
-  d.style.width=(sz&&sz.w||fr.width)+'px';d.style.height=(sz&&sz.h||Math.min(fr.height,innerHeight-40))+'px';d._set={w:Math.round(d.offsetWidth),h:Math.round(d.offsetHeight)}}
-document.addEventListener('pointerup',()=>{const d=$('#qSideBody');if(!d||d.hidden||!d._set)return;const w=Math.round(d.offsetWidth),h=Math.round(d.offsetHeight);
-  if(Math.abs(w-d._set.w)>2||Math.abs(h-d._set.h)>2){d._set={w,h};try{localStorage.setItem(QSIZE,JSON.stringify({w,h}))}catch{}}});   // only a drag of the corner changes it
+  if(matchMedia('(max-width:760px)').matches){d.style.cssText='';return}   // phones: the list sits under the rail
+  const fr=f.getBoundingClientRect(),sr=side.getBoundingClientRect();let b=null;try{b=JSON.parse(localStorage.getItem(QSIZE)||'null')}catch{}
+  d.style.left=(fr.left-sr.left+(b&&b.x||0))+'px';d.style.top=(fr.top-sr.top+(b&&b.y||0))+'px';
+  d.style.width=(b&&b.w||fr.width)+'px';d.style.height=(b&&b.h||Math.min(fr.height,innerHeight-40))+'px'}
+$('#qSide').addEventListener('dblclick',e=>{if(!e.target.closest('[data-grip]'))return;try{localStorage.removeItem(QSIZE)}catch{}qsPlace()});   // double-click a corner: back to the form card's box
+$('#qSide').addEventListener('pointerdown',e=>{const g=e.target.closest('[data-grip]');if(!g)return;e.preventDefault();
+  const d=$('#qSideBody'),c=g.dataset.grip,x0=e.clientX,y0=e.clientY,L=d.offsetLeft,T=d.offsetTop,W=d.offsetWidth,H=d.offsetHeight,MW=300,MH=220;
+  const move=ev=>{const dx=ev.clientX-x0,dy=ev.clientY-y0;let l=L,t=T,w=W,h=H;
+    if(c.includes('e'))w=Math.max(MW,W+dx);if(c.includes('s'))h=Math.max(MH,H+dy);
+    if(c.includes('w')){w=Math.max(MW,W-dx);l=L+W-w}if(c.includes('n')){h=Math.max(MH,H-dy);t=T+H-h}
+    Object.assign(d.style,{left:l+'px',top:t+'px',width:w+'px',height:h+'px'})};
+  const up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up);qsDragEnd=Date.now();
+    const f=$('.q-form').getBoundingClientRect(),sr=$('#qSide').getBoundingClientRect(),r=d.getBoundingClientRect();
+    try{localStorage.setItem(QSIZE,JSON.stringify({x:Math.round(r.left-f.left),y:Math.round(r.top-f.top),w:Math.round(r.width),h:Math.round(r.height)}))}catch{}};
+  addEventListener('pointermove',move);addEventListener('pointerup',up)});
 $('#qSide').addEventListener('click',e=>{
   const r=e.target.closest('[data-qs]');if(r){qsOpen=qsOpen===r.dataset.qs?'':r.dataset.qs;try{localStorage.setItem(QSIDE,qsOpen)}catch{}safe(renderQSide);return}
   const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
   if(e.target.closest('[data-qsgo]'))setTab('mercury',true)});
 // the list floats over the form: a click elsewhere or Esc folds it back
 const qsFold=()=>{if(!qsOpen)return;qsOpen='';try{localStorage.setItem(QSIDE,'')}catch{}safe(renderQSide)};
-document.addEventListener('click',e=>{if(qsOpen&&!e.composedPath().some(n=>n.id==='qSide'))qsFold()});   // path, not closest: the rail re-renders under the click
+document.addEventListener('click',e=>{if(qsOpen&&Date.now()-qsDragEnd>300&&!e.composedPath().some(n=>n.id==='qSide'))qsFold()});   // path, not closest: the rail re-renders under the click
 document.addEventListener('keydown',e=>{if(e.key==='Escape')qsFold()});
 $('#tabMercury').addEventListener('click',e=>{const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
   const mu=e.target.closest('[data-mundo]');if(mu){mSetMark(mu.dataset.mundo,false,'');return}

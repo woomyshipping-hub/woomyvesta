@@ -655,3 +655,15 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .q-side.open .q-rail{background:var(--card);border-radius:18px}
 /* list over the form at the form's size, resizable from its bottom-right corner (user, 11/01) */
 .q-drawer{width:auto;max-height:none;resize:both;overflow:auto;min-width:300px;min-height:220px;max-width:calc(100vw - 140px)}
+/* four corner handles instead of the browser's single resize corner; the content scrolls inside (user, 11/01) */
+.q-drawer{resize:none;overflow:visible;padding:0;display:flex}
+.q-drawer[hidden]{display:none}
+.q-drawin{flex:1;min-width:0;overflow:auto;padding:18px 18px 16px;border-radius:18px}
+.q-grip{position:absolute;width:18px;height:18px;z-index:2;touch-action:none}
+.q-grip::after{content:'';position:absolute;width:9px;height:9px;border:2px solid var(--blue);opacity:.75}
+.q-grip:hover::after{opacity:1}
+.q-grip-nw{left:-4px;top:-4px;cursor:nwse-resize}.q-grip-nw::after{left:3px;top:3px;border-right:0;border-bottom:0;border-top-left-radius:6px}
+.q-grip-ne{right:-4px;top:-4px;cursor:nesw-resize}.q-grip-ne::after{right:3px;top:3px;border-left:0;border-bottom:0;border-top-right-radius:6px}
+.q-grip-sw{left:-4px;bottom:-4px;cursor:nesw-resize}.q-grip-sw::after{left:3px;bottom:3px;border-right:0;border-top:0;border-bottom-left-radius:6px}
+.q-grip-se{right:-4px;bottom:-4px;cursor:nwse-resize}.q-grip-se::after{right:3px;bottom:3px;border-left:0;border-top:0;border-bottom-right-radius:6px}
+@media(max-width:760px){.q-grip{display:none}}
