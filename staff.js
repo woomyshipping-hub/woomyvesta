@@ -198,7 +198,7 @@ function render(){
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
     KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
   $('#rules').textContent=`기준: 해운 출발 후 영업일로 +${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (+1일까지는 정상, 주말·공휴일 제외, ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
-  safe(renderAlerts);safe(renderKakao);safe(renderMercury);
+  safe(renderAlerts);safe(renderKakao);safe(renderMercury);safe(renderQSide);
   // 주문일별 진행: one stacked bar per order date (length = orders, color = stage), red badge = 확인 필요.
   const tot=b=>D.stages.reduce((a,s)=>a+(b[s]||0),0),most=Math.max(1,...D.batches.map(tot));
   const late={};D.orders.forEach(o=>{if(o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
@@ -1195,7 +1195,7 @@ function mMarkOf(key){const l=oLocal()[key],sv=OMARKS[key];if(l&&(!sv||Date.now(
 async function mSetMark(key,done,memo){
   const m={done,how:'기타',memo:String(memo||'').slice(0,100),ts:new Date().toISOString()},all=oLocal();all[key]={...m,since:Date.now()};
   try{localStorage.setItem(OKEY,JSON.stringify(all))}catch{}
-  safe(renderMercury);safe(renderKakao);toast(done?'확인 완료로 옮겼어요. 아래 확인 완료 카드에서 되돌릴 수 있어요.':'되돌렸어요.');
+  safe(renderMercury);safe(renderQSide);safe(renderKakao);toast(done?'확인 완료로 옮겼어요. 아래 확인 완료 카드에서 되돌릴 수 있어요.':'되돌렸어요.');
   if(!D.smsIntake)return;
   try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'odone',order:key,...m})})).json();if(!r.ok)throw Error(r.error)}
   catch{toast('이 화면에는 반영했지만 다른 직원 화면에는 아직 반영되지 않았어요.')}}
@@ -1321,6 +1321,28 @@ function renderMercury(){
   $('#mItems').classList.toggle('hidden',!byDays.length);$('#mDone').innerHTML='';
   $('#mNote').textContent=items.length||((M&&M.confirmed&&M.confirmed.length)||0)?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
 }
+// 견적서 tab, left edge: a folded tab with Mercury's open 구매대행 미구매 and 배송비 미입금 (출고된 가구) findings, so staff making
+// quotes see them without leaving the tab (user, 2026-10-31). Same items, 시트 links and 확인 완료 marks as the 머큐리 cards.
+const QSIDE='woomyvesta-qside';let qsOpen=false;try{qsOpen=localStorage.getItem(QSIDE)==='1'}catch{}
+const QS_KINDS=[['구매대행 미구매','구매대행 요청 미이행','mc-buy'],['배송비 미입금','출고된 가구 · 배송비 확인 필요','mc-shipfee']];
+function renderQSide(){
+  if(!D)return;const M=mData(),items=(M&&M.items)||[],body=$('#qSideBody'),open=qsOpen;
+  const groups=QS_KINDS.map(([k,t,card])=>({t,card,list:items.filter(i=>i.kind===k)})),n=groups.reduce((a,g)=>a+g.list.length,0);
+  $('#qSide').classList.toggle('open',open);$('#qSideTab').setAttribute('aria-expanded',open);body.hidden=!open;
+  $('#qSideCount').textContent=n||'';$('#qSideCount').classList.toggle('zero',!n);
+  if(!open)return;
+  const won=v=>v!=null&&v!==''?'₩'+Number(v).toLocaleString():'';
+  body.innerHTML=`<div class="q-sidehead"><b>머큐리 확인 필요</b><button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div>`+
+    (M&&M.checkedAt?`<p class="muted small">마지막 점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</p>`:'')+
+    groups.map(g=>`<section class="q-sidegrp"><h4>${esc(g.t)} <span class="muted small">· ${g.list.length}건</span></h4>`+
+      (g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-sideitem"><div class="q-sidetop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
+        `<div class="small">${esc(i.issue||'')}</div>${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}`+
+        `<div class="q-sidebtns">${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'')}${mBtn(i)}</div></div>`}).join('')
+        :'<p class="muted small">지금은 없어요.</p>')+'</section>').join('')}
+$('#qSide').addEventListener('click',e=>{
+  if(e.target.closest('#qSideTab')){qsOpen=!qsOpen;try{localStorage.setItem(QSIDE,qsOpen?'1':'0')}catch{}safe(renderQSide);return}
+  const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
+  if(e.target.closest('[data-qsgo]'))setTab('mercury',true)});
 $('#tabMercury').addEventListener('click',e=>{const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
   const mu=e.target.closest('[data-mundo]');if(mu){mSetMark(mu.dataset.mundo,false,'');return}
   const mt=e.target.closest('[data-mtab]');if(mt){setTab(mt.dataset.mtab,true);return}
@@ -1331,7 +1353,7 @@ function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));
   curTab=t;safe(updatedLine);
   $('#tabShip').classList.toggle('hidden',t!=='ship');$('#tabKakao').classList.toggle('hidden',t!=='kakao');$('#tabQuote').classList.toggle('hidden',t!=='quote');$('#tabMercury').classList.toggle('hidden',t!=='mercury');
-  if(t==='quote')qinit();
+  if(t==='quote'){qinit();safe(renderQSide)}
   if(t==='mercury')safe(renderMercury);
   if(push){const u=new URL(location.href);t==='ship'?u.searchParams.delete('tab'):u.searchParams.set('tab',t);history.replaceState(null,'',u)}
   heal()}

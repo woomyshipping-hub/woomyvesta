@@ -616,3 +616,22 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .m-board{display:flex;align-items:center;justify-content:center;min-height:520px}.m-board.alone{min-height:0}
 .m-board .m-stage{margin:0}.m-side{top:6px;bottom:6px}
 @media (max-width:760px){.m-board{display:block;min-height:0}.m-side{top:auto;bottom:auto}}
+/* 견적서 tab: folded 확인 필요 tab on the left (머큐리 구매대행 미이행 · 출고된 가구 배송비), opens to a narrow column (user, 2026-10-31) */
+.q-shell{display:flex;gap:14px;align-items:flex-start}
+.q-shell>.q-wrap{flex:1;min-width:0}
+.q-side{position:sticky;top:12px;flex:none;display:flex;align-items:flex-start;gap:0;border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.q-sidetab{display:flex;flex-direction:column;align-items:center;gap:8px;width:40px;padding:14px 0;border:0;background:transparent;color:var(--ink);cursor:pointer;font:inherit;font-size:13px;font-weight:700}
+.q-sidetab:hover{background:var(--bg)}
+.q-sidelabel{writing-mode:vertical-rl;letter-spacing:.08em}
+.q-sidetab b{min-width:20px;padding:1px 6px;border-radius:10px;background:var(--bad,#d93025);color:#fff;font-size:12px}
+.q-sidetab b.zero{display:none}
+.q-side.open .q-sidetab{border-right:1px solid var(--line);align-self:stretch}
+.q-sidebody{width:300px;max-height:calc(100vh - 40px);overflow:auto;padding:12px 14px 14px}
+.q-sidebody[hidden]{display:none}
+.q-sidehead{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.q-sidegrp h4{margin:14px 0 6px;font-size:13px}
+.q-sideitem{padding:8px 10px;border-radius:9px;background:var(--bg);margin-bottom:7px;line-height:1.5}
+.q-sidetop{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}.q-sidetop .num{margin-left:auto;white-space:nowrap}
+.q-sidebtns{display:flex;gap:6px;justify-content:flex-end;margin-top:5px;flex-wrap:wrap}
+@media(max-width:760px){.q-shell{flex-direction:column}.q-side{position:static;width:100%;flex-direction:column}.q-sidetab{flex-direction:row;width:100%;justify-content:center;padding:10px}.q-sidelabel{writing-mode:horizontal-tb}
+  .q-side.open .q-sidetab{border-right:0;border-bottom:1px solid var(--line)}.q-sidebody{width:auto;max-height:none;box-sizing:border-box}}
