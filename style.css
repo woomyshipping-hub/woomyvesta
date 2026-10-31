@@ -667,3 +667,8 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .q-grip-sw{left:-4px;bottom:-4px;cursor:nesw-resize}.q-grip-sw::after{left:3px;bottom:3px;border-right:0;border-top:0;border-bottom-left-radius:6px}
 .q-grip-se{right:-4px;bottom:-4px;cursor:nwse-resize}.q-grip-se::after{right:3px;bottom:3px;border-left:0;border-top:0;border-bottom-right-radius:6px}
 @media(max-width:760px){.q-grip{display:none}}
+/* 내일 다시 알리기 · 임시 확인 (user, 11/01) */
+.laterbtn{border-color:color-mix(in srgb,var(--warn) 55%,var(--line))!important;color:var(--warn)!important}
+.q-latersec{margin-top:14px;padding:12px 12px 4px;border-radius:12px;background:var(--warn-soft)}
+.q-latersec .q-drawrow{border-top-color:color-mix(in srgb,var(--warn) 25%,var(--line))}
+.q-laterrow .q-drawtop b{opacity:.85}

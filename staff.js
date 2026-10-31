@@ -1194,20 +1194,28 @@ const MKIND={'배송현황':{code:'del',sit:'parcel'},'구매대행 미구매':{
 const mKeyOf=i=>('GRM_'+((MKIND[i.kind]||{}).code||'x')+'_'+String(i.no||i.customer||'').split('').map(c=>/\w/.test(c)?c:c.charCodeAt(0).toString(36)).join('')).slice(0,42);
 const mSnap=i=>[i.kind,i.customer||'',i.no||'',String(i.issue||'').slice(0,56)].join('|').slice(0,100);
 function mMarkOf(key){const l=oLocal()[key],sv=OMARKS[key];if(l&&(!sv||Date.now()-l.since<5*60e3))return l;return sv||null}
+// 내일 다시 알리기 (user, 11/01): a finding sent to the customer may not be settled at once. The button parks it in 임시 확인 for
+// 24 hours (a shared mark like 확인 완료, memo starting '내일|' since the 접수창구 only takes its own 'how' words); if the
+// finding is still there after 24 hours it comes back to the list by itself, and if it was settled it simply stays gone.
+const M_LATER='내일|',M_LATER_MS=24*3600e3;
+const mLater=mk=>mk&&mk.done&&String(mk.memo||'').startsWith(M_LATER);
+const mLaterLeft=mk=>M_LATER_MS-(Date.now()-Date.parse(mk.ts||0));
 async function mSetMark(key,done,memo){
   const m={done,how:'기타',memo:String(memo||'').slice(0,100),ts:new Date().toISOString()},all=oLocal();all[key]={...m,since:Date.now()};
   try{localStorage.setItem(OKEY,JSON.stringify(all))}catch{}
-  safe(renderMercury);safe(renderQSide);safe(renderKakao);toast(done?'확인 완료로 옮겼어요. 아래 확인 완료 카드에서 되돌릴 수 있어요.':'되돌렸어요.');
+  safe(renderMercury);safe(renderQSide);safe(renderKakao);toast(!done?'되돌렸어요.':String(memo||'').startsWith(M_LATER)?'임시 확인으로 옮겼어요. 내일 이 시간까지 그대로면 다시 알려요.':'확인 완료로 옮겼어요. 아래 확인 완료 카드에서 되돌릴 수 있어요.');
   if(!D.smsIntake)return;
   try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'odone',order:key,...m})})).json();if(!r.ok)throw Error(r.error)}
   catch{toast('이 화면에는 반영했지만 다른 직원 화면에는 아직 반영되지 않았어요.')}}
 function mData(){
   const M=D&&D.mercury;if(!M)return null;
-  const doneOrd=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),vis=[],hidden=[],confirmed=[],qonly=[];
+  const doneOrd=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),vis=[],hidden=[],confirmed=[],qonly=[],later=[];
   for(const i of M.items||[]){
     if(i.kind==='배송현황'){(doneOrd.has(i.no)?hidden:vis).push(i);continue}
     if(i.kind==='카카오 화난 고객'){const kx=((D.kakao&&D.kakao.items)||[]).find(x=>x.id===i.no);if(kx&&isDone(kx))continue}   // staff already ticked the chat 처리완료
-    const key=mKeyOf(i),mk=mMarkOf(key);if(mk&&mk.done){confirmed.push({...i,key,mark:mk});continue}
+    const key=mKeyOf(i),mk=mMarkOf(key);
+    if(mLater(mk)){if(mLaterLeft(mk)>0){later.push({...i,key,mark:mk});continue}}   // 24 hours over and still open: back in the list
+    else if(mk&&mk.done){confirmed.push({...i,key,mark:mk});continue}
     ((i.qonly||i.quiet)?qonly:vis).push({...i,key})}   // qonly/quiet = not an alert of Mercury's (it shows only the urgent ones) but still listed in the 견적서 tab's side panel, which keeps the full list
   // situations come from what is still open: one bubble per kind (angry: one per customer)
   const by={};vis.forEach(i=>{const sid=(MKIND[i.kind]||{}).sit;if(sid)(by[sid]=by[sid]||[]).push(i)});
@@ -1217,7 +1225,7 @@ function mData(){
   // the check cards count what Mercury actually lists (the sources' own totals include what the rules left out)
   const CK={delivery:'배송현황',nudge:'구매대행 미구매',usc:'대표님 결제 (USC)'},cnt=k=>vis.filter(i=>i.kind===k).length;
   const checks=(M.checks||[]).filter(c=>c.id!=='ship').map(c=>CK[c.id]?{...c,state:cnt(CK[c.id])?'warn':'ok',summary:cnt(CK[c.id])?`머큐리가 알리는 건 ${cnt(CK[c.id])}건 (기준에 못 미치는 건은 알리지 않아요)`:'지금 알릴 건이 없어요.'}:c);
-  return {...M,items:vis,qonly,hidden,confirmed,checks,situations:sits}}
+  return {...M,items:vis,qonly,later,hidden,confirmed,checks,situations:sits}}
 const mAngryIds=()=>{const s=new Set();if(D&&D.mercury)for(const i of mData().items)if(i.kind==='카카오 화난 고객')s.add(i.no);return s};
 function mTo(id){const t=(M_SIT[id]||{}).to;if(!t)return '';
   if(id==='deposit')return ['mc-payb','mc-pays','mc-dep'].find(c=>{const e=document.getElementById(c);return e&&!e.classList.contains('hidden')})||t;
@@ -1229,7 +1237,8 @@ function mSituation(){   // the situation Mercury is really in right now
 const P_HEADS=['순번','요청날짜','상품 정보','옵션','수량','고객 이름','합계','입금금액','결제방법','마르코 메모','밥 메모','결제수행자','우리 결제수단','제품 구매일자','메모'];
 const S_HEADS=['결제여부','해외배송비 외','주문일자','주문번호','수취인','C/T','W/T','상품 품명','가격'];
 const mLink=(u,t)=>u?`<a class="mini m-sheetlink" href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>`:'';
-const mBtn=i=>`<button class="mini odbtn" data-mmark="${esc(i.key)}" data-msnap="${esc(mSnap(i))}" title="확인했어요: 이 목록에서 빼고 아래 확인 완료 카드로 옮겨요 (되돌릴 수 있어요)">확인 완료</button>`;
+const mLaterBtn=i=>`<button class="mini laterbtn" data-mlater="${esc(i.key)}" data-msnap="${esc(mSnap(i))}" title="고객에게 전달했는데 바로 처리되지 않을 때: 24시간 임시 확인에 두었다가, 내일까지 그대로면 다시 알려요">내일 다시</button>`;
+const mBtn=i=>mLaterBtn(i)+`<button class="mini odbtn" data-mmark="${esc(i.key)}" data-msnap="${esc(mSnap(i))}" title="확인했어요: 이 목록에서 빼고 아래 확인 완료 카드로 옮겨요 (되돌릴 수 있어요)">확인 완료</button>`;
 const mWhy=i=>`<td class="m-why">${esc(i.issue||'')}${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}</td>`;
 function mSheetRow(i,heads,p){
   const sh=i.sheet||{},c={...(sh.cols||{})};
@@ -1267,12 +1276,16 @@ function mRenderCards(M){
       ang.map(i=>{const x=((D.kakao&&D.kakao.items)||[]).find(y=>y.id===i.no);
         return x?kRowHtml(x).replace(/^<tr class="([^"]*)">/,`<tr class="$1 k-angry"><td>${mBtn(i)}</td>`).replace(/<\/tr>\s*$/,`${mWhy(i)}</tr>`)
           :`<tr class="k-angry"><td>${mBtn(i)}</td><td colspan="9">${esc(i.customer)} · 열린 상담 목록에 없어요</td>${mWhy(i)}</tr>`}))) }
+  const later=(M&&M.later)||[];
+  if(later.length)out.push(mCard('mc-later','임시 확인 · 내일 다시 알림','고객에게 전달했지만 바로 처리되지 않아 [내일 다시]로 미뤄 둔 건이에요. 24시간 뒤에도 그대로면 원래 목록으로 돌아가고, 그 사이 처리되면 사라져요.','',
+    '<th>구분</th><th>번호</th><th>고객</th><th>다시 알림</th><th class="m-whyhead">머큐리가 알리는 이유</th><th></th>',
+    later.map(i=>`<tr><td>${esc(i.kind)}</td><td class="mono">${esc(i.no||'')}</td><td>${esc(i.customer||'')}</td><td class="num">${mLeftTxt(i.mark)}</td>${mWhy(i)}<td><button class="mini" data-mundo="${esc(i.key)}">지금 되돌리기</button></td></tr>`)));
   // 확인 완료: everything someone confirmed here (and 배송현황 ones marked 완료), newest first, each with 되돌리기
   const rows=[],seen=new Set();
   for(const i of (M&&M.confirmed)||[]){seen.add(i.key);rows.push({t:i.mark.ts,kind:i.kind,who:i.customer,no:i.no,why:i.issue,undo:`<button class="mini" data-mundo="${esc(i.key)}" title="아직 해결이 안 됐으면 다시 목록으로 돌려보내요">되돌리기</button>`})}
   for(const i of (M&&M.hidden)||[]){const o=D.orders.find(x=>x.order===i.order)||D.orders.find(x=>adm(x)===i.no);if(o)rows.push({t:o.doneMark&&o.doneMark.ts,kind:'배송현황',who:o.name,no:adm(o),why:i.issue,undo:`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 목록으로 돌려보내요">되돌리기</button>`})}
   const marks={...OMARKS,...oLocal()};   // marks whose finding is gone already: shown from the snapshot kept in the memo
-  for(const [k,v] of Object.entries(marks))if(k.startsWith('GRM_')&&v.done&&!seen.has(k)&&mMarkOf(k)&&mMarkOf(k).done){const [kind,who,no,why]=String(v.memo||'').split('|');
+  for(const [k,v] of Object.entries(marks))if(k.startsWith('GRM_')&&v.done&&!mLater(v)&&!seen.has(k)&&mMarkOf(k)&&mMarkOf(k).done&&!mLater(mMarkOf(k))){const [kind,who,no,why]=String(v.memo||'').split('|');
     rows.push({t:v.ts,kind:kind||'확인 완료',who:who||'',no:no||'',why:why||'',undo:`<button class="mini" data-mundo="${esc(k)}">되돌리기</button>`})}
   rows.sort((a,b)=>String(b.t||'').localeCompare(String(a.t||'')));
   out.push(`<section class="card m-card" id="mc-done"><div class="cardhead"><h2>확인 완료한 건 <span class="muted small">· ${rows.length}건</span></h2></div>`+
@@ -1354,11 +1367,17 @@ function renderQSide(){
     (g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
       `<div class="small">${esc(i.issue||'')}</div>${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}`+
       `<div class="q-drawbtns">${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'')}${mBtn(i)}</div></div>`}).join('')
-      :'<p class="muted small q-drawempty">지금은 확인할 건이 없어요.</p>')+
+      :'<p class="muted small q-drawempty">지금은 확인할 건이 없어요.</p>')+qsLater(M,g)+
     `<div class="q-drawfoot">${M&&M.checkedAt?`<span class="muted small">점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>`:'<span></span>'}<button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div></div>`}
 // The open list lies over the 견적서 form card at the same size (user, 11/01). A handle on each of the four corners resizes it
 // from that corner (user, 11/01); the box a person sets (offset from the form card + size) is kept per PC.
 let qsDragEnd=0;   // a corner drag that ends outside the list must not count as a click outside it
+// 임시 확인 under each list: what was parked with 내일 다시, when it comes back, and 지금 되돌리기
+const mLeftTxt=mk=>{const m=Math.max(0,Math.round(mLaterLeft(mk)/60e3));return m>=60?`${Math.floor(m/60)}시간 ${m%60}분 뒤`:`${m}분 뒤`};
+function qsLater(M,g){const L=((M&&M.later)||[]).filter(i=>i.kind===g.kind);if(!L.length)return '';
+  return `<div class="q-latersec"><div class="q-drawhead"><b>임시 확인</b><span class="muted small">${L.length}건 · 내일까지 그대로면 다시 알려요</span></div>`+
+    L.map(i=>`<div class="q-drawrow q-laterrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="muted small num">${mLeftTxt(i.mark)} 다시 알림</span></div>`+
+      `<div class="small muted">${esc(i.issue||'')}</div><div class="q-drawbtns"><button type="button" class="mini" data-mundo="${esc(i.key)}" title="지금 바로 목록으로 돌려보내요">지금 되돌리기</button></div></div>`).join('')+'</div>'}
 const QSIZE='woomyvesta-qside-size',QS_GRIPS=['nw','ne','sw','se'].map(c=>`<span class="q-grip q-grip-${c}" data-grip="${c}" aria-hidden="true"></span>`).join('');
 function qsPlace(){const d=$('#qSideBody'),f=$('.q-form'),side=$('#qSide');if(!d||!f||!side)return;
   if(matchMedia('(max-width:760px)').matches){d.style.cssText='';return}   // phones: the list sits under the rail
@@ -1379,12 +1398,16 @@ $('#qSide').addEventListener('pointerdown',e=>{const g=e.target.closest('[data-g
 $('#qSide').addEventListener('click',e=>{
   const r=e.target.closest('[data-qs]');if(r){qsOpen=qsOpen===r.dataset.qs?'':r.dataset.qs;try{localStorage.setItem(QSIDE,qsOpen)}catch{}safe(renderQSide);return}
   const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
+  const ml=e.target.closest('[data-mlater]');if(ml){mSetMark(ml.dataset.mlater,true,(M_LATER+ml.dataset.msnap).slice(0,100));return}
+  const mu=e.target.closest('[data-mundo]');if(mu){mSetMark(mu.dataset.mundo,false,'');return}
   if(e.target.closest('[data-qsgo]'))setTab('mercury',true)});
 // the list floats over the form: a click elsewhere or Esc folds it back
 const qsFold=()=>{if(!qsOpen)return;qsOpen='';try{localStorage.setItem(QSIDE,'')}catch{}safe(renderQSide)};
 document.addEventListener('click',e=>{if(qsOpen&&Date.now()-qsDragEnd>300&&!e.composedPath().some(n=>n.id==='qSide'))qsFold()});   // path, not closest: the rail re-renders under the click
 document.addEventListener('keydown',e=>{if(e.key==='Escape')qsFold()});
+setInterval(()=>{if(!D)return;safe(renderQSide);if(curTab==='mercury')safe(renderMercury)},5*60e3);   // 임시 확인 coming back after 24 hours
 $('#tabMercury').addEventListener('click',e=>{const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
+  const ml=e.target.closest('[data-mlater]');if(ml){mSetMark(ml.dataset.mlater,true,(M_LATER+ml.dataset.msnap).slice(0,100));return}
   const mu=e.target.closest('[data-mundo]');if(mu){mSetMark(mu.dataset.mundo,false,'');return}
   const mt=e.target.closest('[data-mtab]');if(mt){setTab(mt.dataset.mtab,true);return}
   {const g=e.target.closest('[data-mgo]');if(g){const t=document.getElementById(g.dataset.mgo);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return}}
