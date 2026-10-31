@@ -1208,7 +1208,7 @@ function mData(){
     if(i.kind==='배송현황'){(doneOrd.has(i.no)?hidden:vis).push(i);continue}
     if(i.kind==='카카오 화난 고객'){const kx=((D.kakao&&D.kakao.items)||[]).find(x=>x.id===i.no);if(kx&&isDone(kx))continue}   // staff already ticked the chat 처리완료
     const key=mKeyOf(i),mk=mMarkOf(key);if(mk&&mk.done){confirmed.push({...i,key,mark:mk});continue}
-    (i.qonly?qonly:vis).push({...i,key})}   // qonly = shown only in the 견적서 tab's side panel (배송비 미입금), not an alert of Mercury's
+    ((i.qonly||i.quiet)?qonly:vis).push({...i,key})}   // qonly/quiet = not an alert of Mercury's (it shows only the urgent ones) but still listed in the 견적서 tab's side panel, which keeps the full list
   // situations come from what is still open: one bubble per kind (angry: one per customer)
   const by={};vis.forEach(i=>{const sid=(MKIND[i.kind]||{}).sit;if(sid)(by[sid]=by[sid]||[]).push(i)});
   const sits=[];for(const [sid,list] of Object.entries(by))sid==='angry'?list.forEach(i=>sits.push({id:'angry',count:1,note:`${i.customer} · ${i.issue}`})):sits.push({id:sid,count:list.length});
@@ -1357,6 +1357,10 @@ $('#qSide').addEventListener('click',e=>{
   const r=e.target.closest('[data-qs]');if(r){qsOpen=qsOpen===r.dataset.qs?'':r.dataset.qs;try{localStorage.setItem(QSIDE,qsOpen)}catch{}safe(renderQSide);return}
   const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
   if(e.target.closest('[data-qsgo]'))setTab('mercury',true)});
+// the list floats over the form: a click elsewhere or Esc folds it back
+const qsFold=()=>{if(!qsOpen)return;qsOpen='';try{localStorage.setItem(QSIDE,'')}catch{}safe(renderQSide)};
+document.addEventListener('click',e=>{if(qsOpen&&!e.composedPath().some(n=>n.id==='qSide'))qsFold()});   // path, not closest: the rail re-renders under the click
+document.addEventListener('keydown',e=>{if(e.key==='Escape')qsFold()});
 $('#tabMercury').addEventListener('click',e=>{const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
   const mu=e.target.closest('[data-mundo]');if(mu){mSetMark(mu.dataset.mundo,false,'');return}
   const mt=e.target.closest('[data-mtab]');if(mt){setTab(mt.dataset.mtab,true);return}
