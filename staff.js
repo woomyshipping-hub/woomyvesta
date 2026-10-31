@@ -1149,7 +1149,7 @@ const M_SIT={
   done:{label:'처리 완료',pose:'celebrate',pri:3,line:'밀린 일을 모두 끝냈어요!'},
   thinking:{label:'살펴보는 중',pose:'think',pri:4,line:'살펴보는 중이에요. 잠깐만요…'},
   message:{label:'메시지 도착',pose:'letter',pri:5,line:'새 메시지가 도착했어요.'},
-  parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송 확인이 필요한 주문이 있어요.'},
+  parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송현황 탭 확인이 필요해요!',go:1},
   question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.'},
   deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.'},
   late:{label:'오래 기다린 상담',pose:'run',pri:9,line:'오래 기다린 고객님이 계세요. 서둘러 주세요!'},
@@ -1199,7 +1199,7 @@ function renderMercury(){
     mFigure(key+'.png').then(u=>{if(view._pose===key)$('#mFallback').src=u}).catch(()=>{});
     mFigure(vid?'angry.webm':key+'.glb').then(u=>{if(view._pose!==key)return;if(vid){mv.src=u;mv.play().catch(()=>{});stage.classList.add('ready')}else view.setAttribute('src',u)}).catch(()=>{if(view._pose===key)stage.classList.add('ready')})}
   if(!view._m){view._m=1;view.addEventListener('load',()=>$('#mStage').classList.add('ready'))}
-  $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
+  $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(sit.go?` <button type="button" class="mini m-go" data-mgo>확인하기</button>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
   // Other situations that are a problem right now sit around the centre (up to 4); a click shows that one in the centre.
   const slotsOf=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id]&&x.id!==show.id)].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri).slice(0,4);
   const slot=x=>{if(!x)return `<div class="m-slot empty"><span class="muted small">다른 문제 없음</span></div>`;const v=M_SIT[x.id];
@@ -1232,7 +1232,8 @@ function renderMercury(){
   $('#mDone').innerHTML=gone.length?`완료 처리해서 뺀 ${gone.length}건: `+gone.map(o=>`${esc(o.name)} ${esc(adm(o))} <button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`).join(' · '):'';
   $('#mNote').textContent=items.length?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
 }
-$('#tabMercury').addEventListener('click',e=>{const c=e.target.closest('[data-ms]');if(c){mPreviewId=c.dataset.ms===mSituation().id?null:c.dataset.ms;safe(renderMercury);return}
+$('#tabMercury').addEventListener('click',e=>{if(e.target.closest('[data-mgo]')){$('#mItems').scrollIntoView({behavior:'smooth',block:'start'});return}
+  const c=e.target.closest('[data-ms]');if(c){mPreviewId=c.dataset.ms===mSituation().id?null:c.dataset.ms;safe(renderMercury);return}
   if(e.target.closest('#mBack')){mPreviewId=null;safe(renderMercury)}});
 function setTab(t,push){
   $('#tabs').querySelectorAll('.tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===t));

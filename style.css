@@ -559,3 +559,5 @@ label[for=odMemo]{display:block;margin-top:16px}
 .m-slot-t{display:flex;flex-direction:column;gap:3px;min-width:0}.m-slot-t b{font-size:14px}
 .m-slot.empty{cursor:default;border:1.5px dashed var(--line);background:transparent;justify-content:center;text-align:center}
 @media (max-width:760px){.m-board{grid-template-columns:1fr 1fr}.m-board .m-stage{grid-column:1/-1;order:-1}.m-side{display:contents}.m-slot{min-height:0}}
+.m-go{margin-left:8px;vertical-align:middle;background:var(--blue);color:#fff;border-color:var(--blue);font-weight:700}
+#mItems{scroll-margin-top:12px}
