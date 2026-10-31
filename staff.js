@@ -1150,6 +1150,7 @@ const M_SIT={
   thinking:{label:'살펴보는 중',pose:'think',pri:4,line:'살펴보는 중이에요. 잠깐만요…'},
   message:{label:'메시지 도착',pose:'letter',pri:5,line:'새 메시지가 도착했어요.',to:'mItems'},
   parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송현황 탭 확인이 필요해요!',to:'mItems'},
+  shipunpaid:{label:'배송비 미입금',pose:'magnifier',pri:7.5,line:'이미 출고됐는데 배송비 입금 확인이 안 된 가구 건이 있어요.',to:'mItems'},
   buy:{label:'구매 대기',pose:'run',pri:6.5,line:'구매대행 요청 후 3시간이 넘도록 구매가 안 된 건이 있어요.',to:'mItems'},
   question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.',to:'mItems'},
   deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.',to:'mChecks'},
@@ -1160,7 +1161,8 @@ const M_SIT={
 const M_CHECKS=[
   {id:'delivery',name:'배송현황 · 혼자만 다른 주문',desc:'다 같이 늦는 통관 지연은 알리지 않고, 뒤에 출발한 주문이 먼저 가는 등 혼자만 뒤처진 주문만 봐요.'},
   {id:'purchase',name:'구매대행 요청 입금 확인',desc:'견적 후 입금이 페이액션에 매칭됐는지, 구매 정리 시트에 반영됐는지 봐요.'},
-  {id:'ship',name:'배송비 견적 입금 확인',desc:'배송비 입금이 페이액션에 매칭돼 출고정리 시트의 결제여부에 반영됐는지 봐요.'},
+  // mercury_check.py shippay (user, 10/31): 팬스타 ERP (주문번호·House) x 26년가구 출고정리 결제여부, every publish
+  {id:'ship',name:'배송비 입금 · 출고된 가구 건',desc:'26년가구 출고정리(10월 탭부터)의 주문번호·House를 팬스타 ERP와 맞춰서, 팬스타에서 이미 출고(해운 출발 이후)됐는데 결제여부가 y가 아닌 건을 계속 추적해요. 페이액션에 배송비가 매칭되면 결제여부가 y로 바뀌어 빠져요.'},
   // purchase_nudge.py (user, 10/31): the same rules the purchase-nudge task uses to reply in the Slack request thread
   {id:'nudge',name:'구매대행 요청 · 구매 진행',desc:'슬랙 #일본-구매대행-요청에 올라온 요청 중 구매 정리 시트에 제품 구매일자가 없는 건이에요. 요청 3시간 뒤부터 3시간마다 그 요청 글에 댓글로 알려요 (0~9시 제외). 대표님 결제·구매처 직권 취소·구매처 답변처럼 외부를 기다리는 건과 주말에는 12시·18시에만 알려요.'}];
 const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
