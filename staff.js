@@ -1150,6 +1150,7 @@ const M_SIT={
   thinking:{label:'살펴보는 중',pose:'think',pri:4,line:'살펴보는 중이에요. 잠깐만요…'},
   message:{label:'메시지 도착',pose:'letter',pri:5,line:'새 메시지가 도착했어요.',to:'mItems'},
   parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송현황 탭 확인이 필요해요!',to:'mItems'},
+  buy:{label:'구매 대기',pose:'run',pri:6.5,line:'구매대행 요청 후 3시간이 넘도록 구매가 안 된 건이 있어요.',to:'mItems'},
   question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.',to:'mItems'},
   deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.',to:'mChecks'},
   late:{label:'오래 기다린 상담',pose:'run',pri:9,line:'오래 기다린 고객님이 계세요. 서둘러 주세요!',to:'mItems'},
@@ -1159,7 +1160,9 @@ const M_SIT={
 const M_CHECKS=[
   {id:'delivery',name:'배송현황 · 혼자만 다른 주문',desc:'다 같이 늦는 통관 지연은 알리지 않고, 뒤에 출발한 주문이 먼저 가는 등 혼자만 뒤처진 주문만 봐요.'},
   {id:'purchase',name:'구매대행 요청 입금 확인',desc:'견적 후 입금이 페이액션에 매칭됐는지, 구매 정리 시트에 반영됐는지 봐요.'},
-  {id:'ship',name:'배송비 견적 입금 확인',desc:'배송비 입금이 페이액션에 매칭돼 출고정리 시트의 결제여부에 반영됐는지 봐요.'}];
+  {id:'ship',name:'배송비 견적 입금 확인',desc:'배송비 입금이 페이액션에 매칭돼 출고정리 시트의 결제여부에 반영됐는지 봐요.'},
+  // purchase_nudge.py (user, 10/31): the same rules the purchase-nudge task uses to reply in the Slack request thread
+  {id:'nudge',name:'구매대행 요청 · 구매 진행',desc:'슬랙 #일본-구매대행-요청에 올라온 요청 중 구매 정리 시트에 제품 구매일자가 없는 건이에요. 요청 3시간 뒤부터 3시간마다 그 요청 글에 댓글로 알려요 (0~9시 제외). 대표님 결제·구매처 직권 취소·구매처 답변처럼 외부를 기다리는 건과 주말에는 12시·18시에만 알려요.'}];
 const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
 let mPreviewId=null;
 function mvLoad(){   // model-viewer from the CDN, once; shares the flag the quote 3D viewer uses so the library is never added twice
@@ -1231,7 +1234,7 @@ function renderMercury(){
     byDays.map(x=>row(x.o,x.why).replace(/<\/tr>\s*$/,`<td class="m-why">${esc(x.why)}</td></tr>`)).join('')+'</tbody>':'';
   $('#mTable').closest('.tablewrap').classList.toggle('hidden',!byDays.length);
   const other=items.filter(i=>i.kind!=='배송현황');
-  $('#mOther').innerHTML=other.length?`<thead><tr><th>구분</th><th>견적번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th></tr></thead><tbody>`+
+  $('#mOther').innerHTML=other.length?`<thead><tr><th>구분</th><th>번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th></tr></thead><tbody>`+
       other.map(i=>`<tr><td>${esc(i.kind)}</td><td>${esc(i.no)}</td><td>${esc(i.customer)}</td><td>${i.amount!=null?Number(i.amount).toLocaleString()+'원':''}</td><td>${esc(i.issue)}</td><td>${esc(i.since||'')}</td></tr>`).join('')+`</tbody>`:'';
   $('#mOther').closest('.tablewrap').classList.toggle('hidden',!other.length);
   const gone=(M&&M.hidden||[]).map(i=>D.orders.find(x=>x.order===i.order)).filter(Boolean);   // marked 완료 by staff: Mercury stops reporting them, but they can be taken back here
