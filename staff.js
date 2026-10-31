@@ -1165,7 +1165,7 @@ const M_CHECKS=[
   {id:'delivery',name:'배송현황 · 혼자만 다른 주문',desc:'다 같이 늦는 통관 지연은 알리지 않고, 뒤에 출발한 주문이 먼저 가는 등 혼자만 뒤처진 주문만 봐요.'},
   {id:'purchase',name:'구매대행 요청 입금 확인',desc:'견적 후 입금이 페이액션에 매칭됐는지, 구매 정리 시트에 반영됐는지 봐요.'},
   // mercury_check.py shippay (user, 10/31): 팬스타 ERP (주문번호·House) x 26년가구 출고정리 결제여부, every publish
-  {id:'ship',name:'배송비 입금 · 출고된 가구 건',desc:'26년가구 출고정리(10월 탭부터)의 주문번호·House를 팬스타 ERP와 맞춰서, 팬스타에서 이미 출고(해운 출발 이후)됐는데 결제여부가 y가 아닌 건을 계속 추적해요. 페이액션에 배송비가 매칭되면 결제여부가 y로 바뀌어 빠져요.'},
+  // (배송비 입금 · 출고된 가구 건 is not a Mercury alert any more: the 견적서 tab's side panel shows it, user 2026-10-31)
   // purchase_nudge.py (user, 10/31): the same rules the purchase-nudge task uses to reply in the Slack request thread
   {id:'usc',name:'대표님 결제 · USC 구매 탭',desc:'구매 정리에서 결제수행자가 대표님·USC인 건이 USC 구매 (목표 : 소비세환급) 탭에 기록되어 진행되는지 봐요. 색: 흰색 전달 전 → 회색 대표님께 전달 → 파랑 결제완료 → 초록 수령완료. 기록 누락, 결제 대기, 결제일자 빈칸, 예상 도착일이 지났는데 수령 전인 건을 알려요. 파랑·초록인데 구매일자가 비어 있으면 AI가 구매 표시를 해요.'},
   {id:'nudge',name:'구매대행 요청 · 구매 진행',desc:'슬랙 #일본-구매대행-요청에 올라온 요청 중 구매 정리 시트에 제품 구매일자가 없는 건이에요. 요청 3시간 뒤부터 3시간마다 그 요청 글에 댓글로 알려요 (0~9시 제외). 대표님 결제·구매처 직권 취소·구매처 답변처럼 외부를 기다리는 건과 주말에는 12시·18시에만 알려요.'}];
@@ -1203,18 +1203,21 @@ async function mSetMark(key,done,memo){
   catch{toast('이 화면에는 반영했지만 다른 직원 화면에는 아직 반영되지 않았어요.')}}
 function mData(){
   const M=D&&D.mercury;if(!M)return null;
-  const doneOrd=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),vis=[],hidden=[],confirmed=[];
+  const doneOrd=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),vis=[],hidden=[],confirmed=[],qonly=[];
   for(const i of M.items||[]){
     if(i.kind==='배송현황'){(doneOrd.has(i.no)?hidden:vis).push(i);continue}
     if(i.kind==='카카오 화난 고객'){const kx=((D.kakao&&D.kakao.items)||[]).find(x=>x.id===i.no);if(kx&&isDone(kx))continue}   // staff already ticked the chat 처리완료
     const key=mKeyOf(i),mk=mMarkOf(key);if(mk&&mk.done){confirmed.push({...i,key,mark:mk});continue}
-    vis.push({...i,key})}
+    (i.qonly?qonly:vis).push({...i,key})}   // qonly = shown only in the 견적서 tab's side panel (배송비 미입금), not an alert of Mercury's
   // situations come from what is still open: one bubble per kind (angry: one per customer)
   const by={};vis.forEach(i=>{const sid=(MKIND[i.kind]||{}).sit;if(sid)(by[sid]=by[sid]||[]).push(i)});
   const sits=[];for(const [sid,list] of Object.entries(by))sid==='angry'?list.forEach(i=>sits.push({id:'angry',count:1,note:`${i.customer} · ${i.issue}`})):sits.push({id:sid,count:list.length});
   (M.situations||[]).forEach(x=>{if(!Object.values(MKIND).some(k=>k.sit===x.id))sits.push(x)});   // situations given without items
   const n=vis.filter(i=>i.kind==='배송현황').length,dl=n?{id:'delivery',state:'warn',summary:`혼자만 다른 상태인 주문 ${n}건`+(n>5?' (5건을 넘어서 기준이 느슨한지 확인이 필요해요)':'')}:{id:'delivery',state:'ok',summary:'혼자만 다른 주문은 없어요. 다 같이 늦는 통관 지연은 알리지 않아요.'};
-  return {...M,items:vis,hidden,confirmed,checks:(M.checks||[]).map(c=>c.id==='delivery'&&hidden.length?dl:c),situations:sits}}
+  // the check cards count what Mercury actually lists (the sources' own totals include what the rules left out)
+  const CK={delivery:'배송현황',nudge:'구매대행 미구매',usc:'대표님 결제 (USC)'},cnt=k=>vis.filter(i=>i.kind===k).length;
+  const checks=(M.checks||[]).filter(c=>c.id!=='ship').map(c=>CK[c.id]?{...c,state:cnt(CK[c.id])?'warn':'ok',summary:cnt(CK[c.id])?`머큐리가 알리는 건 ${cnt(CK[c.id])}건 (기준에 못 미치는 건은 알리지 않아요)`:'지금 알릴 건이 없어요.'}:c);
+  return {...M,items:vis,qonly,hidden,confirmed,checks,situations:sits}}
 const mAngryIds=()=>{const s=new Set();if(D&&D.mercury)for(const i of mData().items)if(i.kind==='카카오 화난 고객')s.add(i.no);return s};
 function mTo(id){const t=(M_SIT[id]||{}).to;if(!t)return '';
   if(id==='deposit')return ['mc-payb','mc-pays','mc-dep'].find(c=>{const e=document.getElementById(c);return e&&!e.classList.contains('hidden')})||t;
@@ -1327,26 +1330,31 @@ function renderMercury(){
   $('#mItems').classList.toggle('hidden',!byDays.length);$('#mDone').innerHTML='';
   $('#mNote').textContent=items.length||((M&&M.confirmed&&M.confirmed.length)||0)?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
 }
-// 견적서 tab, left edge: a folded tab with Mercury's open 구매대행 미구매 and 배송비 미입금 (출고된 가구) findings, so staff making
-// quotes see them without leaving the tab (user, 2026-10-31). Same items, 시트 links and 확인 완료 marks as the 머큐리 cards.
-const QSIDE='woomyvesta-qside';let qsOpen=false;try{qsOpen=localStorage.getItem(QSIDE)==='1'}catch{}
-const QS_KINDS=[['구매대행 미구매','구매대행 요청 미이행','mc-buy'],['배송비 미입금','출고된 가구 · 배송비 확인 필요','mc-shipfee']];
+// 견적서 tab, left edge: an icon rail with Mercury's open 구매대행 미구매 and 배송비 미입금 (출고된 가구) findings, so staff making
+// quotes see them without leaving the tab (user, 2026-10-31; rail layout chosen from three drafts). Each icon opens its own
+// list beside the rail (the same icon again closes it); same items, 시트 links and 확인 완료 marks as the 머큐리 cards.
+const QSIDE='woomyvesta-qside';let qsOpen='';try{qsOpen=localStorage.getItem(QSIDE)||''}catch{}
+const QS_ICON={cart:'<path d="M3 4h2l2.4 10.2a1.5 1.5 0 0 0 1.5 1.1h8.3a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
+  truck:'<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17.5" cy="17.5" r="1.6"/>'};
+const QS_KINDS=[{id:'buy',kind:'구매대행 미구매',label:'구매',title:'구매대행 요청 미이행',icon:'cart'},
+  {id:'ship',kind:'배송비 미입금',label:'배송비',title:'출고된 가구 · 배송비 확인 필요',icon:'truck'}];
 function renderQSide(){
-  if(!D)return;const M=mData(),items=(M&&M.items)||[],body=$('#qSideBody'),open=qsOpen;
-  const groups=QS_KINDS.map(([k,t,card])=>({t,card,list:items.filter(i=>i.kind===k)})),n=groups.reduce((a,g)=>a+g.list.length,0);
-  $('#qSide').classList.toggle('open',open);$('#qSideTab').setAttribute('aria-expanded',open);body.hidden=!open;
-  $('#qSideCount').textContent=n||'';$('#qSideCount').classList.toggle('zero',!n);
-  if(!open)return;
+  if(!D)return;const M=mData(),items=(M&&M.items)||[],body=$('#qSideBody');
+  const groups=QS_KINDS.map(g=>({...g,list:items.filter(i=>i.kind===g.kind)}));
+  if(qsOpen&&!groups.some(g=>g.id===qsOpen))qsOpen='';
+  $('#qRail').innerHTML=groups.map(g=>`<button type="button" class="q-railbtn${qsOpen===g.id?' on':''}" data-qs="${g.id}" aria-expanded="${qsOpen===g.id}" title="${esc(g.title)}">`+
+    `<span class="q-railicon"><svg viewBox="0 0 24 24" aria-hidden="true">${QS_ICON[g.icon]}</svg>${g.list.length?`<b>${g.list.length}</b>`:''}</span><span>${esc(g.label)}</span></button>`).join('');
+  const g=groups.find(x=>x.id===qsOpen);$('#qSide').classList.toggle('open',!!g);body.hidden=!g;
+  if(!g)return;
   const won=v=>v!=null&&v!==''?'₩'+Number(v).toLocaleString():'';
-  body.innerHTML=`<div class="q-sidehead"><b>머큐리 확인 필요</b><button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div>`+
-    (M&&M.checkedAt?`<p class="muted small">마지막 점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</p>`:'')+
-    groups.map(g=>`<section class="q-sidegrp"><h4>${esc(g.t)} <span class="muted small">· ${g.list.length}건</span></h4>`+
-      (g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-sideitem"><div class="q-sidetop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
-        `<div class="small">${esc(i.issue||'')}</div>${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}`+
-        `<div class="q-sidebtns">${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'')}${mBtn(i)}</div></div>`}).join('')
-        :'<p class="muted small">지금은 없어요.</p>')+'</section>').join('')}
+  body.innerHTML=`<div class="q-drawhead"><b>${esc(g.title)}</b><span class="muted small">${g.list.length}건</span></div>`+
+    (g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
+      `<div class="small">${esc(i.issue||'')}</div>${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}`+
+      `<div class="q-drawbtns">${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'')}${mBtn(i)}</div></div>`}).join('')
+      :'<p class="muted small q-drawempty">지금은 확인할 건이 없어요.</p>')+
+    `<div class="q-drawfoot">${M&&M.checkedAt?`<span class="muted small">점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>`:'<span></span>'}<button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div>`}
 $('#qSide').addEventListener('click',e=>{
-  if(e.target.closest('#qSideTab')){qsOpen=!qsOpen;try{localStorage.setItem(QSIDE,qsOpen?'1':'0')}catch{}safe(renderQSide);return}
+  const r=e.target.closest('[data-qs]');if(r){qsOpen=qsOpen===r.dataset.qs?'':r.dataset.qs;try{localStorage.setItem(QSIDE,qsOpen)}catch{}safe(renderQSide);return}
   const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
   if(e.target.closest('[data-qsgo]'))setTab('mercury',true)});
 $('#tabMercury').addEventListener('click',e=>{const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}

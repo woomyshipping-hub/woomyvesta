@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="우마이 베스타">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=a5e96b23">
+<link rel="stylesheet" href="style.css?v=46ceabbd">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -73,9 +73,8 @@
   </div>
   <div id="tabQuote" class="hidden">
     <div class="q-shell">
-    <aside class="q-side" id="qSide"><button type="button" class="q-sidetab" id="qSideTab" aria-expanded="false" aria-controls="qSideBody">
-        <span class="q-sidelabel">확인 필요</span><b id="qSideCount"></b></button>
-      <div class="q-sidebody" id="qSideBody" hidden></div></aside>
+    <aside class="q-side" id="qSide" aria-label="확인 필요"><nav class="q-rail" id="qRail"></nav>
+      <div class="q-drawer" id="qSideBody" hidden></div></aside>
     <div class="q-wrap">
       <section class="card q-form">
         <div class="q-type" role="group" aria-label="견적서 종류">
@@ -263,6 +262,6 @@
     <model-viewer id="q3dView" auto-rotate rotation-per-second="18deg" auto-rotate-delay="0" interaction-prompt="none" camera-orbit="30deg 72deg auto" shadow-intensity="0.6" exposure="1.05" disable-zoom><div slot="progress-bar"></div></model-viewer>
     <p class="q3d-cap" id="q3dCap"></p></div>
 </div>
-<script src="staff.js?v=a5e96b23"></script>
+<script src="staff.js?v=46ceabbd"></script>
 </body>
 </html>
