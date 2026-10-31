@@ -42,12 +42,12 @@ document.addEventListener('click',e=>{if(!e.target.closest('[data-clearq]'))retu
 const toast=t=>{const el=$('#toast');el.textContent=t;el.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.add('hidden'),2600)};
 const KPI_ORDER=['통관 시작','국내배송','해운 출발','특송업체 픽업','배송 완료'];
 // One spreadsheet-like line per order; multi-box waybills stack one per line. Long text is cut with … (full text on hover).
-function row(o,why){   // why: Mercury's reason, shown first in 확인할 점 (and the 완료 button is offered even when the order has no alert)
+function row(o,why){   // why: Mercury's reason (own column on the right, added by renderMercury); the 완료 button is offered even when the order has no alert
   const link=TRACK[o.courier];
   const cp=n=>`<button class="copybtn" data-copy="${esc(n)}" title="운송장번호 복사" aria-label="운송장번호 복사">⧉</button>`;
   const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>(link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n))+cp(n)).join('<br>'):'—';
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
-  const dm=o.doneMark,alerts=dm?['✓ 완료 처리',...new Set([ODMEMO[dm.how]??dm.how,dm.memo].filter(Boolean)),dm.ts&&when(dm.ts)].filter(Boolean).join(' · '):[why,...o.alerts].filter(Boolean).join(' · ');
+  const dm=o.doneMark,alerts=dm?['✓ 완료 처리',...new Set([ODMEMO[dm.how]??dm.how,dm.memo].filter(Boolean)),dm.ts&&when(dm.ts)].filter(Boolean).join(' · '):o.alerts.join(' · ');
   return `<tr${o.alerts.length||why?' class="warnrow"':''}>
   <td>${o.alerts.length||why?`<button class="mini odbtn" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
     dm?`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`:''}</td>
@@ -67,7 +67,7 @@ const matches=(o,q)=>!q||[o.order,adm(o),o.hbl,o.courierNo,o.item,o.name,o.write
 const KORDER={customs:0,handover:1,unknown:2,domestic:3};
 const SORTKEY=[o=>o.doneMark?o.doneMark.ts||'1':'',o=>o.hbl,o=>adm(o),o=>o.courierNo,o=>o.name,o=>o.writer?o.writer.name:'',o=>o.item,o=>o.stage,
   o=>(KORDER[o.kind]??9)*1000-(+(o.alerts.join(' ').match(/\+(\d+)일/)||[0,0])[1]),o=>o.orderDate,o=>o.obDate,o=>o.arDate,
-  o=>o.sinceDeparture??-1,o=>o.courier,o=>o.smsSent?o.smsSent.at:''];
+  o=>o.sinceDeparture??-1,o=>o.courier,o=>o.smsSent?o.smsSent.at:'',o=>(o._why||'')];
 const sortBy={alerts:null,orders:null,mTable:null};  // {col, dir: 1|-1}
 function sorted(list,id){
   const st=sortBy[id];if(!st)return list;const k=SORTKEY[st.col];
@@ -1212,7 +1212,9 @@ function renderMercury(){
   // 배송현황 findings are the same rows, columns and buttons as the 배송현황 tab (row/HEAD), so 완료·통관조회·문자 work here and show up there at once.
   const ords=items.filter(i=>i.kind==='배송현황').map(i=>({o:D.orders.find(x=>x.order===i.order)||D.orders.find(x=>adm(x)===i.no),why:i.issue})).filter(x=>x.o);
   const byDays=sortBy.mTable?sorted(ords.map(x=>x.o),'mTable').map(o=>ords.find(x=>x.o===o)):ords;
-  $('#mTable').innerHTML=byDays.length?HEAD+'<tbody>'+byDays.map(x=>row(x.o,x.why)).join('')+'</tbody>':'';
+  byDays.forEach(x=>{x.o._why=x.why});   // sort key of the 머큐리 column
+  $('#mTable').innerHTML=byDays.length?HEAD.replace('</tr></thead>','<th class="m-whyhead">머큐리가 알리는 이유</th></tr></thead>')+'<tbody>'+
+    byDays.map(x=>row(x.o,x.why).replace(/<\/tr>\s*$/,`<td class="m-why">${esc(x.why)}</td></tr>`)).join('')+'</tbody>':'';
   $('#mTable').closest('.tablewrap').classList.toggle('hidden',!byDays.length);
   const other=items.filter(i=>i.kind!=='배송현황');
   $('#mOther').innerHTML=other.length?`<thead><tr><th>구분</th><th>견적번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th></tr></thead><tbody>`+
