@@ -1171,11 +1171,11 @@ function mFigure(name){   // -> blob URL of the decrypted pose (.glb) or poster 
   if(MFIG.has(name))return MFIG.get(name);
   const p=(async()=>{
     MMAN=MMAN||fetch('data/mercury/manifest.json').then(r=>r.json());const man=await MMAN,{mk,ak}=await keysFor(PW,man);
-    const buf=new Uint8Array(await (await fetch(`data/mercury/${name.replace(/\.glb$/,'.bin').replace(/\.png$/,'.png.bin')}`)).arrayBuffer());
+    const buf=new Uint8Array(await (await fetch(`data/mercury/${name.replace(/\.glb$/,'.bin').replace(/\.(png|webm)$/,'.$1.bin')}`)).arrayBuffer());
     const iv=buf.slice(0,16),mac=buf.slice(16,48),ct=buf.slice(48),msg=new Uint8Array(16+ct.length);msg.set(iv);msg.set(ct,16);
     if(!await crypto.subtle.verify('HMAC',mk,mac,msg))throw Error('mercury');
     const plain=await crypto.subtle.decrypt({name:'AES-CBC',iv},ak,ct);
-    return URL.createObjectURL(new Blob([plain],{type:name.endsWith('.png')?'image/png':'model/gltf-binary'}))})();
+    return URL.createObjectURL(new Blob([plain],{type:name.endsWith('.png')?'image/png':name.endsWith('.webm')?'video/webm':'model/gltf-binary'}))})();
   p.catch(()=>MFIG.delete(name));MFIG.set(name,p);return p}
 // 배송현황 findings for orders a person already marked 완료 (live ticks, applyMarks) are not Mercury's business: drop them, and their count.
 function mData(){
@@ -1191,9 +1191,12 @@ function renderMercury(){
   if(!D)return;
   const M=mData(),items=(M&&M.items)||[],real=mSituation(),show=mPreviewId&&M_SIT[mPreviewId]?{id:mPreviewId}:real,sit=M_SIT[show.id],view=$('#mView'),stage=$('#mStage');
   mvLoad();
-  if(view._pose!==sit.pose){view._pose=sit.pose;stage.classList.remove('ready');
-    mFigure(sit.pose+'.png').then(u=>{if(view._pose===sit.pose)$('#mFallback').src=u}).catch(()=>{});
-    mFigure(sit.pose+'.glb').then(u=>{if(view._pose===sit.pose)view.setAttribute('src',u)}).catch(()=>{if(view._pose===sit.pose)stage.classList.add('ready')})}
+  // The angry-customer scene is a transparent video (customer shouting, Mercury bowing); Safari cannot play alpha WebM, so it gets the bowing loop.
+  const vid=show.id==='angry'&&!/^((?!chrome|android).)*safari/i.test(navigator.userAgent),key=vid?'angry':sit.pose,mv=$('#mVideo');
+  view.hidden=vid;mv.hidden=!vid;
+  if(view._pose!==key){view._pose=key;stage.classList.remove('ready');mv.pause();
+    mFigure(key+'.png').then(u=>{if(view._pose===key)$('#mFallback').src=u}).catch(()=>{});
+    mFigure(vid?'angry.webm':key+'.glb').then(u=>{if(view._pose!==key)return;if(vid){mv.src=u;mv.play().catch(()=>{});stage.classList.add('ready')}else view.setAttribute('src',u)}).catch(()=>{if(view._pose===key)stage.classList.add('ready')})}
   if(!view._m){view._m=1;view.addEventListener('load',()=>$('#mStage').classList.add('ready'))}
   $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
   $('#mNow').innerHTML=`<span class="pill m-now-pill${mPreviewId?' prev':''}">${mPreviewId?'미리보기':'지금 상황'} · ${esc(sit.label)}</span>`+(mPreviewId?` <button class="mini" id="mBack">지금 상황으로</button>`:'');
