@@ -1168,6 +1168,7 @@ const M_CHECKS=[
   // purchase_nudge.py (user, 10/31): the same rules the purchase-nudge task uses to reply in the Slack request thread
   {id:'nudge',name:'구매대행 요청 · 구매 진행',desc:'슬랙 #일본-구매대행-요청에 올라온 요청 중 구매 정리 시트에 제품 구매일자가 없는 건이에요. 요청 3시간 뒤부터 3시간마다 그 요청 글에 댓글로 알려요 (0~9시 제외). 대표님 결제·구매처 직권 취소·구매처 답변처럼 외부를 기다리는 건과 주말에는 12시·18시에만 알려요.'}];
 const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
+const M_ANGRY_VIDEO=false;   // the customer-and-Sailor-Mercury scene video is retired with the original Mercury (2026-10-31); the angry situation uses her bow loop
 let mPreviewId=null;
 function mvLoad(){   // model-viewer from the CDN, once; shares the flag the quote 3D viewer uses so the library is never added twice
   if(customElements.get('model-viewer')||q3d.lib)return;
@@ -1280,7 +1281,7 @@ function renderMercury(){
   const act0=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]);
   mvLoad();mRenderCards(M);   // cards first: the bubbles' 확인하기 buttons point at them
   // The angry-customer scene is a transparent video (customer shouting, Mercury bowing); Safari cannot play alpha WebM, so it gets the bowing loop.
-  const vid=show.id==='angry'&&!/^((?!chrome|android).)*safari/i.test(navigator.userAgent),key=vid?'angry':sit.pose,mv=$('#mVideo');
+  const vid=M_ANGRY_VIDEO&&show.id==='angry'&&!/^((?!chrome|android).)*safari/i.test(navigator.userAgent),key=vid?'angry':sit.pose,mv=$('#mVideo');
   view.hidden=vid;mv.hidden=!vid;
   if(view._pose!==key){view._pose=key;stage.classList.remove('ready');mv.pause();
     mFigure(key+'.png').then(u=>{if(view._pose===key)$('#mFallback').src=u}).catch(()=>{});
