@@ -612,3 +612,7 @@ label[for=odMemo]{display:block;margin-top:16px}
 tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k-angry td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
 .m-card .num{white-space:nowrap}
 .m-bubble[hidden]{display:none}
+/* the character sits in the vertical middle of the board (user, 2026-10-31) */
+.m-board{display:flex;align-items:center;justify-content:center;min-height:520px}.m-board.alone{min-height:0}
+.m-board .m-stage{margin:0}.m-side{top:6px;bottom:6px}
+@media (max-width:760px){.m-board{display:block;min-height:0}.m-side{top:auto;bottom:auto}}
