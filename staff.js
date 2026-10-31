@@ -1339,7 +1339,7 @@ const QS_ICON={cart:'<path d="M3 4h2l2.4 10.2a1.5 1.5 0 0 0 1.5 1.1h8.3a1.5 1.5 
 const QS_KINDS=[{id:'buy',kind:'구매대행 미구매',label:'구매',title:'구매대행 요청 미이행',icon:'cart'},
   {id:'ship',kind:'배송비 미입금',label:'배송비',title:'출고된 가구 · 배송비 확인 필요',icon:'truck'}];
 function renderQSide(){
-  if(!D)return;const M=mData(),items=(M&&M.items)||[],body=$('#qSideBody');
+  if(!D)return;const M=mData(),items=[...((M&&M.items)||[]),...((M&&M.qonly)||[])],body=$('#qSideBody');   // the side panel keeps the full list: Mercury's urgent items + what Mercury's stricter rules leave out (qonly/quiet)
   const groups=QS_KINDS.map(g=>({...g,list:items.filter(i=>i.kind===g.kind)}));
   if(qsOpen&&!groups.some(g=>g.id===qsOpen))qsOpen='';
   $('#qRail').innerHTML=groups.map(g=>`<button type="button" class="q-railbtn${qsOpen===g.id?' on':''}" data-qs="${g.id}" aria-expanded="${qsOpen===g.id}" title="${esc(g.title)}">`+
