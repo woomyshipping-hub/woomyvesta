@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-title" content="우마이 베스타">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
-<link rel="stylesheet" href="style.css?v=8f48bd67">
+<link rel="stylesheet" href="style.css?v=3cd3047e">
 </head>
 <body>
 <div class="gate" id="gate">
@@ -137,12 +137,16 @@
     <section class="card mercury">
       <div class="cardhead"><h2><span class="ai-tag">AI</span> AI전령 머큐리 <span class="muted small" id="mCount"></span></h2>
         <span class="muted small" id="mChecked"></span></div>
+      <div class="m-board">
+        <div class="m-side" id="mSideL"></div>
       <div class="m-stage" id="mStage">
-        <div class="m-bubble" id="mBubble" role="status" aria-live="polite"></div>
-        <div class="m-viewer"><img class="m-fallback" id="mFallback" alt="" width="340" height="340">
-          <video id="mVideo" class="m-video" hidden muted loop autoplay playsinline aria-label="화난 고객을 상대하는 머큐리"></video>
-          <model-viewer id="mView" autoplay loading="eager" camera-controls disable-zoom touch-action="pan-y" interaction-prompt="none" camera-orbit="0deg 82deg auto" field-of-view="28deg" shadow-intensity="0.7" shadow-softness="1" exposure="1.1" alt="AI전령 머큐리 3D 캐릭터"></model-viewer></div>
-        <div class="m-now" id="mNow"></div>
+          <div class="m-bubble" id="mBubble" role="status" aria-live="polite"></div>
+          <div class="m-viewer"><img class="m-fallback" id="mFallback" alt="" width="340" height="340">
+            <video id="mVideo" class="m-video" hidden muted loop autoplay playsinline aria-label="화난 고객을 상대하는 머큐리"></video>
+            <model-viewer id="mView" autoplay loading="eager" camera-controls disable-zoom touch-action="pan-y" interaction-prompt="none" camera-orbit="0deg 82deg auto" field-of-view="28deg" shadow-intensity="0.7" shadow-softness="1" exposure="1.1" alt="AI전령 머큐리 3D 캐릭터"></model-viewer></div>
+          <div class="m-now" id="mNow"></div>
+        </div>
+        <div class="m-side" id="mSideR"></div>
       </div>
       <div class="m-preview"><span class="muted small">상황별 모습 미리보기 (눌러서 확인)</span><div class="chips" id="mPreview"></div></div>
     </section>
@@ -254,6 +258,6 @@
     <model-viewer id="q3dView" auto-rotate rotation-per-second="18deg" auto-rotate-delay="0" interaction-prompt="none" camera-orbit="30deg 72deg auto" shadow-intensity="0.6" exposure="1.05" disable-zoom><div slot="progress-bar"></div></model-viewer>
     <p class="q3d-cap" id="q3dCap"></p></div>
 </div>
-<script src="staff.js?v=8f48bd67"></script>
+<script src="staff.js?v=3cd3047e"></script>
 </body>
 </html>

@@ -1200,6 +1200,14 @@ function renderMercury(){
     mFigure(vid?'angry.webm':key+'.glb').then(u=>{if(view._pose!==key)return;if(vid){mv.src=u;mv.play().catch(()=>{});stage.classList.add('ready')}else view.setAttribute('src',u)}).catch(()=>{if(view._pose===key)stage.classList.add('ready')})}
   if(!view._m){view._m=1;view.addEventListener('load',()=>$('#mStage').classList.add('ready'))}
   $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
+  // Other situations that are a problem right now sit around the centre (up to 4); a click shows that one in the centre.
+  const slotsOf=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id]&&x.id!==show.id)].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri).slice(0,4);
+  const slot=x=>{if(!x)return `<div class="m-slot empty"><span class="muted small">다른 문제 없음</span></div>`;const v=M_SIT[x.id];
+    return `<button type="button" class="m-slot" data-ms="${x.id}" title="눌러서 가운데에서 보기"><img alt="" data-mthumb="${v.pose}" width="72" height="72">
+      <span class="m-slot-t"><b>${esc(v.label)}${x.count?` ${Number(x.count)}건`:''}</b><span class="small muted">${esc(x.note||v.line)}</span></span></button>`};
+  const cells=[0,1,2,3].map(i=>slot(slotsOf[i]));
+  $('#mSideL').innerHTML=cells[0]+cells[1];$('#mSideR').innerHTML=cells[2]+cells[3];
+  document.querySelectorAll('[data-mthumb]').forEach(im=>mFigure(im.dataset.mthumb+'.png').then(u=>{im.src=u}).catch(()=>{}));
   $('#mNow').innerHTML=`<span class="pill m-now-pill${mPreviewId?' prev':''}">${mPreviewId?'미리보기':'지금 상황'} · ${esc(sit.label)}</span>`+(mPreviewId?` <button class="mini" id="mBack">지금 상황으로</button>`:'');
   $('#mPreview').innerHTML=Object.entries(M_SIT).sort((a,b)=>a[1].pri-b[1].pri).map(([id,v])=>`<button class="chip${show.id===id?' on':''}" data-ms="${id}">${esc(v.label)}</button>`).join('');
   const checks=M_CHECKS.map(c=>{const r=((M&&M.checks)||[]).find(x=>x.id===c.id)||{};const st=M_STATE[r.state]||M_STATE.wait;
