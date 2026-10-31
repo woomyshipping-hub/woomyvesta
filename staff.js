@@ -1167,7 +1167,7 @@ const M_CHECKS=[
   // mercury_check.py shippay (user, 10/31): 팬스타 ERP (주문번호·House) x 26년가구 출고정리 결제여부, every publish
   // (배송비 입금 · 출고된 가구 건 is not a Mercury alert any more: the 견적서 tab's side panel shows it, user 2026-10-31)
   // purchase_nudge.py (user, 10/31): the same rules the purchase-nudge task uses to reply in the Slack request thread
-  {id:'usc',name:'대표님 결제 · USC 구매 탭',desc:'구매 정리에서 결제수행자가 대표님·USC인 건이 USC 구매 (목표 : 소비세환급) 탭에 기록되어 진행되는지 봐요. 색: 흰색 전달 전 → 회색 대표님께 전달 → 파랑 결제완료 → 초록 수령완료. 기록 누락, 결제 대기, 결제일자 빈칸, 예상 도착일이 지났는데 수령 전인 건을 알려요. 파랑·초록인데 구매일자가 비어 있으면 AI가 구매 표시를 해요.'},
+  // (대표님 결제 · USC 구매 탭 is not a Mercury alert: usc_check.py only pulls missing 구매완료 marks into that tab, user 2026-10-31)
   {id:'nudge',name:'구매대행 요청 · 구매 진행',desc:'슬랙 #일본-구매대행-요청에 올라온 요청 중 구매 정리 시트에 제품 구매일자가 없는 건이에요. 요청 3시간 뒤부터 3시간마다 그 요청 글에 댓글로 알려요 (0~9시 제외). 대표님 결제·구매처 직권 취소·구매처 답변처럼 외부를 기다리는 건과 주말에는 12시·18시에만 알려요.'}];
 const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
 const M_ANGRY_VIDEO=false;   // the customer-and-Sailor-Mercury scene video is retired with the original Mercury (2026-10-31); the angry situation uses her bow loop
