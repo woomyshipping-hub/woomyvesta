@@ -1204,10 +1204,14 @@ function renderMercury(){
   // many -> smaller ones (size class by count); nothing is drawn when there is no other problem.
   const act=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id])].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri),gi=act.findIndex(x=>x.id===show.id),others=act.filter((_,i)=>i!==gi),shownB=others,k=shownB.length;
   const size=k<=2?'l':k<=4?'m':k<=8?'s':k<=12?'xs':'xxs';   // never dropped: the more problems, the smaller the bubbles
-  const bub=(x,side)=>{const v=M_SIT[x.id];return `<div class="m-b ${side} m-b-${size}${M_SIT[x.id].pri>=10?' hot':''}"><b>${esc(v.label)}${x.count?` ${Number(x.count)}건`:''}</b><span>${esc(x.note||v.line)}</span>`+
+  // Each side is a zone the bubbles are scattered over (cells of a loose grid with a little deterministic jitter), so the corners are filled too.
+  const cols=size==='l'||size==='m'?1:k>24?3:2;
+  const spot=(i,n)=>{const c=i%cols,r=Math.floor(i/cols),rows=Math.ceil(n/cols),j=(a,m)=>(((i+1)*a)%m)/m-.5;
+    const x=(c+.5+(r%2&&cols>1?.18:0)+j(37,11)*.22)/cols*100,y=(r+.5+j(53,13)*.3)/rows*100;return `left:${Math.min(86,Math.max(14,x)).toFixed(1)}%;top:${Math.min(88,Math.max(12,y)).toFixed(1)}%;animation-delay:${-(i*1.7%6).toFixed(1)}s`};
+  const bub=(x,side,pos)=>{const v=M_SIT[x.id];return `<div class="m-b ${side} m-b-${size}${v.pri>=10?' hot':''}" style="${pos}"><b>${esc(v.label)}${x.count?` ${Number(x.count)}건`:''}</b><span>${esc(x.note||v.line)}</span>`+
     (v.to?`<button type="button" class="mini m-go" data-mgo="${v.to}">확인하기</button>`:'')+`</div>`};
   const L=shownB.filter((_,i)=>i%2===0),R=shownB.filter((_,i)=>i%2===1);
-  $('#mSideL').innerHTML=L.map(x=>bub(x,'to-r')).join('');$('#mSideR').innerHTML=R.map(x=>bub(x,'to-l')).join('');
+  $('#mSideL').innerHTML=L.map((x,i)=>bub(x,'to-r',spot(i,L.length))).join('');$('#mSideR').innerHTML=R.map((x,i)=>bub(x,'to-l',spot(i,R.length))).join('');
   $('.m-board').dataset.bs=size;
   $('.m-board').classList.toggle('alone',!k);
   $('#mNow').innerHTML=`<span class="pill m-now-pill${mPreviewId?' prev':''}">${mPreviewId?'미리보기':'지금 상황'} · ${esc(sit.label)}</span>`+(mPreviewId?` <button class="mini" id="mBack">지금 상황으로</button>`:'');
