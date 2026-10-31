@@ -605,3 +605,9 @@ label[for=odMemo]{display:block;margin-top:16px}
 .m-side .m-b-xs,.m-side .m-b-xxs{white-space:nowrap}
 @media (max-width:760px){.m-board{min-height:0}.m-board .m-stage{width:auto}.m-side{position:static;width:auto;display:flex;flex-direction:column;gap:10px;margin-top:10px}.m-side .m-b{position:relative;left:auto!important;top:auto!important;translate:none;white-space:normal}}
 .m-side{top:56px}.m-b-s{max-width:230px;padding:13px 20px}
+
+/* Mercury cards (user, 2026-10-31) */
+#mCards .m-card{margin-top:16px}.m-card .cardhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.m-links{display:flex;gap:6px;flex-wrap:wrap}
+.m-sheetlink{text-decoration:none;white-space:nowrap}.m-card td.m-why{min-width:240px;white-space:normal;font-weight:600;color:var(--warn);line-height:1.4}.m-card th.m-whyhead{min-width:240px}
+tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k-angry td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+.m-card .num{white-space:nowrap}

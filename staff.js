@@ -446,25 +446,8 @@ async function setDone(x,done){
       body:JSON.stringify({kind:'done',chat:x.id,at:x.at,done,ts:new Date().toISOString()})})).json();if(!r.ok)throw Error(r.error)}
   catch{toast('이 화면에는 반영했지만 다른 직원 화면에는 아직 반영되지 않았어요.')}}
 const waited=at=>{const m=Math.max(1,Math.round((Date.now()-new Date(at))/6e4)),d=Math.floor(m/1440),h=Math.floor(m%1440/60);return d?`${d}일 ${h}시간`:h?`${h}시간 ${m%60}분`:`${m}분`};
-function renderKakao(){
-  const K=D.kakao;
-  if(!K){$('#kakaoBadge').textContent='';$('#kRules').textContent='아직 카카오 데이터가 없어요.';$('#kTable').innerHTML='';$('#kInsight').classList.add('hidden');return}
-  const q=$('#gq').value.trim().toLowerCase(),open=K.items.filter(x=>!isDone(x)),cnt=t=>open.filter(x=>x.type===t).length;
-  // 처리완료 = rows staff ticked (until the customer writes again) + chats answered in Kakao (K.resolved, ticked and locked)
-  const done=K.items.filter(isDone).concat((K.resolved||[]).filter(r=>!K.items.some(x=>x.id===r.id)).map(r=>({...r,auto:true})));
-  const all=kFilter==='done'?done:open;
-  const topicIds=kTopic&&new Set(kTopic.ids);
-  const shown=all.filter(x=>(!kFilter||kFilter==='done'||x.type===kFilter)&&(!topicIds||topicIds.has(x.id))&&(!q||[x.name,x.last,x.botTaps,x.context,x.staff,x.hist&&x.hist.stage,x.hist&&x.hist.service,kMemoOf(x.id)?.memo].join(' ').toLowerCase().includes(q)))
-    .sort((a,b)=>new Date(a.at)-new Date(b.at));   // oldest message first (user, 2026-10-29)
-  $('#kakaoBadge').textContent=open.length||'';
-  $('#kCount').innerHTML=(shown.length===all.length?`${all.length}건`:`${shown.length} / ${all.length}건`)+(kTopic?` · <button class="chip on" id="kTopicClear" title="유형 필터 해제">${esc(kTopic.name)} ✕</button>`:'');
-  $('#kRules').textContent=`${new Date(K.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${K.windowDays}일 안에 움직인 상담만 봐요. 메시지가 오래된 순서(오래 기다린 순서)로 보여 줘요. 고객이 "감사합니다·네 알겠습니다"처럼 인사로 끝낸 대화는 빼요. 챗봇 대화는 따로 떼어 보고, 그 위의 직원·고객 대화로 판단해요.`;
-  $('#kChips').innerHTML=`<button class="chip${kFilter?'':' on'}" data-k="">전체 ${open.length}</button>`+
-    Object.entries(KTYPE).map(([k,[label,cls,tip]])=>`<button class="chip ${cls}${kFilter===k?' on':''}" data-k="${k}" title="${esc(tip)}">${esc(label)} ${cnt(k)}</button>`).join('')+
-    `<button class="chip k-delivered${kFilter==='done'?' on':''}" data-k="done" title="직원이 처리완료로 체크했거나 카카오에서 답변돼 정리된 상담 (새 메시지가 오면 다시 누락 탭으로 돌아가요)">✓ 처리완료 ${done.length}</button>`;
-  const fmtD=d=>d?d.slice(2).replace(/-/g,'/'):'';
-  const drafts=D.kakaoDrafts||{};
-  const rows=shown.map(x=>{const [label,cls]=KTYPE[x.type],h=x.hist,dr=draftOf(x),st=sendState(x.id);
+function kRowHtml(x){const fmtD=d=>d?d.slice(2).replace(/-/g,'/'):'',drafts=D.kakaoDrafts||{};
+  const [label,cls]=KTYPE[x.type],h=x.hist,dr=draftOf(x),st=sendState(x.id);
     const fin=kFilter==='done',mm=kMemoOf(x.id),btn=!fin?`<button class="mini odbtn" data-kdone="${esc(x.id)}" title="처리완료로 넘기기 (고객이 새 메시지를 보내면 다시 돌아와요)">완료</button>`
       :x.auto?'':`<button class="mini" data-kundo="${esc(x.id)}" title="처리완료를 취소하고 원래 탭으로">되돌리기</button>`;
     return `<tr class="${x.late&&!fin?'late':''}"><td class="kdone">${btn}</td><td><span class="pill ${cls}">${esc(label)}</span>${x.auto?'<div class="muted small">카카오에서 처리됨</div>':''}${x.type==='unread'&&x.unread>1?`<div class="muted small">${x.unread}건 안 읽음</div>`:''}</td>`+
@@ -475,7 +458,26 @@ function renderKakao(){
       `<td class="kmemo"><div class="kmemo-row"><button class="mini" data-kmemo="${esc(x.id)}" title="이 상담에 메모 남기기 (다른 직원 화면에도 보여요)">${mm?'메모 수정':'메모'}</button>${mm?`<span class="small kmemo-text" title="${esc(when(mm.ts))}">${esc(mm.memo)}</span>`:''}</div></td>`+
       (h?`<td>${esc(h.stage||'')}</td><td>${esc(h.service||'')}</td>`
         :'<td colspan="2" class="muted small">새 상담 · 기록 없음</td>')+`<td>${fmtD((x.created||'').slice(0,10))}${h&&h.msgs?`<span class="muted small"> · ${h.msgs.toLocaleString()}개</span>`:''}</td>`+
-      `<td>${esc(x.staff||'')}</td></tr>`});
+      `<td>${esc(x.staff||'')}</td></tr>`;
+}
+function renderKakao(){
+  const K=D.kakao;
+  if(!K){$('#kakaoBadge').textContent='';$('#kRules').textContent='아직 카카오 데이터가 없어요.';$('#kTable').innerHTML='';$('#kInsight').classList.add('hidden');return}
+  const q=$('#gq').value.trim().toLowerCase(),open=K.items.filter(x=>!isDone(x)),cnt=t=>open.filter(x=>x.type===t).length;
+  // 처리완료 = rows staff ticked (until the customer writes again) + chats answered in Kakao (K.resolved, ticked and locked)
+  const done=K.items.filter(isDone).concat((K.resolved||[]).filter(r=>!K.items.some(x=>x.id===r.id)).map(r=>({...r,auto:true})));
+  const all=kFilter==='done'?done:open;
+  const topicIds=kTopic&&new Set(kTopic.ids);
+  const shown=all.filter(x=>(!kFilter||kFilter==='done'||x.type===kFilter)&&(!topicIds||topicIds.has(x.id))&&(!q||[x.name,x.last,x.botTaps,x.context,x.staff,x.hist&&x.hist.stage,x.hist&&x.hist.service,kMemoOf(x.id)?.memo].join(' ').toLowerCase().includes(q)))
+    .sort((a,b)=>new Date(a.at)-new Date(b.at));   // oldest message first (user, 2026-10-29)
+  if(kFilter!=='done')shown.sort((a,b)=>mAngryIds().has(b.id)-mAngryIds().has(a.id));   // 머큐리가 화난 고객으로 본 상담은 가장 위 (user, 2026-10-31); sort is stable
+  $('#kakaoBadge').textContent=open.length||'';
+  $('#kCount').innerHTML=(shown.length===all.length?`${all.length}건`:`${shown.length} / ${all.length}건`)+(kTopic?` · <button class="chip on" id="kTopicClear" title="유형 필터 해제">${esc(kTopic.name)} ✕</button>`:'');
+  $('#kRules').textContent=`${new Date(K.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${K.windowDays}일 안에 움직인 상담만 봐요. 메시지가 오래된 순서(오래 기다린 순서)로 보여 줘요. 고객이 "감사합니다·네 알겠습니다"처럼 인사로 끝낸 대화는 빼요. 챗봇 대화는 따로 떼어 보고, 그 위의 직원·고객 대화로 판단해요.`;
+  $('#kChips').innerHTML=`<button class="chip${kFilter?'':' on'}" data-k="">전체 ${open.length}</button>`+
+    Object.entries(KTYPE).map(([k,[label,cls,tip]])=>`<button class="chip ${cls}${kFilter===k?' on':''}" data-k="${k}" title="${esc(tip)}">${esc(label)} ${cnt(k)}</button>`).join('')+
+    `<button class="chip k-delivered${kFilter==='done'?' on':''}" data-k="done" title="직원이 처리완료로 체크했거나 카카오에서 답변돼 정리된 상담 (새 메시지가 오면 다시 누락 탭으로 돌아가요)">✓ 처리완료 ${done.length}</button>`;
+  const rows=shown.map(kRowHtml).map((h,i)=>mAngryIds().has(shown[i].id)?h.replace('<tr class="','<tr class="k-angry '):h);
   $('#kTable').innerHTML='<thead><tr><th title="처리완료로 넘기기 · 처리완료 탭에서는 되돌리기">완료</th><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th></th><th>메모</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th></tr></thead><tbody>'+
     (rows.join('')||`<tr><td colspan="11" class="muted">${$('#gq').value.trim()?noneMsg():kFilter==='done'?'처리완료로 옮긴 상담이 없어요.':'누락된 상담이 없어요.'}</td></tr>`)+'</tbody>';
   $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. `:'')+`늦음: 기다린 시간 2시간부터 (주말 포함 실제 경과 시간).`;
@@ -1150,14 +1152,14 @@ const M_SIT={
   thinking:{label:'살펴보는 중',pose:'think',pri:4,line:'살펴보는 중이에요. 잠깐만요…'},
   message:{label:'메시지 도착',pose:'letter',pri:5,line:'새 메시지가 도착했어요.',to:'mItems'},
   parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송현황 탭 확인이 필요해요!',to:'mItems'},
-  shipunpaid:{label:'배송비 미입금',pose:'magnifier',pri:7.5,line:'이미 출고됐는데 배송비 입금 확인이 안 된 가구 건이 있어요.',to:'mItems'},
-  buy:{label:'구매 대기',pose:'run',pri:6.5,line:'구매대행 요청 후 3시간이 넘도록 구매가 안 된 건이 있어요.',to:'mItems'},
+  shipunpaid:{label:'배송비 미입금',pose:'magnifier',pri:7.5,line:'이미 출고됐는데 배송비 입금 확인이 안 된 가구 건이 있어요.',to:'mc-shipfee'},
+  buy:{label:'구매 대기',pose:'run',pri:6.5,line:'구매대행 요청 후 3시간이 넘도록 구매가 안 된 건이 있어요.',to:'mc-buy'},
   question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.',to:'mItems'},
-  deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.',to:'mChecks'},
+  deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.',to:'mc-payb'},
   late:{label:'오래 기다린 상담',pose:'run',pri:9,line:'오래 기다린 고객님이 계세요. 서둘러 주세요!',to:'mItems'},
   alert:{label:'확인 필요',pose:'alert',pri:10,line:'바로 확인이 필요한 일이 생겼어요!',to:'mItems'},
   sms_urgent:{label:'급한 문자',pose:'phone',pri:11,line:'지금 바로 문자를 보내야 해요!',to:'mItems'},
-  angry:{label:'화난 고객',pose:'bow',pri:12,line:'화가 난 고객님이 계세요. 먼저 사과하고 차분히 들어 주세요.',to:'mItems'}};
+  angry:{label:'화난 고객',pose:'bow',pri:12,line:'화가 난 고객님이 계세요. 먼저 사과하고 차분히 들어 주세요.',to:'mc-ang'}};
 const M_CHECKS=[
   {id:'delivery',name:'배송현황 · 혼자만 다른 주문',desc:'다 같이 늦는 통관 지연은 알리지 않고, 뒤에 출발한 주문이 먼저 가는 등 혼자만 뒤처진 주문만 봐요.'},
   {id:'purchase',name:'구매대행 요청 입금 확인',desc:'견적 후 입금이 페이액션에 매칭됐는지, 구매 정리 시트에 반영됐는지 봐요.'},
@@ -1182,21 +1184,100 @@ function mFigure(name){   // -> blob URL of the decrypted pose (.glb) or poster 
     const plain=await crypto.subtle.decrypt({name:'AES-CBC',iv},ak,ct);
     return URL.createObjectURL(new Blob([plain],{type:name.endsWith('.png')?'image/png':name.endsWith('.webm')?'video/webm':'model/gltf-binary'}))})();
   p.catch(()=>MFIG.delete(name));MFIG.set(name,p);return p}
-// 배송현황 findings for orders a person already marked 완료 (live ticks, applyMarks) are not Mercury's business: drop them, and their count.
+// What Mercury lists is what is still open: 배송현황 findings for orders a person marked 완료 and every other finding someone confirmed ("확인 완료", shared
+// like the 완료 ticks: odone rows keyed GRM_<kind>_<id>) drop out and go to the 확인 완료 card, where they can be sent back (되돌리기).
+const MKIND={'배송현황':{code:'del',sit:'parcel'},'구매대행 미구매':{code:'buy',sit:'buy'},'구매대행 입금 확인':{code:'payb',sit:'deposit'},'배송비 입금 확인':{code:'pays',sit:'deposit'},
+  '배송비 미입금':{code:'shipfee',sit:'shipunpaid'},'예치금 입금':{code:'dep',sit:'deposit'},'입금 확인':{code:'dep',sit:'deposit'},'카카오 화난 고객':{code:'ang',sit:'angry'}};
+const mKeyOf=i=>('GRM_'+((MKIND[i.kind]||{}).code||'x')+'_'+String(i.no||i.customer||'').split('').map(c=>/\w/.test(c)?c:c.charCodeAt(0).toString(36)).join('')).slice(0,42);
+const mSnap=i=>[i.kind,i.customer||'',i.no||'',String(i.issue||'').slice(0,40)].join('|').slice(0,100);
+function mMarkOf(key){const l=oLocal()[key],sv=OMARKS[key];if(l&&(!sv||Date.now()-l.since<5*60e3))return l;return sv||null}
+async function mSetMark(key,done,memo){
+  const m={done,how:'기타',memo:String(memo||'').slice(0,100),ts:new Date().toISOString()},all=oLocal();all[key]={...m,since:Date.now()};
+  try{localStorage.setItem(OKEY,JSON.stringify(all))}catch{}
+  safe(renderMercury);safe(renderKakao);toast(done?'확인 완료로 옮겼어요. 아래 확인 완료 카드에서 되돌릴 수 있어요.':'되돌렸어요.');
+  if(!D.smsIntake)return;
+  try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'odone',order:key,...m})})).json();if(!r.ok)throw Error(r.error)}
+  catch{toast('이 화면에는 반영했지만 다른 직원 화면에는 아직 반영되지 않았어요.')}}
 function mData(){
   const M=D&&D.mercury;if(!M)return null;
-  const done=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),hid=(M.items||[]).filter(i=>i.kind==='배송현황'&&done.has(i.no)).length;
-  if(!hid)return M;
-  const left=(M.items||[]).filter(i=>!(i.kind==='배송현황'&&done.has(i.no))),hidden=(M.items||[]).filter(i=>i.kind==='배송현황'&&done.has(i.no));
-  const n=left.filter(i=>i.kind==='배송현황').length,dl=n?{id:'delivery',state:'warn',summary:`혼자만 다른 상태인 주문 ${n}건`+(n>5?' (5건을 넘어서 기준이 느슨한지 확인이 필요해요)':'')}:{id:'delivery',state:'ok',summary:'혼자만 다른 주문은 없어요. 다 같이 늦는 통관 지연은 알리지 않아요.'};
-  return {...M,items:left,hidden,checks:(M.checks||[]).map(c=>c.id==='delivery'?dl:c),situations:(M.situations||[]).map(x=>x.id==='parcel'?{...x,count:(x.count||0)-hid}:x).filter(x=>x.id!=='parcel'||x.count>0)}}
+  const doneOrd=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),vis=[],hidden=[],confirmed=[];
+  for(const i of M.items||[]){
+    if(i.kind==='배송현황'){(doneOrd.has(i.no)?hidden:vis).push(i);continue}
+    if(i.kind==='카카오 화난 고객'){const kx=((D.kakao&&D.kakao.items)||[]).find(x=>x.id===i.no);if(kx&&isDone(kx))continue}   // staff already ticked the chat 처리완료
+    const key=mKeyOf(i),mk=mMarkOf(key);if(mk&&mk.done){confirmed.push({...i,key,mark:mk});continue}
+    vis.push({...i,key})}
+  // situations come from what is still open: one bubble per kind (angry: one per customer)
+  const by={};vis.forEach(i=>{const sid=(MKIND[i.kind]||{}).sit;if(sid)(by[sid]=by[sid]||[]).push(i)});
+  const sits=[];for(const [sid,list] of Object.entries(by))sid==='angry'?list.forEach(i=>sits.push({id:'angry',count:1,note:`${i.customer} · ${i.issue}`})):sits.push({id:sid,count:list.length});
+  (M.situations||[]).forEach(x=>{if(!Object.values(MKIND).some(k=>k.sit===x.id))sits.push(x)});   // situations given without items
+  const n=vis.filter(i=>i.kind==='배송현황').length,dl=n?{id:'delivery',state:'warn',summary:`혼자만 다른 상태인 주문 ${n}건`+(n>5?' (5건을 넘어서 기준이 느슨한지 확인이 필요해요)':'')}:{id:'delivery',state:'ok',summary:'혼자만 다른 주문은 없어요. 다 같이 늦는 통관 지연은 알리지 않아요.'};
+  return {...M,items:vis,hidden,confirmed,checks:(M.checks||[]).map(c=>c.id==='delivery'&&hidden.length?dl:c),situations:sits}}
+const mAngryIds=()=>{const s=new Set();if(D&&D.mercury)for(const i of mData().items)if(i.kind==='카카오 화난 고객')s.add(i.no);return s};
+function mTo(id){const t=(M_SIT[id]||{}).to;if(!t)return '';
+  if(id==='deposit')return ['mc-payb','mc-pays','mc-dep'].find(c=>{const e=document.getElementById(c);return e&&!e.classList.contains('hidden')})||t;
+  const e=document.getElementById(t);return e&&e.classList.contains('hidden')?'mItems':t}
 function mSituation(){   // the situation Mercury is really in right now
   const M=mData(),act=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]).sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri);
   return act[0]||{id:'calm'}}
+// Cards for each kind of finding, shaped like the staff sheet the work happens in, with a link to that month tab and row (vesta-tools/mercury_cards.py).
+const P_HEADS=['순번','요청날짜','상품 정보','옵션','수량','고객 이름','합계','입금금액','결제방법','마르코 메모','밥 메모','결제수행자','우리 결제수단','제품 구매일자','메모'];
+const S_HEADS=['결제여부','해외배송비 외','주문일자','주문번호','수취인','C/T','W/T','상품 품명','가격'];
+const mLink=(u,t)=>u?`<a class="mini m-sheetlink" href="${esc(u)}" target="_blank" rel="noopener">${esc(t)} ↗</a>`:'';
+const mBtn=i=>`<button class="mini odbtn" data-mmark="${esc(i.key)}" data-msnap="${esc(mSnap(i))}" title="확인했어요: 이 목록에서 빼고 아래 확인 완료 카드로 옮겨요 (되돌릴 수 있어요)">확인 완료</button>`;
+const mWhy=i=>`<td class="m-why">${esc(i.issue||'')}${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}</td>`;
+function mSheetRow(i,heads,p){
+  const sh=i.sheet||{},c={...(sh.cols||{})};
+  if(!sh.found){if(p){c['순번']=c['순번']||String(i.no||'');c['고객 이름']=c['고객 이름']||i.customer||'';if(i.amount!=null)c['합계']=c['합계']||'₩'+Number(i.amount).toLocaleString()}
+    else{c['수취인']=c['수취인']||i.customer||'';c['주문번호']=c['주문번호']||i.no||''}}
+  return `<tr class="warnrow"><td>${mBtn(i)}</td><td>${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'시트')}</td>`+heads.map(h=>`<td class="clip" title="${esc(c[h]||'')}">${esc(c[h]||'')}</td>`).join('')+mWhy(i)+'</tr>'}
+function mCard(id,title,desc,links,thead,rows){
+  return `<section class="card m-card" id="${id}"><div class="cardhead"><h2>${title} <span class="muted small">· ${rows.length}건</span></h2><div class="m-links">${links}</div></div>`+
+    `<p class="muted small">${desc}</p><div class="tablewrap sheet"><table class="sheet"><thead><tr>${thead}</tr></thead><tbody>${rows.join('')}</tbody></table></div></section>`}
+const mTh=a=>a.map(h=>`<th>${esc(h)}</th>`).join('');
+function mRenderCards(M){
+  const items=(M&&M.items)||[],of=k=>items.filter(i=>i.kind===k),out=[];
+  const sheetCard=(id,title,desc,list,heads,p,sheetKey)=>{if(!list.length)return;const sh=list.find(i=>i.sheet)||{},tabs=[...new Set(list.map(i=>i.sheet&&i.sheet.tab).filter(Boolean))];
+    out.push(mCard(id,title,desc,tabs.length?tabs.map(t=>mLink((list.find(i=>i.sheet&&i.sheet.tab===t).sheet.url||'').replace(/&range=.*/,''),`${sheetKey} ${t} 탭 열기`)).join(' '):'',
+      `<th>확인</th><th>시트 위치</th>${mTh(heads)}<th class="m-whyhead">머큐리가 알리는 이유</th>`,list.map(i=>mSheetRow(i,heads,p))))};
+  sheetCard('mc-buy','구매대행 미구매','슬랙에 요청이 올라온 뒤 3시간 넘게 구매 정리 시트에 제품 구매일자가 없는 건이에요. 시트 위치를 누르면 그 달 탭의 그 행으로 가요.',of('구매대행 미구매'),P_HEADS,true,'구매 정리');
+  sheetCard('mc-payb','구매대행 견적 미입금','견적서를 보낸 지 30분이 넘었는데 페이액션 입금 확인이 안 된 건이에요 (구매 정리 시트 형태).',of('구매대행 입금 확인'),P_HEADS,true,'구매 정리');
+  sheetCard('mc-pays','배송비 견적 미입금','배송비 견적서를 보낸 지 30분이 넘었는데 페이액션 입금 확인이 안 된 건이에요 (출고정리 시트 형태).',of('배송비 입금 확인'),S_HEADS,false,'출고정리');
+  sheetCard('mc-shipfee','배송비 미입금 · 이미 출고된 가구','팬스타에서 이미 출고됐는데 26년가구 출고정리의 결제여부가 y가 아닌 건이에요.',of('배송비 미입금'),S_HEADS,false,'출고정리');
+  const dep=items.filter(i=>i.kind==='예치금 입금'||i.kind==='입금 확인');
+  if(dep.length)out.push(mCard('mc-dep','예치금 놓친 입금','입금은 확인됐는데 승인이 안 됐거나, 입금 뒤 고객이 요청을 취소한 건이에요. 승인은 예치금 관리 페이지에서 해요.',
+    mLink('https://woomyshipping.com/elpisadm/a_charge_01_no.php','예치금 승인 페이지'),'<th>확인</th><th>요청자</th><th>금액</th><th>결제번호</th><th>경과</th><th class="m-whyhead">머큐리가 알리는 이유</th>',
+    dep.map(i=>`<tr class="warnrow"><td>${mBtn(i)}</td><td>${esc(i.customer)}</td><td>${i.amount!=null?Number(i.amount).toLocaleString()+'원':''}</td><td class="mono">${esc(i.no||'')}</td><td>${esc(i.since||'')}</td>${mWhy({issue:i.issue})}</tr>`)));
+  const ang=of('카카오 화난 고객');
+  if(ang.length){const kh=$('#kTable thead tr');
+    out.push(mCard('mc-ang','화난 고객 · 카카오','카카오 누락 탭과 같은 모양이에요. 카카오 누락 탭에서도 이 상담이 맨 위에 올라가 있어요. 열기 · 메모 · 처리완료는 그대로 쓸 수 있어요.',
+      '<button type="button" class="mini m-sheetlink" data-mtab="kakao">카카오 누락 탭으로 ↗</button>',
+      `<th>확인</th>${kh?kh.innerHTML:'<th>채팅방</th><th>마지막 메시지</th>'}<th class="m-whyhead">머큐리가 알리는 이유</th>`,
+      ang.map(i=>{const x=((D.kakao&&D.kakao.items)||[]).find(y=>y.id===i.no);
+        return x?kRowHtml(x).replace(/^<tr class="([^"]*)">/,`<tr class="$1 k-angry"><td>${mBtn(i)}</td>`).replace(/<\/tr>\s*$/,`${mWhy(i)}</tr>`)
+          :`<tr class="k-angry"><td>${mBtn(i)}</td><td colspan="9">${esc(i.customer)} · 열린 상담 목록에 없어요</td>${mWhy(i)}</tr>`}))) }
+  // 확인 완료: everything someone confirmed here (and 배송현황 ones marked 완료), newest first, each with 되돌리기
+  const rows=[],seen=new Set();
+  for(const i of (M&&M.confirmed)||[]){seen.add(i.key);rows.push({t:i.mark.ts,kind:i.kind,who:i.customer,no:i.no,why:i.issue,undo:`<button class="mini" data-mundo="${esc(i.key)}" title="아직 해결이 안 됐으면 다시 목록으로 돌려보내요">되돌리기</button>`})}
+  for(const i of (M&&M.hidden)||[]){const o=D.orders.find(x=>x.order===i.order)||D.orders.find(x=>adm(x)===i.no);if(o)rows.push({t:o.doneMark&&o.doneMark.ts,kind:'배송현황',who:o.name,no:adm(o),why:i.issue,undo:`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 목록으로 돌려보내요">되돌리기</button>`})}
+  const marks={...OMARKS,...oLocal()};   // marks whose finding is gone already: shown from the snapshot kept in the memo
+  for(const [k,v] of Object.entries(marks))if(k.startsWith('GRM_')&&v.done&&!seen.has(k)&&mMarkOf(k)&&mMarkOf(k).done){const [kind,who,no,why]=String(v.memo||'').split('|');
+    rows.push({t:v.ts,kind:kind||'확인 완료',who:who||'',no:no||'',why:why||'',undo:`<button class="mini" data-mundo="${esc(k)}">되돌리기</button>`})}
+  rows.sort((a,b)=>String(b.t||'').localeCompare(String(a.t||'')));
+  out.push(`<section class="card m-card" id="mc-done"><div class="cardhead"><h2>확인 완료한 건 <span class="muted small">· ${rows.length}건</span></h2></div>`+
+    `<p class="muted small">머큐리 목록에서 확인 완료로 옮긴 건이에요. 아직 해결이 안 됐으면 되돌리기로 다시 목록에 올려요 (점검이 더 이상 문제로 보지 않는 건은 되돌려도 목록에 나오지 않아요).</p>`+
+    (rows.length?`<div class="tablewrap sheet"><table class="sheet"><thead><tr><th>확인 시각</th><th>구분</th><th>고객</th><th>번호</th><th>이유</th><th></th></tr></thead><tbody>`+
+      rows.slice(0,80).map(r=>`<tr><td class="num">${r.t?esc(when(r.t)):''}</td><td>${esc(r.kind)}</td><td>${esc(r.who)}</td><td class="mono">${esc(r.no)}</td><td class="clip" title="${esc(r.why)}">${esc(r.why)}</td><td>${r.undo}</td></tr>`).join('')+`</tbody></table></div>`
+      :'<p class="muted">아직 확인 완료한 건이 없어요.</p>')+'</section>');
+  const known=new Set(Object.keys(MKIND)),unk=items.filter(i=>!known.has(i.kind));
+  if(unk.length)out.unshift(mCard('mc-other','그 밖의 확인','', '', '<th>구분</th><th>번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th>',
+    unk.map(i=>`<tr><td>${esc(i.kind)}</td><td>${esc(i.no)}</td><td>${esc(i.customer)}</td><td>${i.amount!=null?Number(i.amount).toLocaleString()+'원':''}</td><td>${esc(i.issue)}</td><td>${esc(i.since||'')}</td></tr>`)));
+  $('#mCards').innerHTML=out.join('');
+  for(const t of $('#mCards').querySelectorAll('table.sheet'))gripTable(t);
+}
 function renderMercury(){
   if(!D)return;
   const M=mData(),items=(M&&M.items)||[],real=mSituation(),show=mPreviewId&&M_SIT[mPreviewId]?{id:mPreviewId}:real,sit=M_SIT[show.id],view=$('#mView'),stage=$('#mStage');
-  mvLoad();
+  mvLoad();mRenderCards(M);   // cards first: the bubbles' 확인하기 buttons point at them
   // The angry-customer scene is a transparent video (customer shouting, Mercury bowing); Safari cannot play alpha WebM, so it gets the bowing loop.
   const vid=show.id==='angry'&&!/^((?!chrome|android).)*safari/i.test(navigator.userAgent),key=vid?'angry':sit.pose,mv=$('#mVideo');
   view.hidden=vid;mv.hidden=!vid;
@@ -1204,7 +1285,7 @@ function renderMercury(){
     mFigure(key+'.png').then(u=>{if(view._pose===key)$('#mFallback').src=u}).catch(()=>{});
     mFigure(vid?'angry.webm':key+'.glb').then(u=>{if(view._pose!==key)return;if(vid){mv.src=u;mv.play().catch(()=>{});stage.classList.add('ready')}else view.setAttribute('src',u)}).catch(()=>{if(view._pose===key)stage.classList.add('ready')})}
   if(!view._m){view._m=1;view.addEventListener('load',()=>$('#mStage').classList.add('ready'))}
-  $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(sit.to?` <button type="button" class="mini m-go" data-mgo="${sit.to}">확인하기</button>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
+  $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(mTo(show.id)?` <button type="button" class="mini m-go" data-mgo="${mTo(show.id)}">확인하기</button>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
   // Other current problems are speech bubbles on both sides of the character, each with its own 확인하기 button. Few problems -> big bubbles,
   // many -> smaller ones (size class by count); nothing is drawn when there is no other problem.
   const act=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id])].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri),gi=act.findIndex(x=>x.id===show.id),others=act.filter((_,i)=>i!==gi),shownB=others,k=shownB.length;
@@ -1214,7 +1295,7 @@ function renderMercury(){
   const spot=(i,n)=>{const c=i%cols,r=Math.floor(i/cols),rows=Math.ceil(n/cols),j=(a,m)=>(((i+1)*a)%m)/m-.5;
     const x=(c+.5+(r%2&&cols>1?.18:0)+j(37,11)*.22)/cols*100,y=(r+.5+j(53,13)*.3)/rows*100;return `left:${Math.min(86,Math.max(14,x)).toFixed(1)}%;top:${Math.min(88,Math.max(12,y)).toFixed(1)}%;animation-delay:${-(i*1.7%6).toFixed(1)}s`};
   const bub=(x,side,pos)=>{const v=M_SIT[x.id];return `<div class="m-b ${side} m-b-${size}${v.pri>=10?' hot':''}" style="${pos}"><b>${esc(v.label)}${x.count?` ${Number(x.count)}건`:''}</b><span>${esc(x.note||v.line)}</span>`+
-    (v.to?`<button type="button" class="mini m-go" data-mgo="${v.to}">확인하기</button>`:'')+`</div>`};
+    (mTo(x.id)?`<button type="button" class="mini m-go" data-mgo="${mTo(x.id)}">확인하기</button>`:'')+`</div>`};
   const L=shownB.filter((_,i)=>i%2===0),R=shownB.filter((_,i)=>i%2===1);
   $('#mSideL').innerHTML=L.map((x,i)=>bub(x,'to-r',spot(i,L.length))).join('');$('#mSideR').innerHTML=R.map((x,i)=>bub(x,'to-l',spot(i,R.length))).join('');
   $('.m-board').dataset.bs=size;
@@ -1234,16 +1315,13 @@ function renderMercury(){
   byDays.forEach(x=>{x.o._why=x.why});   // sort key of the 머큐리 column
   $('#mTable').innerHTML=byDays.length?HEAD.replace('</tr></thead>','<th class="m-whyhead">머큐리가 알리는 이유</th></tr></thead>')+'<tbody>'+
     byDays.map(x=>row(x.o,x.why).replace(/<\/tr>\s*$/,`<td class="m-why">${esc(x.why)}</td></tr>`)).join('')+'</tbody>':'';
-  $('#mTable').closest('.tablewrap').classList.toggle('hidden',!byDays.length);
-  const other=items.filter(i=>i.kind!=='배송현황');
-  $('#mOther').innerHTML=other.length?`<thead><tr><th>구분</th><th>번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th></tr></thead><tbody>`+
-      other.map(i=>`<tr><td>${esc(i.kind)}</td><td>${esc(i.no)}</td><td>${esc(i.customer)}</td><td>${i.amount!=null?Number(i.amount).toLocaleString()+'원':''}</td><td>${esc(i.issue)}</td><td>${esc(i.since||'')}</td></tr>`).join('')+`</tbody>`:'';
-  $('#mOther').closest('.tablewrap').classList.toggle('hidden',!other.length);
-  const gone=(M&&M.hidden||[]).map(i=>D.orders.find(x=>x.order===i.order)).filter(Boolean);   // marked 완료 by staff: Mercury stops reporting them, but they can be taken back here
-  $('#mDone').innerHTML=gone.length?`완료 처리해서 뺀 ${gone.length}건: `+gone.map(o=>`${esc(o.name)} ${esc(adm(o))} <button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`).join(' · '):'';
-  $('#mNote').textContent=items.length?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
+  $('#mItems').classList.toggle('hidden',!byDays.length);$('#mDone').innerHTML='';
+  $('#mNote').textContent=items.length||((M&&M.confirmed&&M.confirmed.length)||0)?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
 }
-$('#tabMercury').addEventListener('click',e=>{{const g=e.target.closest('[data-mgo]');if(g){const t=document.getElementById(g.dataset.mgo);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return}}
+$('#tabMercury').addEventListener('click',e=>{const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
+  const mu=e.target.closest('[data-mundo]');if(mu){mSetMark(mu.dataset.mundo,false,'');return}
+  const mt=e.target.closest('[data-mtab]');if(mt){setTab(mt.dataset.mtab,true);return}
+  {const g=e.target.closest('[data-mgo]');if(g){const t=document.getElementById(g.dataset.mgo);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return}}
   const c=e.target.closest('[data-ms]');if(c){mPreviewId=c.dataset.ms===mSituation().id?null:c.dataset.ms;safe(renderMercury);return}
   if(e.target.closest('#mBack')){mPreviewId=null;safe(renderMercury)}});
 function setTab(t,push){
