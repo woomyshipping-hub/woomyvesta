@@ -1192,7 +1192,7 @@ function mFigure(name){   // -> blob URL of the decrypted pose (.glb) or poster 
 const MKIND={'배송현황':{code:'del',sit:'parcel'},'구매대행 미구매':{code:'buy',sit:'buy'},'구매대행 입금 확인':{code:'payb',sit:'deposit'},'배송비 입금 확인':{code:'pays',sit:'deposit'},
   '배송비 미입금':{code:'shipfee',sit:'shipunpaid'},'예치금 입금':{code:'dep',sit:'deposit'},'입금 확인':{code:'dep',sit:'deposit'},'카카오 화난 고객':{code:'ang',sit:'angry'},'대표님 결제 (USC)':{code:'usc',sit:'usc'}};
 const mKeyOf=i=>('GRM_'+((MKIND[i.kind]||{}).code||'x')+'_'+String(i.no||i.customer||'').split('').map(c=>/\w/.test(c)?c:c.charCodeAt(0).toString(36)).join('')).slice(0,42);
-const mSnap=i=>[i.kind,i.customer||'',i.no||'',String(i.issue||'').slice(0,40)].join('|').slice(0,100);
+const mSnap=i=>[i.kind,i.customer||'',i.no||'',String(i.issue||'').slice(0,56)].join('|').slice(0,100);
 function mMarkOf(key){const l=oLocal()[key],sv=OMARKS[key];if(l&&(!sv||Date.now()-l.since<5*60e3))return l;return sv||null}
 async function mSetMark(key,done,memo){
   const m={done,how:'기타',memo:String(memo||'').slice(0,100),ts:new Date().toISOString()},all=oLocal();all[key]={...m,since:Date.now()};
@@ -1239,6 +1239,8 @@ function mSheetRow(i,heads,p){
 function mCard(id,title,desc,links,thead,rows){
   return `<section class="card m-card" id="${id}"><div class="cardhead"><h2>${title} <span class="muted small">· ${rows.length}건</span></h2><div class="m-links">${links}</div></div>`+
     `<p class="muted small">${desc}</p><div class="tablewrap sheet"><table class="sheet"><thead><tr>${thead}</tr></thead><tbody>${rows.join('')}</tbody></table></div></section>`}
+// the reason says what was wrong, not how often a Slack reminder repeats (also for marks saved before the rule text was removed)
+const mClean=t=>String(t||'').split(' · ').filter(p=>!/3시간마다|12시·18시|알림|다음 /.test(p)).join(' · ').replace('슬랙 요청 후 ','');
 const mTh=a=>a.map(h=>`<th>${esc(h)}</th>`).join('');
 function mRenderCards(M){
   const items=(M&&M.items)||[],of=k=>items.filter(i=>i.kind===k),out=[];
@@ -1276,7 +1278,7 @@ function mRenderCards(M){
   out.push(`<section class="card m-card" id="mc-done"><div class="cardhead"><h2>확인 완료한 건 <span class="muted small">· ${rows.length}건</span></h2></div>`+
     `<p class="muted small">머큐리 목록에서 확인 완료로 옮긴 건이에요. 아직 해결이 안 됐으면 되돌리기로 다시 목록에 올려요 (점검이 더 이상 문제로 보지 않는 건은 되돌려도 목록에 나오지 않아요).</p>`+
     (rows.length?`<div class="tablewrap sheet"><table class="sheet"><thead><tr><th>확인 시각</th><th>구분</th><th>고객</th><th>번호</th><th>이유</th><th></th></tr></thead><tbody>`+
-      rows.slice(0,80).map(r=>`<tr><td class="num">${r.t?esc(when(r.t)):''}</td><td>${esc(r.kind)}</td><td>${esc(r.who)}</td><td class="mono">${esc(r.no)}</td><td class="clip" title="${esc(r.why)}">${esc(r.why)}</td><td>${r.undo}</td></tr>`).join('')+`</tbody></table></div>`
+      rows.slice(0,80).map(r=>`<tr><td class="num">${r.t?esc(when(r.t)):''}</td><td>${esc(r.kind)}</td><td>${esc(r.who)}</td><td class="mono">${esc(r.no)}</td><td class="m-why">${esc(mClean(r.why))}</td><td>${r.undo}</td></tr>`).join('')+`</tbody></table></div>`
       :'<p class="muted">아직 확인 완료한 건이 없어요.</p>')+'</section>');
   const known=new Set(Object.keys(MKIND)),unk=items.filter(i=>!known.has(i.kind));
   if(unk.length)out.unshift(mCard('mc-other','그 밖의 확인','', '', '<th>구분</th><th>번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th>',
