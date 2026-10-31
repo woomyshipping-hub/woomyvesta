@@ -42,14 +42,14 @@ document.addEventListener('click',e=>{if(!e.target.closest('[data-clearq]'))retu
 const toast=t=>{const el=$('#toast');el.textContent=t;el.classList.remove('hidden');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.add('hidden'),2600)};
 const KPI_ORDER=['통관 시작','국내배송','해운 출발','특송업체 픽업','배송 완료'];
 // One spreadsheet-like line per order; multi-box waybills stack one per line. Long text is cut with … (full text on hover).
-function row(o){
+function row(o,why){   // why: Mercury's reason, shown first in 확인할 점 (and the 완료 button is offered even when the order has no alert)
   const link=TRACK[o.courier];
   const cp=n=>`<button class="copybtn" data-copy="${esc(n)}" title="운송장번호 복사" aria-label="운송장번호 복사">⧉</button>`;
   const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>(link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n))+cp(n)).join('<br>'):'—';
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
-  const dm=o.doneMark,alerts=dm?['✓ 완료 처리',...new Set([ODMEMO[dm.how]??dm.how,dm.memo].filter(Boolean)),dm.ts&&when(dm.ts)].filter(Boolean).join(' · '):o.alerts.join(' · ');
-  return `<tr${o.alerts.length?' class="warnrow"':''}>
-  <td>${o.alerts.length?`<button class="mini odbtn" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
+  const dm=o.doneMark,alerts=dm?['✓ 완료 처리',...new Set([ODMEMO[dm.how]??dm.how,dm.memo].filter(Boolean)),dm.ts&&when(dm.ts)].filter(Boolean).join(' · '):[why,...o.alerts].filter(Boolean).join(' · ');
+  return `<tr${o.alerts.length||why?' class="warnrow"':''}>
+  <td>${o.alerts.length||why?`<button class="mini odbtn" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
     dm?`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`:''}</td>
   <td>${o.hbl?`<button class="mini" data-cus="${esc(o.order)}" title="통관 진행정보 보기">통관조회</button>`:''}</td>
   <td class="mono" title="ERP: ${esc(o.order)}">${esc(adm(o))}<button class="copybtn" data-copy="${esc(adm(o))}" title="주문번호 복사" aria-label="주문번호 복사">⧉</button>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}</td>
@@ -68,7 +68,7 @@ const KORDER={customs:0,handover:1,unknown:2,domestic:3};
 const SORTKEY=[o=>o.doneMark?o.doneMark.ts||'1':'',o=>o.hbl,o=>adm(o),o=>o.courierNo,o=>o.name,o=>o.writer?o.writer.name:'',o=>o.item,o=>o.stage,
   o=>(KORDER[o.kind]??9)*1000-(+(o.alerts.join(' ').match(/\+(\d+)일/)||[0,0])[1]),o=>o.orderDate,o=>o.obDate,o=>o.arDate,
   o=>o.sinceDeparture??-1,o=>o.courier,o=>o.smsSent?o.smsSent.at:''];
-const sortBy={alerts:null,orders:null};  // {col, dir: 1|-1}
+const sortBy={alerts:null,orders:null,mTable:null};  // {col, dir: 1|-1}
 function sorted(list,id){
   const st=sortBy[id];if(!st)return list;const k=SORTKEY[st.col];
   const cmp=(a,b)=>{const x=k(a)??'',y=k(b)??'';
@@ -80,7 +80,7 @@ function markSort(table){const st=sortBy[table.id];const head=table.tHead&&table
 document.addEventListener('click',e=>{const th=e.target.closest('th');if(!th||e.target.closest('.colgrip,button,a'))return;
   const table=th.closest('table');if(!table||!(table.id in sortBy))return;const col=th.cellIndex,st=sortBy[table.id];
   sortBy[table.id]=!st||st.col!==col?{col,dir:1}:st.dir>0?{col,dir:-1}:null;
-  table.id==='alerts'?renderAlerts():renderList()});
+  table.id==='alerts'?renderAlerts():table.id==='mTable'?safe(renderMercury):renderList()});
 function renderAlerts(){
   const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>o.alerts.length),dn=D.orders.filter(o=>o.doneMark&&o._base.alerts.length);
   if(kindFilter==='done'&&!dn.length)kindFilter='';
@@ -331,7 +331,7 @@ function gripTable(table){
         if(moved)saveCol(table,i,Math.max(40,Math.round(w0+ev.clientX-x0)));else fitCol(table,i)};
       document.body.classList.add('resizing');document.addEventListener('mousemove',move);document.addEventListener('mouseup',up)});
     th.append(g)})}
-for(const id of ['alerts','orders','batches']){const t=document.getElementById(id);if(!t)continue;
+for(const id of ['alerts','orders','batches','mTable']){const t=document.getElementById(id);if(!t)continue;
   new MutationObserver(()=>gripTable(t)).observe(t,{childList:true})}
 // 통관조회: the UNIPASS reading Vesta keeps for this order, in a window on the page (Esc or 닫기 to close):
 // first a plain-language card staff can copy as an image for 사업자 고객 (출항 → 부산항 도착 → 통관 → 국내 배송, and
@@ -1182,9 +1182,9 @@ function mData(){
   const M=D&&D.mercury;if(!M)return null;
   const done=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),hid=(M.items||[]).filter(i=>i.kind==='배송현황'&&done.has(i.no)).length;
   if(!hid)return M;
-  const left=(M.items||[]).filter(i=>!(i.kind==='배송현황'&&done.has(i.no)));
+  const left=(M.items||[]).filter(i=>!(i.kind==='배송현황'&&done.has(i.no))),hidden=(M.items||[]).filter(i=>i.kind==='배송현황'&&done.has(i.no));
   const n=left.filter(i=>i.kind==='배송현황').length,dl=n?{id:'delivery',state:'warn',summary:`혼자만 다른 상태인 주문 ${n}건`+(n>5?' (5건을 넘어서 기준이 느슨한지 확인이 필요해요)':'')}:{id:'delivery',state:'ok',summary:'혼자만 다른 주문은 없어요. 다 같이 늦는 통관 지연은 알리지 않아요.'};
-  return {...M,items:left,checks:(M.checks||[]).map(c=>c.id==='delivery'?dl:c),situations:(M.situations||[]).map(x=>x.id==='parcel'?{...x,count:(x.count||0)-hid}:x).filter(x=>x.id!=='parcel'||x.count>0)}}
+  return {...M,items:left,hidden,checks:(M.checks||[]).map(c=>c.id==='delivery'?dl:c),situations:(M.situations||[]).map(x=>x.id==='parcel'?{...x,count:(x.count||0)-hid}:x).filter(x=>x.id!=='parcel'||x.count>0)}}
 function mSituation(){   // the situation Mercury is really in right now
   const M=mData(),act=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]).sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri);
   return act[0]||{id:'calm'}}
@@ -1209,10 +1209,17 @@ function renderMercury(){
   $('#mCount').textContent=items.length?`· ${items.length}건`:'';
   $('#mChecked').textContent=M&&M.checkedAt?`마지막 점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}`:'';
   $('#mercuryBadge').textContent=items.length||'';
-  $('#mTable').innerHTML=items.length
-    ?`<thead><tr><th>구분</th><th>견적번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th></tr></thead><tbody>`+
-      items.map(i=>`<tr><td>${esc(i.kind)}</td><td>${esc(i.no)}</td><td>${esc(i.customer)}</td><td>${i.amount!=null?Number(i.amount).toLocaleString()+'원':''}</td><td>${esc(i.issue)}</td><td>${esc(i.since||'')}</td></tr>`).join('')+`</tbody>`
-    :'';
+  // 배송현황 findings are the same rows, columns and buttons as the 배송현황 tab (row/HEAD), so 완료·통관조회·문자 work here and show up there at once.
+  const ords=items.filter(i=>i.kind==='배송현황').map(i=>({o:D.orders.find(x=>x.order===i.order)||D.orders.find(x=>adm(x)===i.no),why:i.issue})).filter(x=>x.o);
+  const byDays=sortBy.mTable?sorted(ords.map(x=>x.o),'mTable').map(o=>ords.find(x=>x.o===o)):ords;
+  $('#mTable').innerHTML=byDays.length?HEAD+'<tbody>'+byDays.map(x=>row(x.o,x.why)).join('')+'</tbody>':'';
+  $('#mTable').closest('.tablewrap').classList.toggle('hidden',!byDays.length);
+  const other=items.filter(i=>i.kind!=='배송현황');
+  $('#mOther').innerHTML=other.length?`<thead><tr><th>구분</th><th>견적번호</th><th>고객</th><th>금액</th><th>무엇이 안 됐나</th><th>경과</th></tr></thead><tbody>`+
+      other.map(i=>`<tr><td>${esc(i.kind)}</td><td>${esc(i.no)}</td><td>${esc(i.customer)}</td><td>${i.amount!=null?Number(i.amount).toLocaleString()+'원':''}</td><td>${esc(i.issue)}</td><td>${esc(i.since||'')}</td></tr>`).join('')+`</tbody>`:'';
+  $('#mOther').closest('.tablewrap').classList.toggle('hidden',!other.length);
+  const gone=(M&&M.hidden||[]).map(i=>D.orders.find(x=>x.order===i.order)).filter(Boolean);   // marked 완료 by staff: Mercury stops reporting them, but they can be taken back here
+  $('#mDone').innerHTML=gone.length?`완료 처리해서 뺀 ${gone.length}건: `+gone.map(o=>`${esc(o.name)} ${esc(adm(o))} <button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`).join(' · '):'';
   $('#mNote').textContent=items.length?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
 }
 $('#tabMercury').addEventListener('click',e=>{const c=e.target.closest('[data-ms]');if(c){mPreviewId=c.dataset.ms===mSituation().id?null:c.dataset.ms;safe(renderMercury);return}
