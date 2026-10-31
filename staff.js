@@ -1358,11 +1358,12 @@ function renderQSide(){
 // person sets is kept per PC.
 const QSIZE='woomyvesta-qside-size';
 function qsPlace(){const d=$('#qSideBody'),f=$('.q-form'),side=$('#qSide');if(!d||!f||!side)return;
+  if(matchMedia('(max-width:760px)').matches){d.style.cssText='';d._set=null;return}   // phones: the list sits under the rail
   const fr=f.getBoundingClientRect(),sr=side.getBoundingClientRect();let sz=null;try{sz=JSON.parse(localStorage.getItem(QSIZE)||'null')}catch{}
   d.style.left=(fr.left-sr.left)+'px';d.style.top=(fr.top-sr.top)+'px';
-  d.style.width=(sz&&sz.w||fr.width)+'px';d.style.height=(sz&&sz.h||Math.min(fr.height,innerHeight-40))+'px'}
-if(window.ResizeObserver){let t=0;new ResizeObserver(([e])=>{const d=e.target;if(d.hidden||!d._sized){d._sized=1;return}clearTimeout(t);
-  t=setTimeout(()=>{try{localStorage.setItem(QSIZE,JSON.stringify({w:Math.round(d.offsetWidth),h:Math.round(d.offsetHeight)}))}catch{}},300)}).observe($('#qSideBody'))}
+  d.style.width=(sz&&sz.w||fr.width)+'px';d.style.height=(sz&&sz.h||Math.min(fr.height,innerHeight-40))+'px';d._set={w:Math.round(d.offsetWidth),h:Math.round(d.offsetHeight)}}
+document.addEventListener('pointerup',()=>{const d=$('#qSideBody');if(!d||d.hidden||!d._set)return;const w=Math.round(d.offsetWidth),h=Math.round(d.offsetHeight);
+  if(Math.abs(w-d._set.w)>2||Math.abs(h-d._set.h)>2){d._set={w,h};try{localStorage.setItem(QSIZE,JSON.stringify({w,h}))}catch{}}});   // only a drag of the corner changes it
 $('#qSide').addEventListener('click',e=>{
   const r=e.target.closest('[data-qs]');if(r){qsOpen=qsOpen===r.dataset.qs?'':r.dataset.qs;try{localStorage.setItem(QSIDE,qsOpen)}catch{}safe(renderQSide);return}
   const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
