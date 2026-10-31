@@ -1346,6 +1346,7 @@ function renderQSide(){
     `<span class="q-railicon"><svg viewBox="0 0 24 24" aria-hidden="true">${QS_ICON[g.icon]}</svg>${g.list.length?`<b>${g.list.length}</b>`:''}</span><span>${esc(g.label)}</span></button>`).join('');
   const g=groups.find(x=>x.id===qsOpen);$('#qSide').classList.toggle('open',!!g);body.hidden=!g;
   if(!g)return;
+  qsPlace();
   const won=v=>v!=null&&v!==''?'₩'+Number(v).toLocaleString():'';
   body.innerHTML=`<div class="q-drawhead"><b>${esc(g.title)}</b><span class="muted small">${g.list.length}건</span></div>`+
     (g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
@@ -1353,6 +1354,15 @@ function renderQSide(){
       `<div class="q-drawbtns">${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'')}${mBtn(i)}</div></div>`}).join('')
       :'<p class="muted small q-drawempty">지금은 확인할 건이 없어요.</p>')+
     `<div class="q-drawfoot">${M&&M.checkedAt?`<span class="muted small">점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>`:'<span></span>'}<button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div>`}
+// The open list lies over the 견적서 form card at the same size (user, 11/01); its corner handle resizes it, and the size a
+// person sets is kept per PC.
+const QSIZE='woomyvesta-qside-size';
+function qsPlace(){const d=$('#qSideBody'),f=$('.q-form'),side=$('#qSide');if(!d||!f||!side)return;
+  const fr=f.getBoundingClientRect(),sr=side.getBoundingClientRect();let sz=null;try{sz=JSON.parse(localStorage.getItem(QSIZE)||'null')}catch{}
+  d.style.left=(fr.left-sr.left)+'px';d.style.top=(fr.top-sr.top)+'px';
+  d.style.width=(sz&&sz.w||fr.width)+'px';d.style.height=(sz&&sz.h||Math.min(fr.height,innerHeight-40))+'px'}
+if(window.ResizeObserver){let t=0;new ResizeObserver(([e])=>{const d=e.target;if(d.hidden||!d._sized){d._sized=1;return}clearTimeout(t);
+  t=setTimeout(()=>{try{localStorage.setItem(QSIZE,JSON.stringify({w:Math.round(d.offsetWidth),h:Math.round(d.offsetHeight)}))}catch{}},300)}).observe($('#qSideBody'))}
 $('#qSide').addEventListener('click',e=>{
   const r=e.target.closest('[data-qs]');if(r){qsOpen=qsOpen===r.dataset.qs?'':r.dataset.qs;try{localStorage.setItem(QSIDE,qsOpen)}catch{}safe(renderQSide);return}
   const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
