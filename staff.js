@@ -1183,7 +1183,8 @@ function mData(){
   const done=new Set((D.orders||[]).filter(o=>o.doneMark).map(adm)),hid=(M.items||[]).filter(i=>i.kind==='배송현황'&&done.has(i.no)).length;
   if(!hid)return M;
   const left=(M.items||[]).filter(i=>!(i.kind==='배송현황'&&done.has(i.no)));
-  return {...M,items:left,situations:(M.situations||[]).map(x=>x.id==='parcel'?{...x,count:(x.count||0)-hid}:x).filter(x=>x.id!=='parcel'||x.count>0)}}
+  const n=left.filter(i=>i.kind==='배송현황').length,dl=n?{id:'delivery',state:'warn',summary:`혼자만 다른 상태인 주문 ${n}건`+(n>5?' (5건을 넘어서 기준이 느슨한지 확인이 필요해요)':'')}:{id:'delivery',state:'ok',summary:'혼자만 다른 주문은 없어요. 다 같이 늦는 통관 지연은 알리지 않아요.'};
+  return {...M,items:left,checks:(M.checks||[]).map(c=>c.id==='delivery'?dl:c),situations:(M.situations||[]).map(x=>x.id==='parcel'?{...x,count:(x.count||0)-hid}:x).filter(x=>x.id!=='parcel'||x.count>0)}}
 function mSituation(){   // the situation Mercury is really in right now
   const M=mData(),act=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]).sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri);
   return act[0]||{id:'calm'}}
