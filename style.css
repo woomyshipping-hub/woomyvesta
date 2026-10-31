@@ -648,3 +648,8 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .q-side{overflow:visible}
 .q-drawer{position:absolute;left:calc(100% + 10px);top:0;z-index:30;width:320px;border:1px solid var(--line);border-radius:18px;background:var(--card);box-shadow:0 12px 32px #0f142033,0 2px 6px #0f14201a;max-height:calc(100vh - 60px)}
 @media(max-width:760px){.q-drawer{position:static;width:auto;box-shadow:none;border:0;border-top:1px solid var(--line);border-radius:0}}
+/* the open list must sit above the form's sticky table header: the sticky rail is its own stacking layer, so it gets the z-index */
+.q-side{z-index:60}
+.q-drawer{width:360px;border-color:var(--blue);box-shadow:0 18px 48px #0008,0 0 0 1px #0003}
+.q-side.open::after{content:'';position:fixed;inset:0;background:#0f142066;z-index:-1;pointer-events:none}
+.q-side.open .q-rail{background:var(--card);border-radius:18px}
