@@ -1148,14 +1148,14 @@ const M_SIT={
   allgood:{label:'이상 없음',pose:'thumbsup',pri:2,line:'확인할 건이 없어요. 모두 정상이에요!'},
   done:{label:'처리 완료',pose:'celebrate',pri:3,line:'밀린 일을 모두 끝냈어요!'},
   thinking:{label:'살펴보는 중',pose:'think',pri:4,line:'살펴보는 중이에요. 잠깐만요…'},
-  message:{label:'메시지 도착',pose:'letter',pri:5,line:'새 메시지가 도착했어요.'},
-  parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송현황 탭 확인이 필요해요!',go:1},
-  question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.'},
-  deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.'},
-  late:{label:'오래 기다린 상담',pose:'run',pri:9,line:'오래 기다린 고객님이 계세요. 서둘러 주세요!'},
-  alert:{label:'확인 필요',pose:'alert',pri:10,line:'바로 확인이 필요한 일이 생겼어요!'},
-  sms_urgent:{label:'급한 문자',pose:'phone',pri:11,line:'지금 바로 문자를 보내야 해요!'},
-  angry:{label:'화난 고객',pose:'bow',pri:12,line:'화가 난 고객님이 계세요. 먼저 사과하고 차분히 들어 주세요.'}};
+  message:{label:'메시지 도착',pose:'letter',pri:5,line:'새 메시지가 도착했어요.',to:'mItems'},
+  parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송현황 탭 확인이 필요해요!',to:'mItems'},
+  question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.',to:'mItems'},
+  deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.',to:'mChecks'},
+  late:{label:'오래 기다린 상담',pose:'run',pri:9,line:'오래 기다린 고객님이 계세요. 서둘러 주세요!',to:'mItems'},
+  alert:{label:'확인 필요',pose:'alert',pri:10,line:'바로 확인이 필요한 일이 생겼어요!',to:'mItems'},
+  sms_urgent:{label:'급한 문자',pose:'phone',pri:11,line:'지금 바로 문자를 보내야 해요!',to:'mItems'},
+  angry:{label:'화난 고객',pose:'bow',pri:12,line:'화가 난 고객님이 계세요. 먼저 사과하고 차분히 들어 주세요.',to:'mItems'}};
 const M_CHECKS=[
   {id:'delivery',name:'배송현황 · 혼자만 다른 주문',desc:'다 같이 늦는 통관 지연은 알리지 않고, 뒤에 출발한 주문이 먼저 가는 등 혼자만 뒤처진 주문만 봐요.'},
   {id:'purchase',name:'구매대행 요청 입금 확인',desc:'견적 후 입금이 페이액션에 매칭됐는지, 구매 정리 시트에 반영됐는지 봐요.'},
@@ -1199,15 +1199,16 @@ function renderMercury(){
     mFigure(key+'.png').then(u=>{if(view._pose===key)$('#mFallback').src=u}).catch(()=>{});
     mFigure(vid?'angry.webm':key+'.glb').then(u=>{if(view._pose!==key)return;if(vid){mv.src=u;mv.play().catch(()=>{});stage.classList.add('ready')}else view.setAttribute('src',u)}).catch(()=>{if(view._pose===key)stage.classList.add('ready')})}
   if(!view._m){view._m=1;view.addEventListener('load',()=>$('#mStage').classList.add('ready'))}
-  $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(sit.go?` <button type="button" class="mini m-go" data-mgo>확인하기</button>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
-  // Other situations that are a problem right now sit around the centre (up to 4); a click shows that one in the centre.
-  const slotsOf=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id]&&x.id!==show.id)].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri).slice(0,4);
-  const slot=x=>{if(!x)return `<div class="m-slot empty"><span class="muted small">다른 문제 없음</span></div>`;const v=M_SIT[x.id];
-    return `<button type="button" class="m-slot" data-ms="${x.id}" title="눌러서 가운데에서 보기"><img alt="" data-mthumb="${v.pose}" width="72" height="72">
-      <span class="m-slot-t"><b>${esc(v.label)}${x.count?` ${Number(x.count)}건`:''}</b><span class="small muted">${esc(x.note||v.line)}</span></span></button>`};
-  const cells=[0,1,2,3].map(i=>slot(slotsOf[i]));
-  $('#mSideL').innerHTML=cells[0]+cells[1];$('#mSideR').innerHTML=cells[2]+cells[3];
-  document.querySelectorAll('[data-mthumb]').forEach(im=>mFigure(im.dataset.mthumb+'.png').then(u=>{im.src=u}).catch(()=>{}));
+  $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(sit.to?` <button type="button" class="mini m-go" data-mgo="${sit.to}">확인하기</button>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
+  // Other current problems are speech bubbles on both sides of the character, each with its own 확인하기 button. Few problems -> big bubbles,
+  // many -> smaller ones (size class by count); nothing is drawn when there is no other problem.
+  const others=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id]&&x.id!==show.id)].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri),BMAX=8,shownB=others.slice(0,BMAX),k=shownB.length;
+  const size=k<=2?'l':k<=4?'m':'s';
+  const bub=(x,side)=>{const v=M_SIT[x.id];return `<div class="m-b ${side} m-b-${size}"><b>${esc(v.label)}${x.count?` ${Number(x.count)}건`:''}</b><span>${esc(x.note||v.line)}</span>`+
+    (v.to?`<button type="button" class="mini m-go" data-mgo="${v.to}">확인하기</button>`:'')+`</div>`};
+  const L=shownB.filter((_,i)=>i%2===0),R=shownB.filter((_,i)=>i%2===1);
+  $('#mSideL').innerHTML=L.map(x=>bub(x,'to-r')).join('');$('#mSideR').innerHTML=R.map(x=>bub(x,'to-l')).join('')+(others.length>BMAX?`<div class="m-b to-l m-b-s"><span>외 ${others.length-BMAX}건</span></div>`:'');
+  $('.m-board').classList.toggle('alone',!k);
   $('#mNow').innerHTML=`<span class="pill m-now-pill${mPreviewId?' prev':''}">${mPreviewId?'미리보기':'지금 상황'} · ${esc(sit.label)}</span>`+(mPreviewId?` <button class="mini" id="mBack">지금 상황으로</button>`:'');
   $('#mPreview').innerHTML=Object.entries(M_SIT).sort((a,b)=>a[1].pri-b[1].pri).map(([id,v])=>`<button class="chip${show.id===id?' on':''}" data-ms="${id}">${esc(v.label)}</button>`).join('');
   const checks=M_CHECKS.map(c=>{const r=((M&&M.checks)||[]).find(x=>x.id===c.id)||{};const st=M_STATE[r.state]||M_STATE.wait;
@@ -1232,7 +1233,7 @@ function renderMercury(){
   $('#mDone').innerHTML=gone.length?`완료 처리해서 뺀 ${gone.length}건: `+gone.map(o=>`${esc(o.name)} ${esc(adm(o))} <button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`).join(' · '):'';
   $('#mNote').textContent=items.length?'':(M?'지금 확인이 필요한 건이 없어요.':'점검 결과가 생기면 여기에 확인이 필요한 건만 표시돼요.');
 }
-$('#tabMercury').addEventListener('click',e=>{if(e.target.closest('[data-mgo]')){$('#mItems').scrollIntoView({behavior:'smooth',block:'start'});return}
+$('#tabMercury').addEventListener('click',e=>{{const g=e.target.closest('[data-mgo]');if(g){const t=document.getElementById(g.dataset.mgo);if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return}}
   const c=e.target.closest('[data-ms]');if(c){mPreviewId=c.dataset.ms===mSituation().id?null:c.dataset.ms;safe(renderMercury);return}
   if(e.target.closest('#mBack')){mPreviewId=null;safe(renderMercury)}});
 function setTab(t,push){
