@@ -1277,6 +1277,7 @@ function mRenderCards(M){
 function renderMercury(){
   if(!D)return;
   const M=mData(),items=(M&&M.items)||[],real=mSituation(),show=mPreviewId&&M_SIT[mPreviewId]?{id:mPreviewId}:real,sit=M_SIT[show.id],view=$('#mView'),stage=$('#mStage');
+  const act0=((M&&M.situations)||[]).filter(x=>M_SIT[x.id]);
   mvLoad();mRenderCards(M);   // cards first: the bubbles' 확인하기 buttons point at them
   // The angry-customer scene is a transparent video (customer shouting, Mercury bowing); Safari cannot play alpha WebM, so it gets the bowing loop.
   const vid=show.id==='angry'&&!/^((?!chrome|android).)*safari/i.test(navigator.userAgent),key=vid?'angry':sit.pose,mv=$('#mVideo');
@@ -1285,10 +1286,11 @@ function renderMercury(){
     mFigure(key+'.png').then(u=>{if(view._pose===key)$('#mFallback').src=u}).catch(()=>{});
     mFigure(vid?'angry.webm':key+'.glb').then(u=>{if(view._pose!==key)return;if(vid){mv.src=u;mv.play().catch(()=>{});stage.classList.add('ready')}else view.setAttribute('src',u)}).catch(()=>{if(view._pose===key)stage.classList.add('ready')})}
   if(!view._m){view._m=1;view.addEventListener('load',()=>$('#mStage').classList.add('ready'))}
+  $('#mBubble').hidden=!!act0.length&&!mPreviewId;
   $('#mBubble').innerHTML=esc(sit.line)+(show.count?` <b>(${Number(show.count)}건)</b>`:'')+(mTo(show.id)?` <button type="button" class="mini m-go" data-mgo="${mTo(show.id)}">확인하기</button>`:'')+(show.note?`<div class="small muted">${esc(show.note)}</div>`:'');
   // Other current problems are speech bubbles on both sides of the character, each with its own 확인하기 button. Few problems -> big bubbles,
   // many -> smaller ones (size class by count); nothing is drawn when there is no other problem.
-  const act=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id])].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri),gi=act.findIndex(x=>x.id===show.id),others=act.filter((_,i)=>i!==gi),shownB=others,k=shownB.length;
+  const act=[...((M&&M.situations)||[]).filter(x=>M_SIT[x.id])].sort((a,b)=>M_SIT[b.id].pri-M_SIT[a.id].pri),others=act,shownB=others,k=shownB.length;   // every open problem is an oval bubble, the one the character acts out too (no separate rectangular banner)
   const size=k<=2?'l':k<=4?'m':k<=8?'s':k<=12?'xs':'xxs';   // never dropped: the more problems, the smaller the bubbles
   // Each side is a zone the bubbles are scattered over (cells of a loose grid with a little deterministic jitter), so the corners are filled too.
   const cols=size==='l'||size==='m'?1:k>24?3:2;

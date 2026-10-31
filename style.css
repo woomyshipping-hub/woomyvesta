@@ -611,3 +611,4 @@ label[for=odMemo]{display:block;margin-top:16px}
 .m-sheetlink{text-decoration:none;white-space:nowrap}.m-card td.m-why{min-width:240px;white-space:normal;font-weight:600;color:var(--warn);line-height:1.4}.m-card th.m-whyhead{min-width:240px}
 tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k-angry td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
 .m-card .num{white-space:nowrap}
+.m-bubble[hidden]{display:none}
