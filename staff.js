@@ -109,17 +109,17 @@ function renderAlerts(){
   $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
   searchLayout();
 }
-let dayFilter='',listPage=1,listKey='';const PAGE=300;
+let listPage=1,listKey='';const PAGE=300;
 document.addEventListener('click',e=>{const b=e.target.closest('#pager [data-page]');if(!b||b.disabled)return;
   listPage=+b.dataset.page;renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 function renderList(){
   const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value,rt=listRoute;
   routeBar('#listRoute','list',listRoute,D.orders);
-  const list=D.orders.filter(o=>inRoute(listRoute,o)&&(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
+  const list=D.orders.filter(o=>inRoute(listRoute,o)&&(!st||String(o.stage)===st)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
   // 300 rows a page; a new search or filter starts again at page 1 (search and filters always look at every order)
-  const key=[q,st,fl,rt,dayFilter].join('|');if(key!==listKey){listKey=key;listPage=1}
+  const key=[q,st,fl,rt].join('|');if(key!==listKey){listKey=key;listPage=1}
   const pages=Math.max(1,Math.ceil(list.length/PAGE));listPage=Math.min(listPage,pages);const from=(listPage-1)*PAGE;
-  $('#count').innerHTML=(dayFilter?`<button class="daychip" data-clearday title="주문일 필터 해제">${md(dayFilter)} 주문만 ✕</button> `:'')+`${list.length.toLocaleString()}건`+
+  $('#count').innerHTML=`${list.length.toLocaleString()}건`+
     (pages>1?` · ${(from+1).toLocaleString()}–${Math.min(from+PAGE,list.length).toLocaleString()}번째 (${listPage} / ${pages}페이지)`:'');
   $('#orders').innerHTML=HEAD+'<tbody>'+(sorted(list,'orders').slice(from,from+PAGE).map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
   $('#pager').innerHTML=pages>1?`<button class="btn small-btn" data-page="${listPage-1}"${listPage>1?'':' disabled'}>‹ 이전</button>`+
@@ -132,17 +132,13 @@ function renderList(){
 let alertHits=0,listHits=0;
 function searchLayout(){
   const q=!!$('#gq').value.trim(),hide=(el,h)=>el&&el.classList.toggle('qhide',h);
-  hide($('.vesta-myth'),q);hide($('#kpis'),q);hide($('#batchSec'),q);hide($('#kInsight'),q);
+  hide($('.vesta-myth'),q);hide($('#kpis'),q);hide($('#stageSec'),q);
   hide($('#alertSec'),q&&!alertHits);hide($('#listSec'),q&&!listHits&&!!alertHits);
 }
-document.addEventListener('click',e=>{const b=e.target.closest('[data-day],[data-clearday]');if(!b)return;
-  dayFilter=b.dataset.day||'';if(b.dataset.day){listRoute='';$('#stage').value=b.dataset.st==='alert'?'':b.dataset.st;$('#flag').value=b.dataset.st==='alert'?'alert':''}
-  renderList();if(b.dataset.day)$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
-document.addEventListener('click',e=>{const m=e.target.closest('[data-bmore]');if(!m)return;document.querySelectorAll('#batches .brow[hidden]').forEach(r=>r.hidden=false);m.remove()});
 document.addEventListener('click',e=>{const c=e.target.closest('[data-kind]');if(!c)return;kindFilter=c.dataset.kind;renderAlerts()});
 document.addEventListener('click',e=>{const k=e.target.closest('[data-go]');if(!k)return;const go=k.dataset.go;
   if(go==='alert'){kindFilter='';alertRoute='';renderAlerts();$('#alertSec').scrollIntoView({behavior:'smooth',block:'start'});return}
-  $('#stage').value=go;$('#flag').value='';dayFilter='';listRoute='';renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
+  $('#stage').value=go;$('#flag').value='';listRoute='';renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 // A section that fails to draw is logged and skipped so the rest of the page still shows (see healthy()).
 const safe=f=>{try{f()}catch(e){console.error('[vesta]',e)}};
 // 완료 처리 (독차 등): staff mark an order the couriers cannot track as done. Marks are shared through the 접수창구
@@ -159,8 +155,7 @@ function applyMarks(){
     if(m&&m.done)Object.assign(o,{alerts:[],kind:'',stage:4,doneMark:m});else Object.assign(o,o._base,{doneMark:null})}
   const R=D.orders,cnt=f=>{const c={};R.forEach(o=>{const k=f(o);if(k)c[k]=(c[k]||0)+1});return c};
   D.summary=cnt(o=>D.stages[o.stage]);D.kinds=cnt(o=>o.kind);D.alerts=R.filter(o=>o.alerts.length).length;
-  const by={};R.forEach(o=>{const b=by[o.orderDate]??={orderDate:o.orderDate};b[D.stages[o.stage]]=(b[D.stages[o.stage]]||0)+1});
-  D.batches=Object.values(by).sort((a,b)=>b.orderDate.localeCompare(a.orderDate))}
+}
 async function loadODone(){if(!D?.smsIntake)return;try{const r=await (await fetch(`${D.smsIntake}?action=orderDoneList`)).json();
   if(r.ok&&JSON.stringify(r.marks)!==JSON.stringify(OMARKS)){OMARKS=r.marks||{};render()}}catch{}}
 async function setODone(o,done,how,memo){
@@ -204,6 +199,20 @@ function updatedLine(){if(!D)return;
   $('#updated').textContent=curTab==='ship'?`· ${f(D.updatedAt)} 기준 · 최근 ${D.range[0]} ~ ${D.range[1]} 주문`:
     curTab==='kakao'?(K?`· 카카오 상담 ${f(K.updatedAt)} 새로고침 기준 · 최근 ${K.windowDays}일 상담`:''):
     curTab==='mercury'?(M&&M.checkedAt?`· 머큐리 ${f(M.checkedAt)} 점검 기준`:''):''}
+// 단계별 지연 비율: for the stages where a delay can exist, the share of orders now in that stage that are 확인 필요.
+// 특송업체 픽업 has not left yet (no delay rule) and 배송 완료 is finished, so those two are only named in the note.
+function stageChart(){
+  const rows=D.stages.map((name,i)=>({name:name==='해운 출발'?'해운·항공 출발':name,i,list:D.orders.filter(o=>o.stage===i)})).slice(1,4)
+    .map(r=>({...r,total:r.list.length,late:r.list.filter(o=>o.alerts.length).length}));
+  const total=rows.reduce((a,r)=>a+r.total,0),late=rows.reduce((a,r)=>a+r.late,0),pct=(a,b)=>b?Math.round(a/b*1000)/10:0;
+  $('#stageHead').textContent=`진행 중 ${total.toLocaleString()}건 중 ${late.toLocaleString()}건 지연 (${pct(late,total)}%)`;
+  $('#stageBars').innerHTML=rows.map(r=>{const ok=r.total-r.late,p=pct(r.late,r.total);
+    return `<button type="button" class="sg-row" data-go="${r.i}" title="${esc(r.name)}: 정상 ${ok.toLocaleString()}건 · 지연 ${r.late.toLocaleString()}건 (누르면 전체 주문에서 이 단계만 봐요)"><span class="sg-name">${esc(r.name)}</span>
+      <span class="sg-bar">${r.total?(ok?`<i class="sg-ok" style="flex:${ok}"></i>`:'')+(r.late?`<i class="sg-late" style="flex:${r.late}"></i>`:''):'<i class="sg-none"></i>'}</span>
+      <span class="sg-val">${r.total?`<b class="${r.late?'bad':''}">지연 ${p}%</b> <span class="muted">${r.late.toLocaleString()} / ${r.total.toLocaleString()}건</span>`:'<span class="muted">지금 없음</span>'}</span></button>`}).join('');
+  const n=i=>(D.summary[D.stages[i]]||0).toLocaleString();
+  $('#stageNote').textContent=`지연은 "먼저 확인할 주문"에 올라온 건이에요. 특송업체 픽업 ${n(0)}건은 출발 전이라 지연 기준이 없고, 배송 완료 ${n(4)}건은 끝난 건이라 뺐어요.`;
+}
 function render(){
   applyMarks();safe(staleCheck);
   safe(updatedLine);
@@ -212,13 +221,7 @@ function render(){
     KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i]==='해운 출발'?'해운·항공 출발':D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
   $('#rules').textContent='';
   safe(renderAlerts);safe(renderKakao);safe(renderMercury);safe(renderQSide);
-  // 주문일별 진행: one stacked bar per order date (length = orders, color = stage), red badge = 확인 필요.
-  const tot=b=>D.stages.reduce((a,s)=>a+(b[s]||0),0),most=Math.max(1,...D.batches.map(tot));
-  const late={};D.orders.forEach(o=>{if(o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
-  $('#blegend').innerHTML=D.stages.map((s,i)=>`<span><i class="bs${i}"></i>${esc(s)}</span>`).join('')+'<span><i class="bl"></i>확인 필요</span>';
-  const BSHOW=14;$('#batches').innerHTML=D.batches.map((b,n)=>{const t=tot(b);return `<div class="brow"${n>=BSHOW?' hidden':''}><span class="bdate">${md(b.orderDate)}</span>
-    <div class="btrack"><div class="bbar" style="width:${t/most*100}%">${D.stages.map((s,i)=>b[s]?`<button class="bs${i}${b[s]/most<.04?' tiny':''}" style="flex:${b[s]}" data-day="${esc(b.orderDate)}" data-st="${i}" title="${esc(md(b.orderDate))} · ${esc(s)} ${b[s]}건">${b[s]}</button>`:'').join('')}</div></div>
-    <span class="btot"><b>${t}</b>건${late[b.orderDate]?`<button class="blate" data-day="${esc(b.orderDate)}" data-st="alert" title="확인 필요 ${late[b.orderDate]}건만 보기">${late[b.orderDate]}</button>`:''}</span></div>`}).join('')+(D.batches.length>BSHOW?`<button class="btn small-btn bmore" data-bmore>이전 주문일 ${D.batches.length-BSHOW}개 더 보기</button>`:'');
+  safe(stageChart);
   const st=$('#stage').value;$('#stage').innerHTML='<option value="">전체 단계</option>'+D.stages.map((s,i)=>`<option value="${i}">${esc(s)}</option>`).join('');$('#stage').value=st;
   safe(renderList);
 }
@@ -344,7 +347,7 @@ function gripTable(table){
         if(moved)saveCol(table,i,Math.max(40,Math.round(w0+ev.clientX-x0)));else fitCol(table,i)};
       document.body.classList.add('resizing');document.addEventListener('mousemove',move);document.addEventListener('mouseup',up)});
     th.append(g)})}
-for(const id of ['alerts','orders','batches','mTable']){const t=document.getElementById(id);if(!t)continue;
+for(const id of ['alerts','orders','mTable']){const t=document.getElementById(id);if(!t)continue;
   new MutationObserver(()=>gripTable(t)).observe(t,{childList:true})}
 // 통관조회: the UNIPASS reading Vesta keeps for this order, in a window on the page (Esc or 닫기 to close):
 // first a plain-language card staff can copy as an image for 사업자 고객 (출항 → 부산항 도착 → 통관 → 국내 배송, and
@@ -462,7 +465,7 @@ document.addEventListener('click',e=>{const c=e.target.closest('[data-copy]');if
 const KTYPE={unread:['안 읽음','k-customs','아직 아무도 읽지 않은 상담'],noReply:['읽고 답 안함','k-handover','읽었지만 고객 메시지에 아무도 답하지 않은 상담'],
   pending:['확인 후 안내 필요','k-domestic','"확인해 보겠습니다"라고 답한 뒤 추가 안내가 없는 상담'],
   bot:['챗봇만 응대','k-unknown','마지막 대화 뒤 고객이 챗봇 메뉴만 눌렀고 직원 답이 없는 상담']};
-let kFilter='',kTopic=null;
+let kFilter='';
 // [처리완료]: staff tick a row to set it aside until the customer writes again (the mark is tied to the message time
 // it answers). Marks are shared through the 접수창구 (sheet 처리완료); this browser's own ticks show at once and win
 // for a few minutes until the shared list has them. Chats answered in Kakao itself arrive as K.resolved.
@@ -499,17 +502,16 @@ function kRowHtml(x){const fmtD=d=>d?d.slice(2).replace(/-/g,'/'):'',drafts=D.ka
 }
 function renderKakao(){
   const K=D.kakao;
-  if(!K){$('#kakaoBadge').textContent='';$('#kRules').textContent='아직 카카오 데이터가 없어요.';$('#kTable').innerHTML='';$('#kInsight').classList.add('hidden');return}
+  if(!K){$('#kakaoBadge').textContent='';$('#kRules').textContent='아직 카카오 데이터가 없어요.';$('#kTable').innerHTML='';return}
   const q=$('#gq').value.trim().toLowerCase(),open=K.items.filter(x=>!isDone(x)),cnt=t=>open.filter(x=>x.type===t).length;
   // 처리완료 = rows staff ticked (until the customer writes again) + chats answered in Kakao (K.resolved, ticked and locked)
   const done=K.items.filter(isDone).concat((K.resolved||[]).filter(r=>!K.items.some(x=>x.id===r.id)).map(r=>({...r,auto:true})));
   const all=kFilter==='done'?done:open;
-  const topicIds=kTopic&&new Set(kTopic.ids);
-  const shown=all.filter(x=>(!kFilter||kFilter==='done'||x.type===kFilter)&&(!topicIds||topicIds.has(x.id))&&(!q||[x.name,x.last,x.botTaps,x.context,x.staff,x.hist&&x.hist.stage,x.hist&&x.hist.service,kMemoOf(x.id)?.memo].join(' ').toLowerCase().includes(q)))
+  const shown=all.filter(x=>(!kFilter||kFilter==='done'||x.type===kFilter)&&(!q||[x.name,x.last,x.botTaps,x.context,x.staff,x.hist&&x.hist.stage,x.hist&&x.hist.service,kMemoOf(x.id)?.memo].join(' ').toLowerCase().includes(q)))
     .sort((a,b)=>new Date(a.at)-new Date(b.at));   // oldest message first (user, 2026-10-29)
   if(kFilter!=='done')shown.sort((a,b)=>mAngryIds().has(b.id)-mAngryIds().has(a.id));   // 머큐리가 화난 고객으로 본 상담은 가장 위 (user, 2026-10-31); sort is stable
   $('#kakaoBadge').textContent=open.length||'';
-  $('#kCount').innerHTML=(shown.length===all.length?`${all.length}건`:`${shown.length} / ${all.length}건`)+(kTopic?` · <button class="chip on" id="kTopicClear" title="유형 필터 해제">${esc(kTopic.name)} ✕</button>`:'');
+  $('#kCount').innerHTML=(shown.length===all.length?`${all.length}건`:`${shown.length} / ${all.length}건`);
   $('#kRules').textContent='';
   $('#kChips').innerHTML=`<button class="chip${kFilter?'':' on'}" data-k="">전체 ${open.length}</button>`+
     Object.entries(KTYPE).map(([k,[label,cls,tip]])=>`<button class="chip ${cls}${kFilter===k?' on':''}" data-k="${k}" title="${esc(tip)}">${esc(label)} ${cnt(k)}</button>`).join('')+
@@ -518,23 +520,7 @@ function renderKakao(){
   $('#kTable').innerHTML='<thead><tr><th title="처리완료로 넘기기 · 처리완료 탭에서는 되돌리기">완료</th><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th></th><th>메모</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th></tr></thead><tbody>'+
     (rows.join('')||`<tr><td colspan="11" class="muted">${$('#gq').value.trim()?noneMsg():kFilter==='done'?'처리완료로 옮긴 상담이 없어요.':'누락된 상담이 없어요.'}</td></tr>`)+'</tbody>';
   $('#kNote').textContent='';
-  renderInsight();
 }
-const AUTOCLS={'높음':'k-delivered','중간':'k-handover','낮음':'k-unknown'};
-function renderInsight(){
-  const I=D.kakaoInsight,K=D.kakao,sec=$('#kInsight');
-  if(!I){sec.classList.add('hidden');return}sec.classList.remove('hidden');
-  const at=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'});
-  $('#kiAt').innerHTML=`${at(I.basedOn)} 데이터 · ${I.total}건 분석`+(K&&I.basedOn!==K.updatedAt?' <span class="pill k-handover">이전 데이터 기준 분석</span>':'');
-  $('#kiSummary').innerHTML=I.summary.map(t=>`<li>${esc(t)}</li>`).join('');
-  $('#kiTopics').innerHTML='<thead><tr><th>질문 유형</th><th>건수</th><th>예시</th><th>자동화</th><th>방법</th></tr></thead><tbody>'+
-    I.topics.map((t,i)=>`<tr class="ki-row${kTopic&&kTopic.name===t.name?' on':''}" data-ti="${i}"><td><b>${esc(t.name)}</b></td><td class="num">${t.count}<span class="muted small"> · ${Math.round(t.count/I.total*100)}%</span></td>`+
-      `<td class="muted">${t.examples.map(e=>`“${esc(e)}”`).join('<br>')}</td><td><span class="pill ${AUTOCLS[t.auto]||''}">${esc(t.auto)}</span></td><td>${esc(t.how)}</td></tr>`).join('')+'</tbody>';
-  $('#kiActions').innerHTML=I.actions.map(a=>`<li><b>${esc(a.title)}</b> <span class="pill">영향 ${esc(a.impact)}</span> <span class="pill">작업 ${esc(a.effort)}</span><div class="muted small">${esc(a.detail)}</div></li>`).join('');
-}
-$('#kiTopics').addEventListener('click',e=>{const r=e.target.closest('[data-ti]');if(!r)return;const t=D.kakaoInsight.topics[+r.dataset.ti];
-  kTopic=kTopic&&kTopic.name===t.name?null:t;kFilter='';renderKakao();if(kTopic)$('#tabKakao').scrollIntoView({behavior:'smooth'})});
-$('#kCount').addEventListener('click',e=>{if(e.target.id==='kTopicClear'){kTopic=null;renderKakao()}});
 // ── 카카오 답장: conversation popup, 맥락 card, 추천 답변, and sending through the 접수창구 (Claude on the Mac sends) ──
 const KSEND='woomyvesta-ksend';
 const draftOf=x=>{const d=(D.kakaoDrafts||{})[x.id];return d&&d.at===x.at&&d.options?d:null};
@@ -1013,7 +999,7 @@ function qkrw(){const m=Object.fromEntries(qrows().map(x=>[x.k,x]));
   document.querySelectorAll('#qTable tr[data-qi]:not(.q-sub) [data-f="note"]').forEach(el=>{const it=Q.items[+el.closest('tr').dataset.qi];if(it)el.placeholder=qnum(it.price)?yen(it.price):'비고'});
   for(const [k,f] of [['ship',qship],['fee',qfee]]){const tr=document.querySelector(`#qTable tr[data-qa="${k}"]`);if(!tr)continue;const v=f();
     tr.querySelector('[data-f="'+k+'"]').placeholder=v.auto?'자동 '+v.auto.toLocaleString():k==='ship'?'모름':'자동';tr.querySelector('[data-f="'+k+'Note"]').placeholder=v.autoNote||''}}
-function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,shipPending,...x})=>x),lines:Q.lines,no:Q.no,adj:Q.adj,ship:Q.ship||[],
+function qsave(){safe(qshipSyncSoon);try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,shipPending,...x})=>x),lines:Q.lines,no:Q.no,adj:Q.adj,ship:Q.ship||[],
   to:$('#qTo').value,links:$('#qLinks').value,grade:$('#qGrade').value,rate:$('#qRate').value,rateManual:Q.rateManual}))}catch{}}
 function qreset(keepType){Q.items=[];Q.adj=QADJ();Q.ship=[];Q.lines={'구매':QLINES['구매'].map(l=>[...l]),'배송':QLINES['배송'].map(l=>[...l])};Q.no='';
   $('#qTo').value='';$('#qLinks').value='';$('#qAutoMsg').textContent='';$('#qMakeMsg').textContent='';if(!keepType)Q.type='구매';
@@ -1303,6 +1289,24 @@ function qmsg(total,pages){const no=Q.no,amt=`₩${won(total)}`,many=pages>1?`\n
   return Q.type==='배송'
     ?qshipMsg(total,pages)
     :`안녕하세요 고객님, 우마이직구입니다.\n요청하신 상품의 구매 견적서를 보내드립니다.${many}\n\n· 견적번호: ${no}\n· 입금하실 금액: ${amt}\n\n하단의 계좌로 입금해 주시면 확인 후 바로 구매를 진행해 드리겠습니다.\n\n${I.bank||''}\n예금주 : ${I.holder||''}\n\n${dline}상품 가격은 구매 시점에 따라 변동될 수 있으니 참고 부탁드립니다.\n감사합니다.`}
+function qdetail(){const sh=qship(),f=qfee(),{total}=qdoc();return {type:Q.type,to:$('#qTo').value.trim(),grade:$('#qGrade').value,rate:qrate(),
+  items:Q.items.map(({url,title,qty,price,ship,shop,note})=>({url,title,qty,price,ship,shop,note})),ship:sh.yen,shipNote:sh.note,fee:f.yen,feeNote:f.note,
+  lines:Q.lines[Q.type],orders:Q.type==='배송'?(Q.ship||[]).map(x=>x.order):[],total}}
+// What the 접수창구 writes to 26년가구 출고정리: one row per shipment, its lines found by the name tag; a line added by hand goes with the first shipment.
+function qshipRows(){if(Q.type!=='배송')return null;const S=Q.ship||[];if(!S.length)return null;
+  const rows=S.map(x=>({order:x.order,hbl:x.hbl||'',kg:qnum(x.kg)||'',boxes:qnum(x.boxes)||'',dims:x.fix&&x.fix.length?'':String(x.dims||'').replace(/[x×]/g,'*'),lines:[]}));
+  (Q.lines['배송']||[]).forEach(l=>{const unit=qnum(l[2]);if(unit==null||l[2]==='')return;const name=String(l[0]||'').trim();if(!name)return;
+    const i=Math.max(0,S.findIndex(x=>{const t=qseTag(x);return t&&name.endsWith(t)})),t=S.length>1?qseTag(S[i]):'';
+    rows[i].lines.push([t&&name.endsWith(t)?name.slice(0,-t.length):name,(qnum(l[1])||1)*Math.floor(unit/10)*10])});
+  return rows}
+const qsheetNote=sh=>{if(!Array.isArray(sh)||!sh.length)return '';const bad=sh.filter(x=>x.error),good=sh.filter(x=>!x.error);
+  return (good.length?` · 출고정리 ${good.map(x=>`${x.tab} ${x.row}행`).join(', ')} 반영`:'')+(bad.length?` · 출고정리 반영 안 됨 (${bad.map(x=>`${x.order||''} ${x.error}`).join(', ')})`:'')};
+// An edit to an issued 배송비 견적서 follows to the sheet by itself (user, 11/02); 페이액션 and the image wait for [견적서 제작].
+let qsyncT=0,qsyncSig=null;const qshipSig=()=>JSON.stringify([Q.no,qshipRows()]);
+function qshipSyncSoon(){if(Q.type!=='배송'||!Q.no||!D||!D.smsIntake)return;const sig=qshipSig();if(qsyncSig===null){qsyncSig=sig;return}if(sig===qsyncSig)return;
+  clearTimeout(qsyncT);qsyncT=setTimeout(async()=>{const now=qshipSig();if(now===qsyncSig||!Q.no)return;qsyncSig=now;
+    try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({kind:'quoteSave',no:Q.no,total:qdoc().total,detail:qdetail(),shipRows:qshipRows(),noPa:true})})).json();
+      if(r.ok&&r.sheet)$('#qMakeMsg').textContent=`수정 내용 저장${qsheetNote(r.sheet)}. 고객에게 보낸 이미지는 [견적서 제작]으로 다시 만들어 주세요.`}catch{}},2000)}
 $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textContent=t;
   if(!$('#qTo').value.trim()){msg('수신(고객 이름)을 먼저 넣어 주세요.');$('#qTo').focus();return}
   if(!qrows().length){msg('견적 항목이 없어요.');return}
@@ -1314,15 +1318,13 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
   const copy=navigator.clipboard.write([new ClipboardItem({'text/plain':text})]).then(()=>true,()=>false);
   // The quote itself goes with its number (sheet 견적번호, column 견적 내용) so Claude can write the 구매 정리 row once the
   // customer says they paid; making the image again after edits updates it.
-  const detail=()=>{const sh=qship(),f=qfee(),{total}=qdoc();return {type:Q.type,to:$('#qTo').value.trim(),grade:$('#qGrade').value,rate:qrate(),
-    items:Q.items.map(({url,title,qty,price,ship,shop,note})=>({url,title,qty,price,ship,shop,note})),ship:sh.yen,shipNote:sh.note,fee:f.yen,feeNote:f.note,
-    lines:Q.lines[Q.type],orders:Q.type==='배송'?(Q.ship||[]).map(x=>x.order):[],total}};
-  let pa=null;   // 페이액션 registration (the 접수창구 registers the 견적번호 so the deposit is matched automatically)
+  const detail=qdetail;
+  let sheetRes=null,pa=null;   // 페이액션 registration (the 접수창구 registers the 견적번호 so the deposit is matched automatically)
   try{const saved=Q.no&&D.smsIntake?fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({kind:'quoteSave',no:Q.no,total:qdoc().total,detail:detail()})}).then(r=>r.json()).then(r=>{pa=r.pa||null}).catch(()=>{}):null;
+      body:JSON.stringify({kind:'quoteSave',no:Q.no,total:qdoc().total,detail:detail(),shipRows:qshipRows()})}).then(r=>r.json()).then(r=>{pa=r.pa||null;sheetRes=r.sheet||null}).catch(()=>{}):null;
     if(!Q.no){msg('견적번호를 받는 중…');const {total}=qdoc();
       try{const r=await (await fetch(D.smsIntake,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
-        body:JSON.stringify({kind:'quoteNo',type:Q.type,to:$('#qTo').value.trim(),total,detail:detail(),at:new Date().toISOString()})})).json();if(!r.ok||!r.no)throw 0;Q.no=r.no;pa=r.pa||null}
+        body:JSON.stringify({kind:'quoteNo',type:Q.type,to:$('#qTo').value.trim(),total,detail:detail(),shipRows:qshipRows(),at:new Date().toISOString()})})).json();if(!r.ok||!r.no)throw 0;Q.no=r.no;pa=r.pa||null;sheetRes=r.sheet||null}
       catch{const day=qtoday().replace(/-/g,''),k='woomyvesta-qno-'+day,n=(+localStorage.getItem(k)||100)+1;localStorage.setItem(k,n);Q.no=`${day}_${n}`;
         toast('공용 견적번호를 받지 못해 이 PC 번호로 만들었어요. 다른 직원 번호와 겹칠 수 있어요.')}
       qsave()}
@@ -1336,9 +1338,10 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
       const a=document.createElement('a');a.href=URL.createObjectURL(await qpng(k));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),5e3);
       if(pages>1)await new Promise(r=>setTimeout(r,400))}   // browsers drop downloads fired in the same instant
     if(saved)await saved;
+    qsyncSig=qshipSig();qissuedAdd();
     const paNote=pa?(pa.ok?` · 페이액션 입금 대기 등록 (입금자명 ${pa.name})`:` · 페이액션 등록 안 됨 (${pa.error})`):'';
     msg(`견적번호 ${Q.no} · ${copied?'전달 멘트를 복사했어요 (카카오톡에 붙여넣기 ⌘V / Ctrl+V) · ':'멘트를 복사하지 못했어요 · '}`+
-      `견적서 이미지${pages>1?` ${pages}장을 파일 ${pages}개로`:`를 ${names[0]} 파일로`} 저장했어요. ${Q.type==='배송'?'이미지를 먼저 보내고 멘트를 붙여넣어 주세요.'+((Q.ship||[]).some(x=>!x.hbl&&!x.courierNo||!x.courier)?' 택배사나 운송장번호를 못 찾은 건은 멘트에서 직접 넣어 주세요.':''):'멘트 다음에 이미지 파일을 보내 주세요.'}${paNote}`)}
+      `견적서 이미지${pages>1?` ${pages}장을 파일 ${pages}개로`:`를 ${names[0]} 파일로`} 저장했어요. ${Q.type==='배송'?'이미지를 먼저 보내고 멘트를 붙여넣어 주세요.'+((Q.ship||[]).some(x=>!x.hbl&&!x.courierNo||!x.courier)?' 택배사나 운송장번호를 못 찾은 건은 멘트에서 직접 넣어 주세요.':''):'멘트 다음에 이미지 파일을 보내 주세요.'}${paNote}${qsheetNote(sheetRes)}`)}
   catch{give(new Blob([''],{type:'text/plain'}));msg('견적서를 만들지 못했어요. 다시 눌러 주세요.')}
   finally{b.disabled=false}};
 $('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});
@@ -1555,12 +1558,35 @@ const QSIDE='woomyvesta-qside';let qsOpen='';try{qsOpen=localStorage.getItem(QSI
 const QS_ICON={cart:'<path d="M3 4h2l2.4 10.2a1.5 1.5 0 0 0 1.5 1.1h8.3a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
   truck:'<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17.5" cy="17.5" r="1.6"/>',
   quote:'<path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/>',
+  issued:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/>',
   won:'<path d="M4 6l4 13 4-11 4 11 4-13M3 11h18M3 15h18"/>'};
 let qqAll=null;
 const QS_KINDS=[{id:'buy',kind:'구매대행 미구매',label:'구매',title:'구매대행 요청 미이행',icon:'cart'},
   {id:'ship',kind:'배송비 미입금',label:'배송비',title:'출고된 가구 · 배송비 확인 필요',icon:'truck'},
   {id:'pay',kinds:['구매대행 입금 확인','배송비 입금 확인'],label:'미입금',title:'견적 후 입금 대기',icon:'won'},   // 머큐리 dropped 구매대행 견적 미입금 (user, 11/01): it lives here
-  {id:'quote',kind:'견적 미구매',label:'견적',title:'카카오 견적 후 미구매',icon:'quote',quiet:true}];
+  {id:'quote',kind:'견적 미구매',label:'견적',title:'카카오 견적 후 미구매',icon:'quote',quiet:true},
+  {id:'issued',kind:'-',label:'발행',title:'발행한 견적서',icon:'issued'}];
+// 발행 tab of the rail (user, 11/02): 구매·배송비 견적서 issued, from the vault (quote_history.py, every publish) plus what this browser issued since.
+const QI={type:'',q:'',shown:50},QIKEY='woomyvesta-qissued';
+const qiLocal=()=>{try{return JSON.parse(localStorage.getItem(QIKEY)||'[]')}catch{return []}};
+function qissuedAdd(){const d=qdetail(),L=qiLocal().filter(x=>x.no!==Q.no);L.unshift({no:Q.no,at:new Date().toISOString(),type:Q.type,to:d.to,total:d.total,paid:false,sheet:'',detail:d});
+  try{localStorage.setItem(QIKEY,JSON.stringify(L.slice(0,30)))}catch{}safe(renderQSide)}
+function qiAll(){const seen=new Map();for(const x of [...qiLocal(),...(D.quoteHistory||[])]){const o=seen.get(x.no);if(!o)seen.set(x.no,x);else seen.set(x.no,{...x,...o,paid:o.paid||x.paid,sheet:x.sheet||o.sheet})}
+  return [...seen.values()].sort((a,b)=>String(b.at).localeCompare(String(a.at)))}
+function qiRows(){const w=QI.q.trim().toLowerCase(),A=qiAll(),f=A.filter(x=>(!QI.type||x.type===QI.type)&&(!w||[x.no,x.to,...((x.detail||{}).items||[]).map(i=>i.title),...((x.detail||{}).lines||[]).map(l=>l[0])].join(' ').toLowerCase().includes(w))),
+    when=t=>{const d=new Date(t);return isNaN(d)?'':d.toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})};
+  const lines=x=>{const d=x.detail||{},L=[...(d.items||[]).filter(i=>i.title||i.price).map(i=>`${i.title||'상품'} × ${i.qty||1}${i.price?` · ${yen(i.price)}`:''}`),...(d.lines||[]).filter(l=>l[0]).map(l=>`${l[0]}${l[2]!==''&&l[2]!=null?` · ₩${won(l[2])}${(qnum(l[1])||1)>1?` × ${l[1]}`:''}`:''}`)];return L.map(t=>`<div>${esc(t)}</div>`).join('')};
+  return `<p class="muted small q-qqcount">${f.length.toLocaleString()}건</p>`+(f.length?f.slice(0,QI.shown).map(x=>`<div class="q-drawrow"><div class="q-drawtop"><b>${esc(x.to||'')}</b><span class="pill q-qqst q-qqst-${x.type==='구매'?2:0}">${esc(x.type)}</span>${x.paid?'<span class="pill q-qqst q-qipaid">입금 확인</span>':''}<span class="num">₩${won(x.total||0)}</span></div>`+
+    `<div class="muted small">${esc(x.no)} · ${esc(when(x.at))}${x.sheet?` · 출고정리 ${esc(x.sheet)}`:''}</div><details class="q-past"><summary>견적 내용</summary><div>${lines(x)||'내용 기록이 없어요'}</div></details>`+
+    `<div class="q-drawbtns"><button type="button" class="mini" data-qiload="${esc(x.no)}" title="이 견적을 왼쪽 입력칸으로 불러와요. 고치면 같은 견적번호로 저장돼요.">불러오기</button></div></div>`).join('')+
+    (f.length>QI.shown?`<button type="button" class="btn small-btn q-qqmore" data-qimore>더 보기 (${(f.length-QI.shown).toLocaleString()}건 남음)</button>`:''):'<p class="muted small q-drawempty">조건에 맞는 견적서가 없어요.</p>')}
+function qiBody(){return `<div class="q-qqbar"><input id="qiSearch" type="search" placeholder="이름 · 견적번호 · 상품 검색" value="${esc(QI.q)}" autocomplete="off"><div class="q-qqchips">${[['','전체'],['구매','구매 견적서'],['배송','배송비 견적서']].map(([v,t])=>`<button type="button" class="chip${QI.type===v?' on':''}" data-qit="${v}">${t}</button>`).join('')}</div></div><div id="qiList">${qiRows()}</div>`}
+function qiLoad(no){const x=qiAll().find(y=>y.no===no),d=x&&x.detail;if(!d||!(d.lines||d.items)){toast('불러올 내용이 없어요.');return}
+  if((Q.items.length||(Q.lines[Q.type]||[]).length)&&Q.no!==no&&!confirm(`지금 작성 중인 내용 대신 ${no} 견적을 불러올까요?`))return;
+  Q.type=x.type;Q.no=x.no;Q.items=(d.items||[]).map(i=>({...i}));Q.lines={...Q.lines,[x.type]:(d.lines||[]).map(l=>[...l])};$('#qTo').value=x.to||'';Q.ship=[];
+  document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));
+  if(x.type==='배송')for(const o of d.orders||[]){const r=(SQ().recent||[]).find(y=>y.order===o);if(r){const b=qsBox(r);Q.ship.push({order:o,date:r.date,item:r.buyItem||r.item,kg:r.kg,boxes:r.boxes||1,dims:b.d.join('×'),dimsWhy:b.why,re:0,reWhy:'',region:r.region||'수도권',hbl:r.hbl||'',courier:r.courier||'',courierNo:r.courierNo||'',fix:qsFixed(r)})}}
+  qsyncSig=qshipSig();qsFold();qeditors();qsave();toast(`${no} 견적을 불러왔어요.`)}
 // 견적 tab of the rail: every Kakao chat where we quoted and nothing was bought (vesta-tools/kakao_quoted.py, user 11/01). A long list, so it
 // has status and period filters, a search box and 더 보기.
 const QQ={status:'',days:0,q:'',shown:50},QQ_STATUS=['답장 없음','고민 중','고객 답변 후 멈춤','취소·거절'],QQ_DAYS=[[30,'30일'],[90,'90일'],[365,'1년'],[0,'전체']];
@@ -1576,17 +1602,17 @@ function qqBody(list){return `<div class="q-qqbar"><input id="qqSearch" type="se
   `<div class="q-qqchips">${QQ_DAYS.map(([v,t])=>`<button type="button" class="chip${QQ.days===v?' on':''}" data-qqd="${v}">${t}</button>`).join('')}</div></div><div id="qqList">${qqRows(list)}</div>`}
 function renderQSide(){
   if(!D)return;const M=mData(),items=[...((M&&M.items)||[]),...((M&&M.qonly)||[])],body=$('#qSideBody');   // the side panel keeps the full list: Mercury's urgent items + what Mercury's stricter rules leave out (qonly/quiet)
-  const groups=QS_KINDS.map(g=>({...g,list:items.filter(i=>(g.kinds||[g.kind]).includes(i.kind))}));
+  const groups=QS_KINDS.map(g=>({...g,list:g.id==='issued'?qiAll():items.filter(i=>(g.kinds||[g.kind]).includes(i.kind))}));
   if(qsOpen&&!groups.some(g=>g.id===qsOpen))qsOpen='';
   $('#qRail').innerHTML=groups.map(g=>`<button type="button" class="q-railbtn${qsOpen===g.id?' on':''}" data-qs="${g.id}" aria-expanded="${qsOpen===g.id}" title="${esc(g.title)}">`+
-    `<span class="q-railicon"><svg viewBox="0 0 24 24" aria-hidden="true">${QS_ICON[g.icon]}</svg>${g.list.length?`<b class="${g.quiet?'q-railquiet':''}">${g.list.length>999?'999+':g.list.length}</b>`:''}</span><span>${esc(g.label)}</span></button>`).join('');
+    `<span class="q-railicon"><svg viewBox="0 0 24 24" aria-hidden="true">${QS_ICON[g.icon]}</svg>${g.list.length&&g.id!=='issued'?`<b class="${g.quiet?'q-railquiet':''}">${g.list.length>999?'999+':g.list.length}</b>`:''}</span><span>${esc(g.label)}</span></button>`).join('');
   const g=groups.find(x=>x.id===qsOpen);$('#qSide').classList.toggle('open',!!g);body.hidden=!g;
   if(!g)return;
   qsPlace();
   const won=v=>v!=null&&v!==''?'₩'+Number(v).toLocaleString():'';
   const sc=(body.querySelector('.q-drawin')||{}).scrollTop||0;qqAll=g.id==='quote'?g.list:null;
   body.innerHTML=QS_GRIPS+`<div class="q-drawin"><div class="q-drawhead"><b>${esc(g.title)}</b><span class="muted small">${g.list.length.toLocaleString()}건</span></div>`+
-    (g.id==='quote'?qqBody(g.list):g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
+    (g.id==='issued'?qiBody():g.id==='quote'?qqBody(g.list):g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
       `<div class="small">${esc(i.issue||'')}</div>${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}`+
       `<div class="q-drawbtns">${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'')}${mBtn(i)}</div></div>`}).join('')
       :'<p class="muted small q-drawempty">지금은 확인할 건이 없어요.</p>')+qsLater(M,g)+
@@ -1618,7 +1644,7 @@ $('#qSide').addEventListener('pointerdown',e=>{const g=e.target.closest('[data-g
     const f=$('.q-form').getBoundingClientRect(),sr=$('#qSide').getBoundingClientRect(),r=d.getBoundingClientRect();
     try{localStorage.setItem(QSIZE,JSON.stringify({x:Math.round(r.left-f.left),y:Math.round(r.top-f.top),w:Math.round(r.width),h:Math.round(r.height)}))}catch{}};
   addEventListener('pointermove',move);addEventListener('pointerup',up)});
-$('#qSide').addEventListener('input',e=>{if(e.target.id==='qqSearch'&&qqAll){QQ.q=e.target.value;QQ.shown=50;$('#qqList').innerHTML=qqRows(qqAll)}});   // only the rows: the box keeps focus
+$('#qSide').addEventListener('input',e=>{if(e.target.id==='qiSearch'){QI.q=e.target.value;QI.shown=50;$('#qiList').innerHTML=qiRows();return}if(e.target.id==='qqSearch'&&qqAll){QQ.q=e.target.value;QQ.shown=50;$('#qqList').innerHTML=qqRows(qqAll)}});   // only the rows: the box keeps focus
 $('#qSide').addEventListener('click',e=>{
   const r=e.target.closest('[data-qs]');if(r){qsOpen=qsOpen===r.dataset.qs?'':r.dataset.qs;try{localStorage.setItem(QSIDE,qsOpen)}catch{}safe(renderQSide);return}
   const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
@@ -1626,6 +1652,9 @@ $('#qSide').addEventListener('click',e=>{
   const mu=e.target.closest('[data-mundo]');if(mu){mSetMark(mu.dataset.mundo,false,'');return}
   const qs=e.target.closest('[data-qqs]'),qd=e.target.closest('[data-qqd]');
   if(qs||qd){if(qs)QQ.status=qs.dataset.qqs;else QQ.days=Number(qd.dataset.qqd);QQ.shown=50;safe(renderQSide);return}
+  const qit=e.target.closest('[data-qit]');if(qit){QI.type=qit.dataset.qit;QI.shown=50;safe(renderQSide);return}
+  if(e.target.closest('[data-qimore]')){QI.shown+=50;$('#qiList').innerHTML=qiRows();return}
+  const ql=e.target.closest('[data-qiload]');if(ql){qiLoad(ql.dataset.qiload);return}
   if(e.target.closest('[data-qqmore]')){QQ.shown+=50;if(qqAll)$('#qqList').innerHTML=qqRows(qqAll);return}
   if(e.target.closest('[data-qsgo]'))setTab('mercury',true)});
 // the list floats over the form: a click elsewhere or Esc folds it back

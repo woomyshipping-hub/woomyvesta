@@ -205,32 +205,6 @@ th[data-sort="asc"]::before{content:'▲ ';font-size:var(--fs-xs);color:var(--bl
 table.sheet td.kmsg{min-width:240px;max-width:clamp(260px,30vw,460px);white-space:normal;overflow-wrap:anywhere;line-height:1.45}
 tr.late td:first-child{box-shadow:inset 3px 0 var(--bad)}
 
-/* AI insight card */
-.insight .ai-tag{display:inline-block;font-size:var(--fs-xs);font-weight:800;letter-spacing:.04em;padding:2px 7px;border-radius:6px;margin-right:6px;vertical-align:2px;background:linear-gradient(135deg,var(--blue),#a36bff);color:#fff}
-.ki-summary{margin:12px 0 4px;padding-left:20px;line-height:1.6}
-.ki-summary li{margin:4px 0}
-.ki-h{font-size:var(--fs-body);margin:20px 0 4px}
-table.ki-topics{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
-table.ki-topics th{text-align:left;font-size:var(--fs-xs);color:var(--muted);font-weight:600;padding:8px;border-bottom:1px solid var(--line)}
-table.ki-topics td{padding:10px 8px;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
-table.ki-topics td:first-child{white-space:nowrap}
-table.ki-topics td.num{white-space:nowrap}
-table.ki-topics td:nth-child(3){min-width:180px;max-width:280px}
-table.ki-topics td:last-child{min-width:260px}
-.ki-row{cursor:pointer}
-.ki-row:hover,.ki-row.on{background:var(--blue-soft)}
-.ki-actions{margin:8px 0 0;padding-left:22px;line-height:1.55}
-.ki-actions li{margin:8px 0}
-.ki-actions .pill{font-size:var(--fs-xs);margin-left:4px}
-@media (max-width:1000px){
-  table.ki-topics thead{display:none}
-  table.ki-topics tr{display:grid;grid-template-columns:1fr auto;gap:6px 12px;padding:12px 8px;border-bottom:1px solid var(--line)}
-  table.ki-topics td{border:0;padding:0;min-width:0!important;max-width:none!important}
-  table.ki-topics td:nth-child(3),table.ki-topics td:nth-child(5){grid-column:1/-1}
-  table.ki-topics td:nth-child(4){grid-row:1;grid-column:2}
-  table.ki-topics td.num{grid-row:2;grid-column:1}
-}
-
 /* AI suggested replies */
 td.kact{white-space:nowrap}
 .kd-btn.on{background:var(--blue);color:#fff;border-color:var(--blue)}
@@ -743,7 +717,7 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 :focus-visible{outline:3px solid var(--blue);outline-offset:2px}
 /* headings and small text */
 #app .card h2{font-size:var(--fs-h2);font-weight:750}#app .card h2 .small{font-size:var(--fs-sm)}
-h2{font-size:var(--fs-h2)}.ki-h{font-size:17px;font-weight:750}
+h2{font-size:var(--fs-h2)}
 .small,.muted.small{font-size:var(--fs-sm)}#app #rules,#app #count{font-size:var(--fs-sm)}
 footer,#app footer{font-size:var(--fs-sm);color:var(--muted)}
 .q-form .small{font-size:var(--fs-sm)}
@@ -793,10 +767,9 @@ table.sheet tbody tr:nth-child(even){background:var(--zebra)}table.sheet tbody t
 .tablewrap.sheet{border-color:var(--edge)}
 .thnote{font-size:var(--fs-xs);color:var(--muted);font-weight:500}
 th[data-sort="asc"]::before,th[data-sort="desc"]::before{font-size:11px}
-table.ki-topics{font-size:var(--fs-sm)}table.ki-topics th{font-size:var(--fs-xs);color:var(--ink);font-weight:700;background:var(--th)}
 /* status badges: tinted background + dark text, plus a border so the color is never the only cue */
 .pill{font-size:var(--fs-xs);font-weight:650;padding:3px 10px;background:var(--bg);color:var(--ink);border:1px solid var(--line)}
-table.sheet .pill{font-size:var(--fs-xs);padding:2px 9px}.ki-actions .pill{font-size:var(--fs-xs)}
+table.sheet .pill{font-size:var(--fs-xs);padding:2px 9px}
 .pill.s0{background:var(--bg);border-color:var(--edge)}.pill.s1,.pill.s2,.pill.s3{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}.pill.s4{background:var(--good-soft);color:var(--good);border-color:var(--good)}
 .pill.k-customs{background:var(--bad-soft);border-color:var(--bad)}.pill.k-handover{background:var(--warn-soft);border-color:var(--warn)}.pill.k-domestic{background:var(--blue-soft);border-color:var(--blue)}.pill.k-delivered{background:var(--good-soft);border-color:var(--good)}.pill.k-unknown{border-color:var(--edge)}
 .tag{font-size:var(--fs-xs);padding:0 6px;border-color:var(--edge);color:var(--ink)}
@@ -811,7 +784,7 @@ table.sheet .pill{font-size:var(--fs-xs);padding:2px 9px}.ki-actions .pill{font-
 .bl{background:var(--bad-solid)}
 #count .daychip{background:var(--blue-soft);color:var(--blue)}
 /* AI tag and 견적서 rail */
-.insight .ai-tag,.mercury .ai-tag,.ai-tag{font-size:var(--fs-xs);background:var(--blue-solid);color:var(--on-solid)}
+.mercury .ai-tag,.ai-tag{font-size:var(--fs-xs);background:var(--blue-solid);color:var(--on-solid)}
 .q-rail{width:76px}.q-railbtn{font-size:var(--fs-xs);color:var(--ink);font-weight:600}.q-railbtn.on{background:var(--blue-soft);color:var(--blue)}
 .q-railicon b{top:-9px;right:-14px;min-width:20px;height:20px;line-height:20px;background:var(--bad-solid);color:var(--on-solid);font-size:var(--fs-xs)}
 .q-railicon b.q-railquiet{background:var(--muted);color:var(--card)}
@@ -876,3 +849,9 @@ table.sheet td.alertline.k-customs,table.sheet td.alertline.k-handover{font-weig
 #app #kTable :is(th,td):is(:nth-child(1),:nth-child(2)),#app #mCards table.sheet :is(th,td):first-child,#app #mTable :is(th,td):first-child{text-align:center}
 @media(max-width:720px){#app .card{padding:18px 16px}}
 .qs-fix{display:flex;gap:5px;margin-bottom:4px;min-width:210px}.qs-fix select{flex:1;min-width:0;font-size:12px;padding:6px}.qs-fix input{width:44px}
+.q-qipaid{background:var(--good-soft);color:var(--good)}
+.sg-legend{display:flex;gap:16px;margin:12px 0;font-size:var(--fs-sm)}.sg-legend span{display:inline-flex;align-items:center;gap:6px}.sg-legend i{width:12px;height:12px;border-radius:3px;display:block}
+.sg-bars{display:grid;gap:2px}.sg-row{all:unset;box-sizing:border-box;display:grid;grid-template-columns:120px minmax(0,1fr) 190px;gap:12px;align-items:center;padding:7px 6px;border-radius:8px;cursor:pointer;font-size:var(--fs-sm)}.sg-row:hover,.sg-row:focus-visible{background:var(--zebra)}
+.sg-bar{display:flex;gap:2px;height:20px}.sg-bar i{display:block;min-width:4px;border-radius:4px}.sg-ok{background:var(--good-solid,var(--good))}.sg-late{background:var(--bad-solid,var(--bad))}.sg-none{flex:1;background:var(--line)}
+.sg-name{font-weight:600}.sg-val{text-align:right;white-space:nowrap}.sg-val b.bad{color:var(--bad)}#stageNote{margin:12px 0 0}
+@media(max-width:620px){.sg-row{grid-template-columns:minmax(0,1fr) auto}.sg-bar{grid-column:1/-1;grid-row:2}}
