@@ -188,7 +188,8 @@ setInterval(()=>{if(typeof D!=='undefined'&&D)safe(staleCheck)},5*60e3);
 // Mercury's last check for 머큐리; 견적서 has none (it is written on the spot).
 // 운송사 bar on 배송 현황: 전체 · 팬스타 (해운) · 나르다 (항공, o.route 'NARDA AIR'); the page always opens on 전체.
 let routeF='';
-const inRoute=o=>!routeF||(routeF==='narda')===!!o.route;
+// a search always looks through every order: the bar sits in a card that hides when it holds no match
+const inRoute=o=>!routeF||!!$('#gq').value.trim()||(routeF==='narda')===!!o.route;
 function routeBar(){const n=D.orders.filter(o=>o.route).length,all=D.orders.length;
   $('#routeBar').innerHTML=[['','전체',all],['pansta','🚢 팬스타 · 해운',all-n],['narda','✈ 나르다 · 항공',n]]
     .map(([k,l,c])=>`<button type="button" class="rbtn${routeF===k?' on':''}" data-route="${k}" role="tab" aria-selected="${routeF===k}">${l} <b>${c.toLocaleString()}</b></button>`).join('')}
@@ -927,7 +928,7 @@ function qkrw(){const m=Object.fromEntries(qrows().map(x=>[x.k,x]));
   document.querySelectorAll('#qTable tr[data-qi]:not(.q-sub) [data-f="note"]').forEach(el=>{const it=Q.items[+el.closest('tr').dataset.qi];if(it)el.placeholder=qnum(it.price)?yen(it.price):'비고'});
   for(const [k,f] of [['ship',qship],['fee',qfee]]){const tr=document.querySelector(`#qTable tr[data-qa="${k}"]`);if(!tr)continue;const v=f();
     tr.querySelector('[data-f="'+k+'"]').placeholder=v.auto?'자동 '+v.auto.toLocaleString():k==='ship'?'모름':'자동';tr.querySelector('[data-f="'+k+'Note"]').placeholder=v.autoNote||''}}
-function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,...x})=>x),lines:Q.lines,no:Q.no,adj:Q.adj,ship:Q.ship||[],
+function qsave(){try{localStorage.setItem(QKEY,JSON.stringify({type:Q.type,items:Q.items.map(({state,msg,shipPending,...x})=>x),lines:Q.lines,no:Q.no,adj:Q.adj,ship:Q.ship||[],
   to:$('#qTo').value,links:$('#qLinks').value,grade:$('#qGrade').value,rate:$('#qRate').value,rateManual:Q.rateManual}))}catch{}}
 function qreset(keepType){Q.items=[];Q.adj=QADJ();Q.ship=[];Q.lines={'구매':QLINES['구매'].map(l=>[...l]),'배송':QLINES['배송'].map(l=>[...l])};Q.no='';
   $('#qTo').value='';$('#qLinks').value='';$('#qAutoMsg').textContent='';$('#qMakeMsg').textContent='';if(!keepType)Q.type='구매';
@@ -947,7 +948,7 @@ function qinit(){if(qinit.done||!D)return;qinit.done=true;
 // A link it cannot read (메루카리·아마존) waits for Claude on the Mac, polled every 5 s for up to 15 minutes. While a link
 // is out, its row shows a live timer and how long that step usually takes; only the status text is redrawn, so typing in
 // the other fields is not interrupted.
-const QWAIT={read:[3,15,'쇼핑몰 페이지를 읽는 중'],claude:[60,180,'Claude가 링크를 열어 확인하는 중'],ship:[60,180,'Claude가 상세페이지에서 현지배송비 확인 중']};
+const QWAIT={read:[3,15,'쇼핑몰 페이지를 읽는 중'],claude:[60,180,'Claude가 링크를 열어 확인하는 중']};
 const mmss=s=>s>=60?`${Math.floor(s/60)}분`+(s%60?` ${s%60}초`:''):`${s}초`;
 // While links are out, a model of each product's type (made in Blender: vesta-tools/quote-models.blend -> models/*.glb)
 // turns slowly in the middle of the screen. The type comes from words in the link and product name; anything else is a
@@ -1055,21 +1056,40 @@ async function qfetchLink(it){
     if(!r.ok)throw Error(r.error||'fail');
     if(r.status==='자동완료'&&r.result)return qfill(it,r.result);
     // 가격완료: the price is in now; Claude still opens the detail page for its 送料 (and any 수량별 rule)
-    if(r.status==='가격완료'&&r.result){qfill(it,r.result);Object.assign(it,{state:'wait',step:'ship',t0:Date.now(),pre:`✓ 현재 가격 ${yen(r.result.price)} · `})}
-    else{if(r.result?.title)it.hint=r.result.title;   // the script found the name but no price: the 3D model can match it now
-      Object.assign(it,{step:'claude',t0:Date.now()})}
+    // Staff are not held up by it (user, 11/01): the row is done now and 현지배송비 arrives in the background (qshipWatch).
+    if(r.status==='가격완료'&&r.result){qfill(it,r.result);if(it.state==='ok')qshipWatch(it,at);return}
+    if(r.result?.title)it.hint=r.result.title;   // the script found the name but no price: the 3D model can match it now
+    Object.assign(it,{step:'claude',t0:Date.now()});
     qtick();
     for(;Date.now()-it.t0<15*60e3;){await new Promise(z=>setTimeout(z,5000));
       let q;try{q=await (await fetch(`${D.smsIntake}?action=quoteStatus&at=${encodeURIComponent(at)}`)).json()}catch{continue}
       if(q.status==='완료'&&q.result)return qfill(it,q.result);
       if(q.result?.title)it.hint=q.result.title;
       if(/^실패/.test(q.status||'')){const why=q.status.replace(/^실패:?\s*/,'');
-        if(it.step==='ship'){it.state='ok';it.msg=`✓ 현재 가격 ${yen(it.price)} · 현지배송비는 읽지 못했어요 (${why}). 직접 확인해 주세요.`}
-        else{it.state='fail';it.msg=`읽지 못했어요 (${why}). 직접 입력해 주세요.`}qeditors();return}}
-    if(it.step==='ship'){it.state='ok';it.msg=`✓ 현재 가격 ${yen(it.price)} · 현지배송비는 15분 동안 답이 없어 직접 확인해 주세요.`;qeditors();return}
+        it.state='fail';it.msg=`읽지 못했어요 (${why}). 직접 입력해 주세요.`;qeditors();return}}
     it.state='fail';it.msg='15분 동안 답이 없어요. Claude가 꺼져 있을 수 있어요 — 직접 입력해 주세요.';qeditors()}
   catch(e){it.state='fail';it.msg=/invalid|no intake/.test(e.message)?'자동 견적 접수창구가 아직 연결되지 않았어요. 직접 입력해 주세요.':'링크를 보내지 못했어요. 직접 입력해 주세요.';qeditors()}
   finally{qtick()}}
+// 현지배송비 for a row that is already done: Claude reads the detail page while staff carry on, and what it finds fills the row
+// unless staff changed that row or the quote was already made (the numbers on a quote sent out must not move by themselves).
+async function qshipWatch(it,at){const t0=Date.now(),ship0=it.ship,price0=it.price,base=`✓ 현재 가격 ${yen(it.price)}`;
+  Object.assign(it,{shipPending:true,msg:`${base} · 현지배송비 확인 중${qnum(it.ship)!=null?` (지금은 지난 값 ${yen(it.ship)})`:''}: 도착하면 자동으로 채워요. 기다리지 않아도 돼요.`});qeditors();
+  const end=m=>{it.shipPending=false;if(m)it.msg=m;qmakeArm(false);qeditorsIdle()};
+  for(;Date.now()-t0<15*60e3;){await new Promise(z=>setTimeout(z,5000));if(!Q.items.includes(it))return;
+    let q;try{q=await (await fetch(`${D.smsIntake}?action=quoteStatus&at=${encodeURIComponent(at)}`)).json()}catch{continue}
+    if(/^실패/.test(q.status||''))return end(`${base} · 현지배송비는 읽지 못했어요 (${q.status.replace(/^실패:?\s*/,'')}). 직접 확인해 주세요.`);
+    if(q.status!=='완료'||!q.result)continue;
+    const r=q.result,found=r.ship!=null?`현지배송비 ${yen(r.ship)}`:'현지배송비 금액 없음',note=r.shipNote?` (${r.shipNote})`:'';
+    if(Q.no||String(it.ship)!==String(ship0)||String(it.price)!==String(price0))
+      return end(`${base} · 확인 결과 ${found}${r.price&&r.price!==price0?` · 상품가 ${yen(r.price)}`:''}${note}. ${Q.no?'이미 만든 견적서':'직접 고친 값'}은 그대로 뒀어요. 다르면 고쳐 주세요.`);
+    Object.assign(it,{hs:r.hs??it.hs,price:r.price??it.price,ship:r.ship??it.ship,shipRule:r.shipRule??it.shipRule});qsave();
+    return end(`${base}${r.price&&r.price!==price0?` → 재확인 ${yen(r.price)}`:''} · ${found}${note}`)}
+  if(Q.items.includes(it))end(`${base} · 현지배송비는 15분 동안 답이 없어 직접 확인해 주세요.`)}
+// A row filled in the background must not take the cursor from a cell staff are typing in.
+function qeditorsIdle(){if($('#qTable').contains(document.activeElement)){setTimeout(qeditorsIdle,2000);return}qeditors()}
+// [견적서 제작] with 현지배송비 still being read: the first press warns, the second makes it (a fresh click, which the clipboard needs).
+const QMAKE_LABEL=$('#qMake').textContent;
+function qmakeArm(on){const b=$('#qMake');if(!on&&b.dataset.warned)$('#qMakeMsg').textContent='';b.dataset.warned=on?'1':'';b.textContent=on?'현지배송비 미확인 · 그래도 제작':QMAKE_LABEL}
 // Shop titles are long keyword lists ("ソファー ウレタンソファー 1人掛け 2人掛け …"). The quote gets a short name: brackets,
 // shop suffixes and "1円" openers dropped, then the model number (letters + digits, e.g. SFA-33GY, DW-5600) with the first
 // words around it, at most ~28 characters. Staff can still edit it; the full title stays in it.fullTitle.
@@ -1170,7 +1190,9 @@ function qmsg(total,pages){const no=Q.no,amt=`₩${won(total)}`,many=pages>1?`\n
 $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textContent=t;
   if(!$('#qTo').value.trim()){msg('수신(고객 이름)을 먼저 넣어 주세요.');$('#qTo').focus();return}
   if(!qrows().length){msg('견적 항목이 없어요.');return}
-  b.disabled=true;
+  const unread=Q.items.filter(x=>x.shipPending).length;
+  if(unread&&!b.dataset.warned){qmakeArm(true);msg(`상품 ${unread}개의 현지배송비를 아직 확인 중이에요. 기다리거나, 그대로 만들려면 한 번 더 눌러 주세요.`);return}
+  qmakeArm(false);b.disabled=true;
   // the clipboard write starts inside the click (browsers need that); its text follows once the 견적번호 is known
   let give;const text=new Promise(r=>give=r);
   const copy=navigator.clipboard.write([new ClipboardItem({'text/plain':text})]).then(()=>true,()=>false);
