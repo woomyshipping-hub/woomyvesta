@@ -863,4 +863,16 @@ table.sheet td.alertline.k-customs,table.sheet td.alertline.k-handover{font-weig
 .m-b,.m-b.hot{box-shadow:none;animation:none}
 #app .vesta-myth,.vesta-myth{background:linear-gradient(135deg,#21140f,#3f2015 60%,#5c2e18)}#app .vesta-myth p{color:#e0cfc2}#app .vesta-myth h2{color:#f2e8e0}.vesta-myth .tag{color:#e6d3c3}
 .q-side.open::after{background:#0f142099}
+/* 카드·박스 정렬 (user, 2026-11-01): one gap, one corner, one card edge; columns line up with their headers and long text reads from the left */
+#app .kpis{gap:16px}#app .kpi,#app .card,#app .vesta-myth,.q-side,.q-drawer,.q-side.open .q-rail{border-radius:16px}
+#app .card{margin-top:16px;padding:24px}#app .vesta-myth{margin:0 0 16px}
+#app .tabs+.stale,#app #tabShip{margin-top:16px}
+#app .kpi{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.q-shell{gap:16px;margin-top:16px}.q-wrap{gap:16px}.q-preview{margin-top:0}
+.cus-cards,.more-grid{align-items:stretch}.q-grid{align-items:start}
+.cardhead{align-items:center}.m-card .cardhead{margin-bottom:12px}
+#mCards .m-card{margin-top:16px}
+#app #kTable :is(th,td),#app #mCards table.sheet :is(th,td),#app #mTable :is(th,td){text-align:left}
+#app #kTable :is(th,td):is(:nth-child(1),:nth-child(2)),#app #mCards table.sheet :is(th,td):first-child,#app #mTable :is(th,td):first-child{text-align:center}
+@media(max-width:720px){#app .card{padding:18px 16px}}
 .qs-fix{display:flex;gap:5px;margin-bottom:4px;min-width:210px}.qs-fix select{flex:1;min-width:0;font-size:12px;padding:6px}.qs-fix input{width:44px}
