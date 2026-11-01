@@ -896,7 +896,7 @@ function qsList(){const box=$('#qShipList'),C=qsCands();Q.ship=Q.ship||[];
       `<span class="small muted">${esc(r.date.slice(5))} 주문 · ${esc(r.order)} · ${r.kg}kg · ${r.boxes}박스 · ${esc(r.status)}${r.region?' · '+esc(r.region):''}</span></span></label>`}).join('')}
 function qsPick(order,on){const r=(SQ().recent||[]).find(x=>x.order===order);if(!r)return;Q.ship=(Q.ship||[]).filter(x=>x.order!==order);
   if(on){const bx=qsBox(r),rp=qsRepack(r);Q.ship.push({order,date:r.date,item:r.buyItem||r.item,kg:r.kg,boxes:r.boxes||1,dims:bx.d.join('×'),dimsWhy:bx.why,
-    re:rp.v,reWhy:rp.why,region:r.region||'수도권',hbl:r.hbl||'',courier:r.courier||''})}
+    re:rp.v,reWhy:rp.why,region:r.region||'수도권',hbl:r.hbl||'',courier:r.courier||'',courierNo:r.courierNo||''})}
   if(!Q.ship.length){Q.lines['배송']=[];Q.no='';qeditors()}   // nothing picked: the sample quote holds nothing either
   qsCalc();qsave()}
 function qsCalc(){const S=Q.ship||[];$('#qShipAuto').classList.toggle('hidden',!S.length);
@@ -1239,16 +1239,19 @@ function qdutyShow(){const box=$('#qDuty');if(!box)return;const d=Q.type==='구�
   $('#qDutyText').innerHTML=(d.free?`<b>전달 멘트 예상 관세: 면세 예상</b> (상품가+현지배송비 약 $${d.free.usd} · $${QD_FREE_USD} 이하, 과세하려면 관세율을 입력하세요)<br>`
     :`<b>전달 멘트 예상 관부가세: 세율 ${esc(d.rate)} · ₩${won(d.amount)}</b> (상품가 기준${qdUsd==null?' · 달러 환율을 못 불러와 면세 판단 안 함':''})<br>`)+
     d.rows.map(x=>`${esc(x.name)} · HS ${esc(x.hs||'미확인')}${x.what?` ${esc(x.what)}`:''} · 관세 ${x.duty}% · 근거 ${esc(x.from)}`).join('<br>')}
-// 배송비 견적서 멘트 (user, 11/01), the way staff write it after shipping. 예상도착일 = 1~2 영업일 after the next working day,
-// which matches what staff wrote (10/26 → 27~28일, 10/29 → 10/30~11/2).
+// 배송비 견적서 멘트 (user, 11/01), the way staff write it after shipping. 예상도착일 = 출고일 + 영업일 5~6일 (user); 출고일 = the picked
+// shipments' latest ERP 주문일자 (팬스타's 픽업일), or today when that estimate would already be over. Each shipment gets its own
+// line with its real courier and number: 경동 has its own numbers (courierNo), so the House number only stands in without one.
 const QHOLI=new Set(['2026-12-25','2027-01-01']);   // as vesta-tools/workdays.py
 const qbiz=d=>{const k=new Date(d.getTime()+9*36e5).toISOString().slice(0,10),w=d.getDay();return w!==0&&w!==6&&!QHOLI.has(k)};
 const qnextBiz=(d,n)=>{const x=new Date(d);for(let i=0;i<n;){x.setDate(x.getDate()+1);if(qbiz(x))i++}return x};
-function qarrive(now=new Date()){const base=qbiz(now)?now:qnextBiz(now,1),a=qnextBiz(base,1),b=qnextBiz(base,2);
+function qarrive(out=new Date()){const now=new Date();let a=qnextBiz(out,5),b=qnextBiz(out,6);
+  if(b<now){a=qnextBiz(now,5);b=qnextBiz(now,6)}
   return `${a.getMonth()+1}월${a.getDate()}일~${b.getMonth()===a.getMonth()?'':`${b.getMonth()+1}월`}${b.getDate()}일`}
-function qshipMsg(total,pages){const I=D.quoteInfo||{},bank=String(I.bank||''),S=Q.ship||[];
-  const ways=(S.length?S:[{}]).map(x=>`${x.courier&&!/CJ|대한/i.test(x.courier)?x.courier:'대한통운'} ${x.hbl||'(운송장번호)'} 으로 출고하였습니다`).join('\n');
-  return `안녕하세요 고객님\n${ways}\n\n예상도착일 : ${qarrive()}\n예상됩니다.\n\n소계 : ${won(total)}원${pages>1?`\n견적서가 ${pages}장이라 나누어 보내드립니다.`:''}\n\n아래로 이체 부탁드립니다\n${/[가-힣]/.test(bank)?bank:'국민 '+bank}\n예금주 : ${I.holder||''}`}
+const qcourier=c=>/CJ|대한/i.test(c)?'대한통운':/경동|KYUNG/i.test(c)?'경동택배':/일양|ILYANG/i.test(c)?'일양로지스':c||'(택배사)';
+function qshipMsg(total,pages){const I=D.quoteInfo||{},bank=String(I.bank||''),S=Q.ship||[],last=S.map(x=>x.date).filter(Boolean).sort().pop();
+  const ways=[...new Set((S.length?S:[{}]).map(x=>`${qcourier(x.courier)} ${x.courierNo||x.hbl||'(운송장번호)'} 으로 출고하였습니다`))].join('\n');
+  return `안녕하세요 고객님\n${ways}\n\n예상도착일 : ${qarrive(last?new Date(last+'T12:00:00+09:00'):new Date())}\n예상됩니다.\n\n소계 : ${won(total)}원${pages>1?`\n견적서가 ${pages}장이라 나누어 보내드립니다.`:''}\n\n아래로 이체 부탁드립니다\n${/[가-힣]/.test(bank)?bank:'국민 '+bank}\n예금주 : ${I.holder||''}`}
 function qmsg(total,pages){const no=Q.no,amt=`₩${won(total)}`,many=pages>1?`\n견적서가 ${pages}장이라 나누어 보내드립니다.`:'',I=D.quoteInfo||{},d=Q.type==='구매'?qduty():null,
     dline=d?`AI분석 예상 관세 : ${d.free?`면세 예상 ($${QD_FREE_USD} 이하)`:`세율 ${d.rate} - 금액 ${won(d.amount)}원`}\n(실제와 다를 수 있습니다)\n\n`:'';
   // the texts the user chose on 2026-10-30: 구매 = B 입금 안내형, 배송비 = A 입고 안내형
@@ -1290,7 +1293,7 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
     if(saved)await saved;
     const paNote=pa?(pa.ok?` · 페이액션 입금 대기 등록 (입금자명 ${pa.name})`:` · 페이액션 등록 안 됨 (${pa.error})`):'';
     msg(`견적번호 ${Q.no} · ${copied?'전달 멘트를 복사했어요 (카카오톡에 붙여넣기 ⌘V / Ctrl+V) · ':'멘트를 복사하지 못했어요 · '}`+
-      `견적서 이미지${pages>1?` ${pages}장을 파일 ${pages}개로`:`를 ${names[0]} 파일로`} 저장했어요. ${Q.type==='배송'?'이미지를 먼저 보내고 멘트를 붙여넣어 주세요.'+((Q.ship||[]).some(x=>!x.hbl)?' 운송장번호가 없는 건은 멘트에서 직접 넣어 주세요.':''):'멘트 다음에 이미지 파일을 보내 주세요.'}${paNote}`)}
+      `견적서 이미지${pages>1?` ${pages}장을 파일 ${pages}개로`:`를 ${names[0]} 파일로`} 저장했어요. ${Q.type==='배송'?'이미지를 먼저 보내고 멘트를 붙여넣어 주세요.'+((Q.ship||[]).some(x=>!x.hbl&&!x.courierNo||!x.courier)?' 택배사나 운송장번호를 못 찾은 건은 멘트에서 직접 넣어 주세요.':''):'멘트 다음에 이미지 파일을 보내 주세요.'}${paNote}`)}
   catch{give(new Blob([''],{type:'text/plain'}));msg('견적서를 만들지 못했어요. 다시 눌러 주세요.')}
   finally{b.disabled=false}};
 $('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});
