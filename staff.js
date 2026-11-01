@@ -1027,9 +1027,14 @@ async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
 // A quote saved in this browser before 11/01 still carries the old one-line 해외배송비 비고: the page restored it as it was, so it never changed.
 function qsNoteUp(L){(L||[]).forEach(l=>{const m=String(l[3]||'').match(/^W\/T ([\d.]+)kg · ¥([\d,]+) × ([\d.]+)원\/100엔 \((\d{4}-\d\d-\d\d)/);
   if(m)l[3]=`무게 : ${m[1]}kg\n해외배송비 : ¥${m[2]}\n환율 : ${(+m[3]).toLocaleString()}원 = 100엔\n(${m[4]})`})}
+// Same for shipments picked before the rules changed: they kept no courier or 정액 품목, and a box from the old weight curve (always 사이즈오버).
+function qsShipUp(S){(S||[]).forEach(x=>{const r=(SQ().recent||[]).find(y=>y.order===x.order);if(!r)return;
+  Object.assign(x,{hbl:r.hbl||x.hbl||'',courier:r.courier||x.courier||'',courierNo:r.courierNo||x.courierNo||''});if(!x.fix)x.fix=qsFixed(r);
+  if(/상품 사이즈를 몰라 박스당 무게/.test(x.dimsWhy||'')){const b=qsBox(r);x.dims=b.d.join('×');x.dimsWhy=b.why;x.sums=null}})}
 function qinit(){if(qinit.done||!D)return;qinit.done=true;qdLoadUsd();
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
   qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,no:s.no||'',adj:{...QADJ(),...s.adj},ship:s.ship||[]});
+    qsShipUp(Q.ship);
     qsNoteUp(Q.lines['배송']);$('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=['normal','biz','fix1500','fix2000'].includes(s.grade)?s.grade:'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave();qloadRate()}
 // One link -> 접수창구, which reads most shops itself in 3–15 s (the shop's own page speed: 라쿠텐 ~10 s, 이케아 ~3 s).
@@ -1549,10 +1554,12 @@ function renderMercury(){
 const QSIDE='woomyvesta-qside';let qsOpen='';try{qsOpen=localStorage.getItem(QSIDE)||''}catch{}
 const QS_ICON={cart:'<path d="M3 4h2l2.4 10.2a1.5 1.5 0 0 0 1.5 1.1h8.3a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
   truck:'<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17.5" cy="17.5" r="1.6"/>',
-  quote:'<path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/>'};
+  quote:'<path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/>',
+  won:'<path d="M4 6l4 13 4-11 4 11 4-13M3 11h18M3 15h18"/>'};
 let qqAll=null;
 const QS_KINDS=[{id:'buy',kind:'구매대행 미구매',label:'구매',title:'구매대행 요청 미이행',icon:'cart'},
   {id:'ship',kind:'배송비 미입금',label:'배송비',title:'출고된 가구 · 배송비 확인 필요',icon:'truck'},
+  {id:'pay',kinds:['구매대행 입금 확인','배송비 입금 확인'],label:'미입금',title:'견적 후 입금 대기',icon:'won'},   // 머큐리 dropped 구매대행 견적 미입금 (user, 11/01): it lives here
   {id:'quote',kind:'견적 미구매',label:'견적',title:'카카오 견적 후 미구매',icon:'quote',quiet:true}];
 // 견적 tab of the rail: every Kakao chat where we quoted and nothing was bought (vesta-tools/kakao_quoted.py, user 11/01). A long list, so it
 // has status and period filters, a search box and 더 보기.
@@ -1569,7 +1576,7 @@ function qqBody(list){return `<div class="q-qqbar"><input id="qqSearch" type="se
   `<div class="q-qqchips">${QQ_DAYS.map(([v,t])=>`<button type="button" class="chip${QQ.days===v?' on':''}" data-qqd="${v}">${t}</button>`).join('')}</div></div><div id="qqList">${qqRows(list)}</div>`}
 function renderQSide(){
   if(!D)return;const M=mData(),items=[...((M&&M.items)||[]),...((M&&M.qonly)||[])],body=$('#qSideBody');   // the side panel keeps the full list: Mercury's urgent items + what Mercury's stricter rules leave out (qonly/quiet)
-  const groups=QS_KINDS.map(g=>({...g,list:items.filter(i=>i.kind===g.kind)}));
+  const groups=QS_KINDS.map(g=>({...g,list:items.filter(i=>(g.kinds||[g.kind]).includes(i.kind))}));
   if(qsOpen&&!groups.some(g=>g.id===qsOpen))qsOpen='';
   $('#qRail').innerHTML=groups.map(g=>`<button type="button" class="q-railbtn${qsOpen===g.id?' on':''}" data-qs="${g.id}" aria-expanded="${qsOpen===g.id}" title="${esc(g.title)}">`+
     `<span class="q-railicon"><svg viewBox="0 0 24 24" aria-hidden="true">${QS_ICON[g.icon]}</svg>${g.list.length?`<b class="${g.quiet?'q-railquiet':''}">${g.list.length>999?'999+':g.list.length}</b>`:''}</span><span>${esc(g.label)}</span></button>`).join('');
@@ -1590,7 +1597,7 @@ function renderQSide(){
 let qsDragEnd=0;   // a corner drag that ends outside the list must not count as a click outside it
 // 임시 확인 under each list: what was parked with 내일 다시, when it comes back, and 지금 되돌리기
 const mLeftTxt=mk=>{const m=Math.max(0,Math.round(mLaterLeft(mk)/60e3));return m>=60?`${Math.floor(m/60)}시간 ${m%60}분 뒤`:`${m}분 뒤`};
-function qsLater(M,g){const L=((M&&M.later)||[]).filter(i=>i.kind===g.kind);if(!L.length)return '';
+function qsLater(M,g){const L=((M&&M.later)||[]).filter(i=>(g.kinds||[g.kind]).includes(i.kind));if(!L.length)return '';
   return `<div class="q-latersec"><div class="q-drawhead"><b>임시 확인</b><span class="muted small">${L.length}건</span></div>`+
     L.map(i=>`<div class="q-drawrow q-laterrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="muted small num">${mLeftTxt(i.mark)} 다시 알림</span></div>`+
       `<div class="small muted">${esc(i.issue||'')}</div><div class="q-drawbtns"><button type="button" class="mini" data-mundo="${esc(i.key)}" title="지금 바로 목록으로 돌려보내요">지금 되돌리기</button></div></div>`).join('')+'</div>'}
