@@ -81,8 +81,20 @@ document.addEventListener('click',e=>{const th=e.target.closest('th');if(!th||e.
   const table=th.closest('table');if(!table||!(table.id in sortBy))return;const col=th.cellIndex,st=sortBy[table.id];
   sortBy[table.id]=!st||st.col!==col?{col,dir:1}:st.dir>0?{col,dir:-1}:null;
   table.id==='alerts'?renderAlerts():table.id==='mTable'?safe(renderMercury):renderList()});
+// 운송사 buttons (전체 · 팬스타 해운 · 나르다 항공, o.route 'NARDA AIR'): one set inside 먼저 확인할 주문, counting only those
+// orders, and one inside 전체 주문, each filtering its own table. A search always looks through every order.
+let alertRoute='',listRoute='';
+const inRoute=(r,o)=>!r||!!$('#gq').value.trim()||(r==='narda')===!!o.route;
+function routeBar(el,scope,cur,rows){const n=rows.filter(o=>o.route).length,all=rows.length;
+  $(el).innerHTML=[['','전체',all],['pansta','🚢 팬스타 · 해운',all-n],['narda','✈ 나르다 · 항공',n]]
+    .map(([k,l,c])=>`<button type="button" class="rbtn${cur===k?' on':''}" data-route="${k}" data-rscope="${scope}" role="tab" aria-selected="${cur===k}">${l} <b>${c.toLocaleString()}</b></button>`).join('')}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(!b||!D)return;
+  if(b.dataset.rscope==='alert'){alertRoute=b.dataset.route;renderAlerts()}else{listRoute=b.dataset.route;renderList()}});
 function renderAlerts(){
-  const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>inRoute(o)&&o.alerts.length),dn=D.orders.filter(o=>inRoute(o)&&o.doneMark&&o._base.alerts.length);
+  const q=$('#gq').value.trim().toLowerCase(),allAl=D.orders.filter(o=>o.alerts.length),al=allAl.filter(o=>inRoute(alertRoute,o)),dn=D.orders.filter(o=>inRoute(alertRoute,o)&&o.doneMark&&o._base.alerts.length);
+  routeBar('#alertRoute','alert',alertRoute,allAl);
+  const kinds={};al.forEach(o=>{if(o.kind)kinds[o.kind]=(kinds[o.kind]||0)+1});
+  if(kindFilter&&kindFilter!=='done'&&!kinds[kindFilter])kindFilter='';
   if(kindFilter==='done'&&!dn.length)kindFilter='';
   const pick=()=>kindFilter==='done'?dn.filter(o=>matches(o,q)):al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
   let shown=pick();alertHits=q?al.filter(o=>matches(o,q)).length+dn.filter(o=>matches(o,q)).length:0;
@@ -90,7 +102,7 @@ function renderAlerts(){
   if(q&&!shown.length&&alertHits){kindFilter=al.some(o=>matches(o,q))?'':'done';shown=pick()}
   $('#alertCount').textContent=shown.length===al.length?`${al.length}건`:`${shown.length} / ${al.length}건`;
   $('#kindChips').innerHTML=`<button class="chip${kindFilter?'':' on'}" data-kind="">전체 ${al.length}</button>`+
-    Object.entries(KIND).filter(([k])=>D.kinds[k]).map(([k,[label,cls]])=>`<button class="chip ${cls}${kindFilter===k?' on':''}" data-kind="${k}">${esc(label)} ${D.kinds[k]}</button>`).join('')+
+    Object.entries(KIND).filter(([k])=>kinds[k]).map(([k,[label,cls]])=>`<button class="chip ${cls}${kindFilter===k?' on':''}" data-kind="${k}">${esc(label)} ${kinds[k]}</button>`).join('')+
     (dn.length?`<button class="chip k-done${kindFilter==='done'?' on':''}" data-kind="done" title="독차 등으로 직원이 완료로 넘긴 주문">✓ 완료 처리 ${dn.length}</button>`:'');
   if(kindFilter==='done')$('#alertCount').textContent=`완료 처리 ${shown.length}건`;
   shownAlerts=sorted(shown,'alerts');
@@ -101,8 +113,9 @@ let dayFilter='',listPage=1,listKey='';const PAGE=300;
 document.addEventListener('click',e=>{const b=e.target.closest('#pager [data-page]');if(!b||b.disabled)return;
   listPage=+b.dataset.page;renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 function renderList(){
-  const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value,rt=routeF;
-  const list=D.orders.filter(o=>inRoute(o)&&(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
+  const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value,rt=listRoute;
+  routeBar('#listRoute','list',listRoute,D.orders);
+  const list=D.orders.filter(o=>inRoute(listRoute,o)&&(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
   // 300 rows a page; a new search or filter starts again at page 1 (search and filters always look at every order)
   const key=[q,st,fl,rt,dayFilter].join('|');if(key!==listKey){listKey=key;listPage=1}
   const pages=Math.max(1,Math.ceil(list.length/PAGE));listPage=Math.min(listPage,pages);const from=(listPage-1)*PAGE;
@@ -123,13 +136,13 @@ function searchLayout(){
   hide($('#alertSec'),q&&!alertHits);hide($('#listSec'),q&&!listHits&&!!alertHits);
 }
 document.addEventListener('click',e=>{const b=e.target.closest('[data-day],[data-clearday]');if(!b)return;
-  dayFilter=b.dataset.day||'';if(b.dataset.day){$('#stage').value=b.dataset.st==='alert'?'':b.dataset.st;$('#flag').value=b.dataset.st==='alert'?'alert':''}
+  dayFilter=b.dataset.day||'';if(b.dataset.day){listRoute='';$('#stage').value=b.dataset.st==='alert'?'':b.dataset.st;$('#flag').value=b.dataset.st==='alert'?'alert':''}
   renderList();if(b.dataset.day)$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 document.addEventListener('click',e=>{const m=e.target.closest('[data-bmore]');if(!m)return;document.querySelectorAll('#batches .brow[hidden]').forEach(r=>r.hidden=false);m.remove()});
 document.addEventListener('click',e=>{const c=e.target.closest('[data-kind]');if(!c)return;kindFilter=c.dataset.kind;renderAlerts()});
 document.addEventListener('click',e=>{const k=e.target.closest('[data-go]');if(!k)return;const go=k.dataset.go;
-  if(go==='alert'){kindFilter='';renderAlerts();$('#alertSec').scrollIntoView({behavior:'smooth',block:'start'});return}
-  $('#stage').value=go;$('#flag').value='';dayFilter='';renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
+  if(go==='alert'){kindFilter='';alertRoute='';renderAlerts();$('#alertSec').scrollIntoView({behavior:'smooth',block:'start'});return}
+  $('#stage').value=go;$('#flag').value='';dayFilter='';listRoute='';renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 // A section that fails to draw is logged and skipped so the rest of the page still shows (see healthy()).
 const safe=f=>{try{f()}catch(e){console.error('[vesta]',e)}};
 // 완료 처리 (독차 등): staff mark an order the couriers cannot track as done. Marks are shared through the 접수창구
@@ -144,8 +157,7 @@ function applyMarks(){
     o._base??=o.manual?{alerts:o.manual.alerts,kind:o.manual.kind,stage:o.manual.stage}:{alerts:o.alerts,kind:o.kind,stage:o.stage};
     const m=oMarkOf(o);
     if(m&&m.done)Object.assign(o,{alerts:[],kind:'',stage:4,doneMark:m});else Object.assign(o,o._base,{doneMark:null})}
-  // the counts, 주문일별 진행 and lists follow the 운송사 bar (전체 / 팬스타 / 나르다)
-  const R=D.orders.filter(inRoute),cnt=f=>{const c={};R.forEach(o=>{const k=f(o);if(k)c[k]=(c[k]||0)+1});return c};
+  const R=D.orders,cnt=f=>{const c={};R.forEach(o=>{const k=f(o);if(k)c[k]=(c[k]||0)+1});return c};
   D.summary=cnt(o=>D.stages[o.stage]);D.kinds=cnt(o=>o.kind);D.alerts=R.filter(o=>o.alerts.length).length;
   const by={};R.forEach(o=>{const b=by[o.orderDate]??={orderDate:o.orderDate};b[D.stages[o.stage]]=(b[D.stages[o.stage]]||0)+1});
   D.batches=Object.values(by).sort((a,b)=>b.orderDate.localeCompare(a.orderDate))}
@@ -186,14 +198,6 @@ function staleCheck(){
 setInterval(()=>{if(typeof D!=='undefined'&&D)safe(staleCheck)},5*60e3);
 // The "… 기준" line beside the logo describes the open tab: ERP data for 배송 현황, the last Kakao refresh for 카카오 누락,
 // Mercury's last check for 머큐리; 견적서 has none (it is written on the spot).
-// 운송사 bar on 배송 현황: 전체 · 팬스타 (해운) · 나르다 (항공, o.route 'NARDA AIR'); the page always opens on 전체.
-let routeF='';
-// a search always looks through every order: the bar sits in a card that hides when it holds no match
-const inRoute=o=>!routeF||!!$('#gq').value.trim()||(routeF==='narda')===!!o.route;
-function routeBar(){const n=D.orders.filter(o=>o.route).length,all=D.orders.length;
-  $('#routeBar').innerHTML=[['','전체',all],['pansta','🚢 팬스타 · 해운',all-n],['narda','✈ 나르다 · 항공',n]]
-    .map(([k,l,c])=>`<button type="button" class="rbtn${routeF===k?' on':''}" data-route="${k}" role="tab" aria-selected="${routeF===k}">${l} <b>${c.toLocaleString()}</b></button>`).join('')}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(!b||!D)return;routeF=b.dataset.route;dayFilter='';render()});
 let curTab='ship';
 function updatedLine(){if(!D)return;
   const f=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}),K=D.kakao,M=D.mercury;
@@ -201,16 +205,16 @@ function updatedLine(){if(!D)return;
     curTab==='kakao'?(K?`· 카카오 상담 ${f(K.updatedAt)} 새로고침 기준 · 최근 ${K.windowDays}일 상담`:''):
     curTab==='mercury'?(M&&M.checkedAt?`· 머큐리 ${f(M.checkedAt)} 점검 기준`:''):''}
 function render(){
-  applyMarks();safe(staleCheck);safe(routeBar);
+  applyMarks();safe(staleCheck);
   safe(updatedLine);
   // Cards in the order staff should look at them; each jumps to the table holding those orders.
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
-    KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(routeF==='narda'&&D.stages[i]==='해운 출발'?'항공 출발':routeF===''&&D.stages[i]==='해운 출발'?'해운·항공 출발':D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
+    KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i]==='해운 출발'?'해운·항공 출발':D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
   $('#rules').textContent=`기준: 해운 출발 후 영업일로 +${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (+1일까지는 정상, 주말·공휴일 제외, ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
   safe(renderAlerts);safe(renderKakao);safe(renderMercury);safe(renderQSide);
   // 주문일별 진행: one stacked bar per order date (length = orders, color = stage), red badge = 확인 필요.
   const tot=b=>D.stages.reduce((a,s)=>a+(b[s]||0),0),most=Math.max(1,...D.batches.map(tot));
-  const late={};D.orders.forEach(o=>{if(inRoute(o)&&o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
+  const late={};D.orders.forEach(o=>{if(o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
   $('#blegend').innerHTML=D.stages.map((s,i)=>`<span><i class="bs${i}"></i>${esc(s)}</span>`).join('')+'<span><i class="bl"></i>확인 필요</span>';
   const BSHOW=14;$('#batches').innerHTML=D.batches.map((b,n)=>{const t=tot(b);return `<div class="brow"${n>=BSHOW?' hidden':''}><span class="bdate">${md(b.orderDate)}</span>
     <div class="btrack"><div class="bbar" style="width:${t/most*100}%">${D.stages.map((s,i)=>b[s]?`<button class="bs${i}${b[s]/most<.04?' tiny':''}" style="flex:${b[s]}" data-day="${esc(b.orderDate)}" data-st="${i}" title="${esc(md(b.orderDate))} · ${esc(s)} ${b[s]}건">${b[s]}</button>`:'').join('')}</div></div>

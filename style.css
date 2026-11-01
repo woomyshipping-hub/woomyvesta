@@ -734,3 +734,5 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .qs-calc .small{max-width:none;margin-top:5px}
 .q-form .bad{color:var(--bad)}
 .q-sheet .q-notearea{font-size:13px;min-height:118px}
+/* 운송사 buttons sit on one row with the other filters, same size as the chips */
+.routebar{margin:0;gap:8px}.rbtn{padding:6px 13px;font-size:12.5px;line-height:1.4;font-weight:600}.fbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:16px}#app .fbar .chips{margin:0}.fsep{width:1px;height:22px;background:var(--line)}
