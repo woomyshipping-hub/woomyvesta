@@ -691,3 +691,7 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .q-duty.hidden{display:none}
 .q-dutyover{display:flex;align-items:center;gap:8px;margin:8px 0 0!important;font-size:12px!important;font-weight:400}
 .q-dutyover input{width:72px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+/* the quote document: every cell centered both ways (user, 11/01); the 해외배송비 비고 keeps its four lines */
+.q-doc .qd-items td,.q-doc .qd-items th{vertical-align:middle}
+.q-doc .qd-items td.qd-note{white-space:pre-line}
+.q-notearea{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;line-height:1.45;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);resize:vertical}

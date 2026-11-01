@@ -746,6 +746,7 @@ function qrows(){const r=qrate(),out=[];
     const sh=qship();out.push({k:'ship',name:'현지배송비',qty:1,unit:Math.round(sh.yen*r),note:sh.note});
     const f=qfee();if(f.yen)out.push({k:'fee',name:'구매수수료',qty:1,unit:Math.round(f.yen*r),note:f.note})}
   Q.lines[Q.type].forEach((l,i)=>{if(l[2]!==''&&qnum(l[2])!=null)out.push({k:'l'+i,name:l[0],qty:qnum(l[1])||1,unit:qnum(l[2]),note:l[3]})});
+  out.forEach(x=>{x.unit=Math.floor(x.unit/10)*10});   // every quote shows amounts without the 1의 자리 (user, 11/01)
   return out}
 // The document, laid out like a Japanese 見積書: title 見積書, the customer's name + 様 on the left and the date on the right
 // of the first line, then the quote facts beside the company block with its seal, then 항목 (상품명) · 수량 · 단가 · 비고 and
@@ -835,8 +836,9 @@ const qsNames=t=>[...new Set((String(t).match(/[가-힣]{2,5}|[A-Za-z]{3,}/g)||[
 function qsCands(){const to=$('#qTo').value,ns=qsNames(to);if(!ns.length)return [];
   return (SQ().recent||[]).filter(r=>{const n=String(r.name||'').replace(/\s/g,'');return ns.some(w=>n===w||n.includes(w)&&w.length>=3)})
     .sort((a,b)=>b.date.localeCompare(a.date)||b.order.localeCompare(a.order)).slice(0,20)}
-const qsYen=kg=>{const F=SQ().fee||[];for(const [to,y] of F)if(kg<=to+1e-9)return y;if(F.length<2)return 0;
-  const [a,ya]=F.at(-2),[b,yb]=F.at(-1);return Math.round(yb+(yb-ya)*(kg-b)/(b-a))};
+// 요금표 stops at 100kg; above that it is the sum of 100kg blocks (user, 11/01): 140kg = 100kg + 40kg, 270kg = 100kg + 100kg + 70kg
+const qsYen=kg=>{const F=SQ().fee||[];if(!F.length)return 0;const one=k=>{for(const [to,y] of F)if(k<=to+1e-9)return y;return F.at(-1)[1]};
+  let y=0,left=kg;while(left>100){y+=one(100);left=Math.round((left-100)*100)/100}return y+one(left)};
 const qsOverFee=s=>{let f=50000;for(const [upto,v] of SQ().over||[])if(s<upto)return v;return f};
 const qsIn=s=>s>=300?100000:s>=180?50000:0;
 function qsKd(to,d,kg){const K=SQ().kd;if(!K)return null;const at=(T,x)=>(T.find(([u])=>x<=u)||T.at(-1))[1];
@@ -856,19 +858,36 @@ function qsSimilar(r,has){const w=qsWords(r.item+' '+r.buyItem);
   return (SQ().past||[]).filter(has).map(x=>{let n=0;for(const t of qsWords(x.item+' '+x.erpItem))if(w.has(t))n++;if(r.url&&x.url&&x.url===r.url)n+=5;return [n,x]})
     .filter(([n])=>n>=2).sort((a,b)=>b[0]-a[0])[0]}
 const qsShape=s=>[1.6,1,0.7].map(k=>Math.round(s*k/3.3));
-function qsBox(r){const sp=r.spec||{},M=SQ().model||{},pad=M.padCm||6,b=r.boxes||1;
+// No size on the page says nothing about how big it is (user, 11/01: small things were charged 사이즈오버), so the order is: the page's
+// sizes, Claude's reading of the photo and name (r.ai), the same product shipped before, the item name, similar past shipments, and
+// last the weight per box at a density that fits the kind of item. The old weight curve was fit on furniture that had a 사이즈오버
+// written, and put even 0.5kg over 180cm.
+const QS_NAMEBOX=[[/shirt|t-?shirt|jacket|coat|hoodie|sweater|cardigan|pants|trousers|jeans|skirt|dress|uniform|socks|underwear|clothes|clothing|apparel|cap\b|hat\b|bag\b|backpack|wallet|scarf|belt|티셔츠|셔츠|자켓|재킷|코트|후드|니트|바지|치마|원피스|양말|의류|옷|모자|가방|지갑|스카프|벨트/i,[40,30,15],'의류·잡화'],
+  [/sneaker|shoes|boots|sandal|loafer|신발|운동화|스니커즈|구두|부츠|샌들/i,[35,25,15],'신발'],
+  [/watch|clock parts|bracelet|\bring\b|necklace|jewel|earring|시계|팔찌|반지|목걸이|귀걸이|쥬얼리/i,[20,15,10],'시계·장신구'],
+  [/card|cigarette|tobacco|cosmetic|shampoo|cream|perfume|vitamin|supplement|candy|snack|chocolate|cookie|scone|food|coffee|tea\b|whisky|highball|sake|beer|wine|담배|화장품|샴푸|향수|영양제|사탕|과자|초콜릿|커피|위스키|맥주|사케|와인|카드/i,[35,25,20],'식품·소모품'],
+  [/figure|toy|plush|game|book|magazine|dvd|blu-?ray|camera|lens|피규어|장난감|인형|게임|책|잡지|카메라|렌즈/i,[35,30,25],'소형 상품'],
+  [/bicycle|bike|자전거/i,[140,75,28],'자전거']];
+const QS_BULKY=/sofa|couch|chair|stool|table|desk|shelf|shelving|rack|cabinet|chest|drawer|wardrobe|bed\b|mattress|lamp|sink|refrigerator|washer|소파|의자|스툴|테이블|책상|선반|렉|수납|서랍|장롱|침대|매트리스|조명|싱크|냉장고|세탁기|ソファ|チェア|椅子|テーブル|棚|ラック/i;
+const qsDensity=(kg,den)=>{const v=kg/den,a=Math.cbrt(v/1.12);return [1.6,1,0.7].map(k=>Math.round(a*k*100))};
+function qsBox(r){const sp=r.spec||{},M=SQ().model||{},pad=M.padCm||6,b=r.boxes||1,perBox=r.kg/b,name=r.item+' '+(r.buyItem||'');
   if(sp.pdims)return {d:sp.pdims.map(Math.round),why:'상품 페이지 梱包 사이즈'};
   if(sp.dims)return {d:sp.dims.map(x=>Math.round(x+pad)),why:`상품 사이즈 ${sp.dims.join('×')}cm + 포장 ${pad}cm (지난 배송에서 배운 값)`};
+  if(r.ai&&r.ai.dims)return {d:r.ai.dims.map(Math.round),why:`사진·상품명 분석: ${r.ai.why||''} — 확인해 주세요`};
+  const same=(SQ().past||[]).find(x=>x.sum&&r.url&&x.url===r.url);
+  if(same)return {d:qsShape(same.sum),why:`같은 상품 지난 배송 "${same.item}"의 사이즈오버로 본 세변합 약 ${same.sum}cm`};
+  const bulky=QS_BULKY.test(name),nm=bulky?null:QS_NAMEBOX.find(([rx])=>rx.test(name));
+  if(nm)return {d:nm[1],why:`상품명으로 본 ${nm[2]} 보통 크기 (페이지에 사이즈 없음) — 확인해 주세요`};
   const sim=qsSimilar(r,x=>x.sum);
   if(sim)return {d:qsShape(sim[1].sum),why:`비슷한 지난 배송 "${sim[1].item}"의 사이즈오버로 본 세변합 약 ${sim[1].sum}cm — 꼭 확인해 주세요`};
-  const s=Math.round((M.sumA??60)+(M.sumB??60)*Math.cbrt(r.kg/b));
-  return {d:qsShape(s),why:`상품 사이즈를 몰라 박스당 무게 ${Math.round(r.kg/b*10)/10}kg로 추정 (지난 ${M.sumN||0}건 기준) — 꼭 확인해 주세요`}}
+  return {d:qsDensity(perBox,bulky?60:100),why:`사이즈 정보가 없어 박스당 ${Math.round(perBox*10)/10}kg${bulky?', 가구류':''} 기준으로 추정 — 꼭 확인해 주세요`}}
 function qsRepack(r){const top=qsSimilar(r,x=>x.re!=null);
   if(top)return {v:top[1].re,why:`비슷한 지난 배송 "${top[1].item}"에 ${won(top[1].re)}원`};
   const t=Object.entries(SQ().retype||{}).find(([,v])=>new RegExp(v.rx,'i').test(r.item+' '+r.buyItem));
   return t?{v:t[1].median,why:`${t[0]} 재포장 보통 ${won(t[1].median)}원 (지난 ${t[1].n}건)`}:{v:0,why:'비슷한 지난 배송이 없어요 — 판단해 넣어 주세요'}}
 const QAREA=['수도권','경남권','경북권','전남권','충청권','강원권','전북권','제주권'];
 function qsList(){const box=$('#qShipList'),C=qsCands();Q.ship=Q.ship||[];
+  if(SQ().recent){const keep=Q.ship.filter(x=>C.some(r=>r.order===x.order));if(keep.length!==Q.ship.length){Q.ship=keep;qsCalc();qsave()}}   // a pick from the customer before must not ride along
   if(!SQ().recent){box.innerHTML='<p class="small bad">배송비 데이터가 아직 없어요 (Claude가 ERP 기록을 모으면 나와요).</p>';return}
   if(!qsNames($('#qTo').value).length){box.innerHTML='';return}
   if(!C.length){box.innerHTML=`<p class="small muted">"${esc($('#qTo').value.trim())}" 이름으로 최근 75일 ERP 화물을 찾지 못했어요. 이름을 ERP 수취인과 같게 넣어 보세요.</p>`;return}
@@ -877,7 +896,8 @@ function qsList(){const box=$('#qShipList'),C=qsCands();Q.ship=Q.ship||[];
       `<span class="small muted">${esc(r.date.slice(5))} 주문 · ${esc(r.order)} · ${r.kg}kg · ${r.boxes}박스 · ${esc(r.status)}${r.region?' · '+esc(r.region):''}</span></span></label>`}).join('')}
 function qsPick(order,on){const r=(SQ().recent||[]).find(x=>x.order===order);if(!r)return;Q.ship=(Q.ship||[]).filter(x=>x.order!==order);
   if(on){const bx=qsBox(r),rp=qsRepack(r);Q.ship.push({order,date:r.date,item:r.buyItem||r.item,kg:r.kg,boxes:r.boxes||1,dims:bx.d.join('×'),dimsWhy:bx.why,
-    re:rp.v,reWhy:rp.why,region:r.region||'수도권'})}
+    re:rp.v,reWhy:rp.why,region:r.region||'수도권',hbl:r.hbl||'',courier:r.courier||''})}
+  if(!Q.ship.length){Q.lines['배송']=[];Q.no='';qeditors()}   // nothing picked: the sample quote holds nothing either
   qsCalc();qsave()}
 function qsCalc(){const S=Q.ship||[];$('#qShipAuto').classList.toggle('hidden',!S.length);
   $('#qShipCalc').innerHTML=S.length?`<div class="tablewrap"><table class="q-edit qs-calc"><thead><tr><th>화물</th><th>W/T kg</th><th>박스</th><th>박스 크기 cm (가로×세로×높이)</th><th>재포장 ₩</th><th>도착 권역</th></tr></thead><tbody>`+
@@ -891,13 +911,14 @@ async function qsFill(){const S=Q.ship||[],msg=t=>$('#qShipMsg').textContent=t;i
   try{for(const x of S){const kg=qnum(x.kg)||0,n=Math.max(1,qnum(x.boxes)||1),d=String(x.dims).split(/[x×*,\s]+/).map(Number).filter(v=>v>0);
     if(d.length!==3)throw Error(`${x.item}: 박스 크기를 가로×세로×높이로 넣어 주세요`);
     const sum=d[0]+d[1]+d[2],y=qsYen(kg),rt=qsRate(x.date);
-    lines.push(['해외배송비'+tag(x),1,Math.round(y*rt.r),`W/T ${kg}kg · ¥${y.toLocaleString()} × ${(rt.r*100).toFixed(1)}원/100엔 (${rt.note})`]);
+    const rate=Math.round(rt.r*1000)/10,rateDay=(rt.note.match(/^\d{4}-\d\d-\d\d/)||[x.date])[0];
+    lines.push(['해외배송비'+tag(x),1,Math.floor(y*rt.r/10)*10,`무게 : ${kg}kg\n해외배송비 : ¥${y.toLocaleString()}\n환율 : ${rate.toLocaleString()}원 = 100엔\n(${rateDay})`]);
     const ov=qsOverFee(sum);if(ov)lines.push(['사이즈오버'+tag(x),n,ov,`세변합 ${sum}cm`]);
     const inn=qsIn(sum);if(inn)lines.push(['입고비'+tag(x),n,inn,`세변합 ${sum}cm (${sum>=300?'300':'180'}cm 이상)`]);
     if(qnum(x.re))lines.push(['재포장'+tag(x),1,qnum(x.re),'포장 상태에 따라 변동 가능']);
     const one=qsKd(x.region,d,kg/n),dom=one==null?null:one*n;
     lines.push(['국내화물 택배비'+tag(x),1,dom??'',dom!=null?`경동택배 경남권→${x.region} · ${n}박스 × ${won(one)}원 (박스당 ${Math.ceil(kg/n)}kg)`:'경동택배 운임표가 없어요 — 직접 넣어 주세요'])}
-    Q.lines['배송']=lines;Q.no='';qeditors();qsave();msg(`견적 항목 ${lines.length}줄을 넣었어요. 환율·크기·재포장은 비고의 근거를 보고 고쳐 주세요.`)}
+    Q.lines['배송']=lines;Q.no='';Q.page=1;qeditors();qsave();msg(`선택한 ${S.length}건으로 새로 넣었어요 (이전 항목은 지웠어요). 환율·크기·재포장은 근거를 보고 고쳐 주세요.`)}
   catch(e){msg(e.message||'계산하지 못했어요.')}finally{b.disabled=false}}
 $('#qShipList').addEventListener('change',e=>{const c=e.target.closest('[data-qs]');if(c)qsPick(c.dataset.qs,c.checked),qsList()});
 $('#qShipCalc').addEventListener('input',e=>{const el=e.target.closest('[data-s]'),tr=el&&el.closest('[data-qsi]');if(!tr)return;Q.ship[+tr.dataset.qsi][el.dataset.s]=el.value;qsave()});
@@ -919,7 +940,7 @@ function qeditors(){
     const sh=qship(),f=qfee();
     rows.push(`<tr data-qa="ship" class="q-fixed"><td class="q-n">${++n}</td><td>현지배송비</td><td>1</td><td><span class="q-cur">¥</span>${qin('ship',Q.adj.ship,{num:1,ph:Q.items.some(it=>qnum(it.ship)!=null)?'자동 '+sh.auto.toLocaleString():'모름'})}<div class=\"q-krw\" data-krw=\"${'ship'}\"></div></td><td>${qin('shipNote',Q.adj.shipNote,{ph:sh.autoNote})}</td><td>${Q.adj.ship||Q.adj.shipNote?'<button type="button" class="mini" data-qauto="ship" title="자동 값으로">↺</button>':''}</td></tr>`);
     rows.push(`<tr data-qa="fee" class="q-fixed"><td class="q-n">${++n}</td><td>구매수수료</td><td>1</td><td><span class="q-cur">¥</span>${qin('fee',Q.adj.fee,{num:1,ph:f.auto?'자동 '+f.auto.toLocaleString():'자동'})}<div class=\"q-krw\" data-krw=\"${'fee'}\"></div></td><td>${qin('feeNote',Q.adj.feeNote,{ph:f.autoNote||'상품 가격을 넣으면 계산돼요'})}</td><td>${Q.adj.fee||Q.adj.feeNote?'<button type="button" class="mini" data-qauto="fee" title="자동 값으로">↺</button>':''}</td></tr>`)}
-  Q.lines[Q.type].forEach((l,i)=>rows.push(`<tr data-ql="${i}"><td class="q-n">${++n}</td><td>${qin('0',l[0],{ph:'항목'})}</td><td>${qin('1',l[1],{num:1})}</td><td><span class="q-cur">₩</span>${qin('2',l[2],{num:1,ph:'비우면 제외'})}<div class=\"q-krw\" data-krw=\"${'l'+i}\"></div></td><td>${qin('3',l[3],{ph:'비고'})}</td><td><button type="button" class="mini" data-qldel="${i}" aria-label="삭제">✕</button></td></tr>`));
+  Q.lines[Q.type].forEach((l,i)=>rows.push(`<tr data-ql="${i}"><td class="q-n">${++n}</td><td>${qin('0',l[0],{ph:'항목'})}</td><td>${qin('1',l[1],{num:1})}</td><td><span class="q-cur">₩</span>${qin('2',l[2],{num:1,ph:'비우면 제외'})}<div class=\"q-krw\" data-krw=\"${'l'+i}\"></div></td><td>${String(l[3]||'').includes('\n')?`<textarea data-f="3" class="q-notearea" rows="${String(l[3]).split('\n').length}">${esc(l[3])}</textarea>`:qin('3',l[3],{ph:'비고'})}</td><td><button type="button" class="mini" data-qldel="${i}" aria-label="삭제">✕</button></td></tr>`));
   $('#qTable').innerHTML='<thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>비고</th><th></th></tr></thead><tbody>'+rows.join('')+'</tbody>';
   qdoc()}
 // 원 환산 cells follow every keystroke without redrawing the inputs.
@@ -939,7 +960,7 @@ async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
     $('#qRate').value=(Math.round(v*1.02*100)/100).toString();
     $('#qRateNote').textContent=`시장 환율 ¥100 = ₩${(v*100).toFixed(0)} × 1.02 → ¥100 = ₩${Math.round(qrate()*100)} (${new Date(r.time_last_update_unix*1e3).toLocaleDateString('ko-KR')} 기준, 지난 견적과 같은 방식). 필요하면 고쳐 주세요.`;qdoc();qsave()}
   catch{$('#qRateNote').textContent='환율을 불러오지 못했어요. 직접 넣어 주세요.'}}
-function qinit(){if(qinit.done||!D)return;qinit.done=true;
+function qinit(){if(qinit.done||!D)return;qinit.done=true;qdLoadUsd();
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
   qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,no:s.no||'',adj:{...QADJ(),...s.adj},ship:s.ship||[]});
     $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=['normal','biz','fix1500','fix2000'].includes(s.grade)?s.grade:'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
@@ -1168,6 +1189,15 @@ const QD_RULES=[
   [/과자|식품|お菓子|菓子|食品|チョコ|サプリ/i,'2106','식품']];
 const qdHsDuty=h=>/^(94(0[1-46-9]|$)|4901|9503|8517|8471)/.test(h)?0:/^(61|62|64)/.test(h)?13:8;
 const qdPct=r=>{const v=Math.round(((1+r/100)*1.1-1)*1000)/10;return `${v}%`};
+// $150 이하 is 면세 for personal goods (user, 2026-11-01: 면세로 표시): 물품가 = 상품가 + 현지배송비 in dollars, tickets left out.
+// 술·담배 have no such exemption; a 관세율 typed by staff always calculates instead.
+const QD_FREE_USD=150,QD_NOFREE=/술|주류|위스키|맥주|와인|담배|ウイスキー|ビール|ワイン|日本酒|焼酎|たばこ|タバコ|whisky|whiskey|\bbeer|\bwine|cigarette/i;
+let qdUsd=null;   // 1 yen in dollars, today's market rate
+async function qdLoadUsd(){try{const r=await (await fetch('https://open.er-api.com/v6/latest/JPY')).json();if(r.rates&&r.rates.USD){qdUsd=r.rates.USD;qdoc()}}catch{}}
+function qdFree(){const list=Q.items.filter(it=>qnum(it.price)&&it.shop!=='ticket');if(!list.length||qdUsd==null||qnum(Q.adj.duty)!=null)return null;
+  if(list.some(it=>QD_NOFREE.test([it.fullTitle,it.title,it.note].filter(Boolean).join(' '))))return null;
+  const yenAll=list.reduce((a,it)=>a+qnum(it.price)*(qnum(it.qty)||1),0)+(qship().yen||0),usd=yenAll*qdUsd;
+  return usd<=QD_FREE_USD?{usd:Math.round(usd)}:null}
 function qduty(){const fx=qrate(),own=qnum(Q.adj.duty),rows=[];
   for(const it of Q.items){if(!qnum(it.price)||it.shop==='ticket')continue;
     const words=[it.fullTitle,it.title,it.note].filter(Boolean).join(' '),rule=QD_RULES.find(x=>x[0].test(words)),past=it.url&&(D.quoteHs||{})[qkey(it.url)];
@@ -1176,16 +1206,27 @@ function qduty(){const fx=qrate(),own=qnum(Q.adj.duty),rows=[];
     rows.push({name:(it.title||'상품').slice(0,24),hs,what:(rule&&rule[2])||'',from,duty,base,tax:base*((1+duty/100)*1.1-1)})}
   if(!rows.length)return null;
   const amount=Math.round(rows.reduce((a,x)=>a+x.tax,0)/10)*10,rates=[...new Set(rows.map(x=>x.duty))].sort((a,b)=>a-b);
-  return {rows,amount,rate:rates.length===1?qdPct(rates[0]):`품목별 ${qdPct(rates[0])}~${qdPct(rates[rates.length-1])}`}}
+  return {rows,amount,free:qdFree(),rate:rates.length===1?qdPct(rates[0]):`품목별 ${qdPct(rates[0])}~${qdPct(rates[rates.length-1])}`}}
 function qdutyShow(){const box=$('#qDuty');if(!box)return;const d=Q.type==='구매'&&D?qduty():null;box.classList.toggle('hidden',!d);if(!d)return;
   const inp=$('#qDutyOver');if(document.activeElement!==inp)inp.value=Q.adj.duty??'';
-  $('#qDutyText').innerHTML=`<b>전달 멘트 예상 관부가세: 세율 ${esc(d.rate)} · ₩${won(d.amount)}</b> (상품가 기준)<br>`+
+  $('#qDutyText').innerHTML=(d.free?`<b>전달 멘트 예상 관세: 면세 예상</b> (상품가+현지배송비 약 $${d.free.usd} · $${QD_FREE_USD} 이하, 과세하려면 관세율을 입력하세요)<br>`
+    :`<b>전달 멘트 예상 관부가세: 세율 ${esc(d.rate)} · ₩${won(d.amount)}</b> (상품가 기준${qdUsd==null?' · 달러 환율을 못 불러와 면세 판단 안 함':''})<br>`)+
     d.rows.map(x=>`${esc(x.name)} · HS ${esc(x.hs||'미확인')}${x.what?` ${esc(x.what)}`:''} · 관세 ${x.duty}% · 근거 ${esc(x.from)}`).join('<br>')}
+// 배송비 견적서 멘트 (user, 11/01), the way staff write it after shipping. 예상도착일 = 1~2 영업일 after the next working day,
+// which matches what staff wrote (10/26 → 27~28일, 10/29 → 10/30~11/2).
+const QHOLI=new Set(['2026-12-25','2027-01-01']);   // as vesta-tools/workdays.py
+const qbiz=d=>{const k=new Date(d.getTime()+9*36e5).toISOString().slice(0,10),w=d.getDay();return w!==0&&w!==6&&!QHOLI.has(k)};
+const qnextBiz=(d,n)=>{const x=new Date(d);for(let i=0;i<n;){x.setDate(x.getDate()+1);if(qbiz(x))i++}return x};
+function qarrive(now=new Date()){const base=qbiz(now)?now:qnextBiz(now,1),a=qnextBiz(base,1),b=qnextBiz(base,2);
+  return `${a.getMonth()+1}월${a.getDate()}일~${b.getMonth()===a.getMonth()?'':`${b.getMonth()+1}월`}${b.getDate()}일`}
+function qshipMsg(total,pages){const I=D.quoteInfo||{},bank=String(I.bank||''),S=Q.ship||[];
+  const ways=(S.length?S:[{}]).map(x=>`${x.courier&&!/CJ|대한/i.test(x.courier)?x.courier:'대한통운'} ${x.hbl||'(운송장번호)'} 으로 출고하였습니다`).join('\n');
+  return `안녕하세요 고객님\n${ways}\n\n예상도착일 : ${qarrive()}\n예상됩니다.\n\n소계 : ${won(total)}원${pages>1?`\n견적서가 ${pages}장이라 나누어 보내드립니다.`:''}\n\n아래로 이체 부탁드립니다\n${/[가-힣]/.test(bank)?bank:'국민 '+bank}\n예금주 : ${I.holder||''}`}
 function qmsg(total,pages){const no=Q.no,amt=`₩${won(total)}`,many=pages>1?`\n견적서가 ${pages}장이라 나누어 보내드립니다.`:'',I=D.quoteInfo||{},d=Q.type==='구매'?qduty():null,
-    dline=d?`AI분석 예상 관세 : 세율 ${d.rate} - 금액 ${won(d.amount)}원\n(실제와 다를 수 있습니다)\n\n`:'';
+    dline=d?`AI분석 예상 관세 : ${d.free?`면세 예상 ($${QD_FREE_USD} 이하)`:`세율 ${d.rate} - 금액 ${won(d.amount)}원`}\n(실제와 다를 수 있습니다)\n\n`:'';
   // the texts the user chose on 2026-10-30: 구매 = B 입금 안내형, 배송비 = A 입고 안내형
   return Q.type==='배송'
-    ?`안녕하세요 고객님, 우마이직구입니다.\n주문하신 상품이 일본 센터에 입고되어 배송비 견적서를 전달드립니다.${many}\n\n· 견적번호: ${no}\n· 배송비 합계: ${amt}\n\n견적서 하단의 계좌로 입금해 주시면 확인 후 출고 준비를 진행하겠습니다.\n궁금하신 점은 편하게 말씀해 주세요.\n감사합니다.`
+    ?qshipMsg(total,pages)
     :`안녕하세요 고객님, 우마이직구입니다.\n요청하신 상품의 구매 견적서를 보내드립니다.${many}\n\n· 견적번호: ${no}\n· 입금하실 금액: ${amt}\n\n하단의 계좌로 입금해 주시면 확인 후 바로 구매를 진행해 드리겠습니다.\n\n${I.bank||''}\n예금주 : ${I.holder||''}\n\n${dline}상품 가격은 구매 시점에 따라 변동될 수 있으니 참고 부탁드립니다.\n감사합니다.`}
 $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textContent=t;
   if(!$('#qTo').value.trim()){msg('수신(고객 이름)을 먼저 넣어 주세요.');$('#qTo').focus();return}
@@ -1222,7 +1263,7 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
     if(saved)await saved;
     const paNote=pa?(pa.ok?` · 페이액션 입금 대기 등록 (입금자명 ${pa.name})`:` · 페이액션 등록 안 됨 (${pa.error})`):'';
     msg(`견적번호 ${Q.no} · ${copied?'전달 멘트를 복사했어요 (카카오톡에 붙여넣기 ⌘V / Ctrl+V) · ':'멘트를 복사하지 못했어요 · '}`+
-      `견적서 이미지${pages>1?` ${pages}장을 파일 ${pages}개로`:`를 ${names[0]} 파일로`} 저장했어요. 멘트 다음에 이미지 파일을 보내 주세요.${paNote}`)}
+      `견적서 이미지${pages>1?` ${pages}장을 파일 ${pages}개로`:`를 ${names[0]} 파일로`} 저장했어요. ${Q.type==='배송'?'이미지를 먼저 보내고 멘트를 붙여넣어 주세요.'+((Q.ship||[]).some(x=>!x.hbl)?' 운송장번호가 없는 건은 멘트에서 직접 넣어 주세요.':''):'멘트 다음에 이미지 파일을 보내 주세요.'}${paNote}`)}
   catch{give(new Blob([''],{type:'text/plain'}));msg('견적서를 만들지 못했어요. 다시 눌러 주세요.')}
   finally{b.disabled=false}};
 $('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});
