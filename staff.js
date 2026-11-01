@@ -1222,7 +1222,7 @@ function mFigure(name){   // -> blob URL of the decrypted pose (.glb) or poster 
 // What Mercury lists is what is still open: 배송현황 findings for orders a person marked 완료 and every other finding someone confirmed ("확인 완료", shared
 // like the 완료 ticks: odone rows keyed GRM_<kind>_<id>) drop out and go to the 확인 완료 card, where they can be sent back (되돌리기).
 const MKIND={'배송현황':{code:'del',sit:'parcel'},'구매대행 미구매':{code:'buy',sit:'buy'},'구매대행 입금 확인':{code:'payb',sit:'deposit'},'배송비 입금 확인':{code:'pays',sit:'deposit'},
-  '배송비 미입금':{code:'shipfee',sit:'shipunpaid'},'예치금 입금':{code:'dep',sit:'deposit'},'입금 확인':{code:'dep',sit:'deposit'},'카카오 화난 고객':{code:'ang',sit:'angry'},'대표님 결제 (USC)':{code:'usc',sit:'usc'}};
+  '배송비 미입금':{code:'shipfee',sit:'shipunpaid'},'견적 미구매':{code:'qnb'},'예치금 입금':{code:'dep',sit:'deposit'},'입금 확인':{code:'dep',sit:'deposit'},'카카오 화난 고객':{code:'ang',sit:'angry'},'대표님 결제 (USC)':{code:'usc',sit:'usc'}};
 const mKeyOf=i=>('GRM_'+((MKIND[i.kind]||{}).code||'x')+'_'+String(i.no||i.customer||'').split('').map(c=>/\w/.test(c)?c:c.charCodeAt(0).toString(36)).join('')).slice(0,42);
 const mSnap=i=>[i.kind,i.customer||'',i.no||'',String(i.issue||'').slice(0,56)].join('|').slice(0,100);
 function mMarkOf(key){const l=oLocal()[key],sv=OMARKS[key];if(l&&(!sv||Date.now()-l.since<5*60e3))return l;return sv||null}
@@ -1382,25 +1382,43 @@ function renderMercury(){
 // list beside the rail (the same icon again closes it); same items, 시트 links and 확인 완료 marks as the 머큐리 cards.
 const QSIDE='woomyvesta-qside';let qsOpen='';try{qsOpen=localStorage.getItem(QSIDE)||''}catch{}
 const QS_ICON={cart:'<path d="M3 4h2l2.4 10.2a1.5 1.5 0 0 0 1.5 1.1h8.3a1.5 1.5 0 0 0 1.5-1.1L21 8H6.2"/><circle cx="9.5" cy="19.5" r="1.3"/><circle cx="17" cy="19.5" r="1.3"/>',
-  truck:'<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17.5" cy="17.5" r="1.6"/>'};
+  truck:'<path d="M3 6h11v10H3zM14 10h4l3 3v3h-7"/><circle cx="7" cy="17.5" r="1.6"/><circle cx="17.5" cy="17.5" r="1.6"/>',
+  quote:'<path d="M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5"/>'};
+let qqAll=null;
 const QS_KINDS=[{id:'buy',kind:'구매대행 미구매',label:'구매',title:'구매대행 요청 미이행',icon:'cart'},
-  {id:'ship',kind:'배송비 미입금',label:'배송비',title:'출고된 가구 · 배송비 확인 필요',icon:'truck'}];
+  {id:'ship',kind:'배송비 미입금',label:'배송비',title:'출고된 가구 · 배송비 확인 필요',icon:'truck'},
+  {id:'quote',kind:'견적 미구매',label:'견적',title:'카카오 견적 후 미구매',icon:'quote',quiet:true}];
+// 견적 tab of the rail: every Kakao chat where we quoted and nothing was bought (vesta-tools/kakao_quoted.py, user 11/01). A long list, so it
+// has status and period filters, a search box and 더 보기.
+const QQ={status:'',days:0,q:'',shown:50},QQ_STATUS=['답장 없음','고민 중','고객 답변 후 멈춤','취소·거절'],QQ_DAYS=[[30,'30일'],[90,'90일'],[365,'1년'],[0,'전체']];
+function qqFilter(list){const w=QQ.q.trim().toLowerCase();return list.filter(i=>(!QQ.status||i.status===QQ.status)&&(!QQ.days||(i.days!=null&&i.days<=QQ.days))&&
+  (!w||[i.customer,i.topic,i.svc,i.quote].join(' ').toLowerCase().includes(w)))}
+function qqRows(list){const f=qqFilter(list),age=d=>d==null?'':d===0?'오늘':`${d}일 전`;
+  return `<p class="muted small q-qqcount">${f.length.toLocaleString()}건</p>`+(f.length?f.slice(0,QQ.shown).map(i=>`<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.customer||'')}</b><span class="pill q-qqst q-qqst-${QQ_STATUS.indexOf(i.status)}">${esc(i.status)}</span><span class="muted small num">견적 ${esc((i.quoted||'').slice(2))} · ${age(i.days)}</span></div>`+
+    `<div class="small muted">${esc([i.svc,i.seg==='사업자'?'사업자':''].filter(Boolean).join(' · '))}</div>${i.quote?`<div class="small q-qqquote" title="${esc(i.quote)}">${esc(i.quote)}</div>`:''}`+
+    `<div class="q-drawbtns"><a class="mini m-sheetlink" href="${kakaoUrl(i.no)}" target="_blank" rel="noopener">카카오 열기 ↗</a>${mBtn(i)}</div></div>`).join('')+
+    (f.length>QQ.shown?`<button type="button" class="btn small-btn q-qqmore" data-qqmore>더 보기 (${(f.length-QQ.shown).toLocaleString()}건 남음)</button>`:''):'<p class="muted small q-drawempty">조건에 맞는 건이 없어요.</p>')}
+function qqBody(list){return `<div class="q-qqbar"><input id="qqSearch" type="search" placeholder="이름 · 상품 검색" value="${esc(QQ.q)}" autocomplete="off">`+
+  `<div class="q-qqchips">${[['','전체'],...QQ_STATUS.map(x=>[x,x])].map(([v,t])=>`<button type="button" class="chip${QQ.status===v?' on':''}" data-qqs="${esc(v)}">${esc(t)}</button>`).join('')}</div>`+
+  `<div class="q-qqchips">${QQ_DAYS.map(([v,t])=>`<button type="button" class="chip${QQ.days===v?' on':''}" data-qqd="${v}">${t}</button>`).join('')}</div></div><div id="qqList">${qqRows(list)}</div>`}
 function renderQSide(){
   if(!D)return;const M=mData(),items=[...((M&&M.items)||[]),...((M&&M.qonly)||[])],body=$('#qSideBody');   // the side panel keeps the full list: Mercury's urgent items + what Mercury's stricter rules leave out (qonly/quiet)
   const groups=QS_KINDS.map(g=>({...g,list:items.filter(i=>i.kind===g.kind)}));
   if(qsOpen&&!groups.some(g=>g.id===qsOpen))qsOpen='';
   $('#qRail').innerHTML=groups.map(g=>`<button type="button" class="q-railbtn${qsOpen===g.id?' on':''}" data-qs="${g.id}" aria-expanded="${qsOpen===g.id}" title="${esc(g.title)}">`+
-    `<span class="q-railicon"><svg viewBox="0 0 24 24" aria-hidden="true">${QS_ICON[g.icon]}</svg>${g.list.length?`<b>${g.list.length}</b>`:''}</span><span>${esc(g.label)}</span></button>`).join('');
+    `<span class="q-railicon"><svg viewBox="0 0 24 24" aria-hidden="true">${QS_ICON[g.icon]}</svg>${g.list.length?`<b class="${g.quiet?'q-railquiet':''}">${g.list.length>999?'999+':g.list.length}</b>`:''}</span><span>${esc(g.label)}</span></button>`).join('');
   const g=groups.find(x=>x.id===qsOpen);$('#qSide').classList.toggle('open',!!g);body.hidden=!g;
   if(!g)return;
   qsPlace();
   const won=v=>v!=null&&v!==''?'₩'+Number(v).toLocaleString():'';
-  body.innerHTML=QS_GRIPS+`<div class="q-drawin"><div class="q-drawhead"><b>${esc(g.title)}</b><span class="muted small">${g.list.length}건</span></div>`+
-    (g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
+  const sc=(body.querySelector('.q-drawin')||{}).scrollTop||0;qqAll=g.id==='quote'?g.list:null;
+  body.innerHTML=QS_GRIPS+`<div class="q-drawin"><div class="q-drawhead"><b>${esc(g.title)}</b><span class="muted small">${g.list.length.toLocaleString()}건</span></div>`+
+    (g.id==='quote'?qqBody(g.list):g.list.length?g.list.map(i=>{const sh=i.sheet||{};return `<div class="q-drawrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="num">${won(i.amount)}</span></div>`+
       `<div class="small">${esc(i.issue||'')}</div>${i.since?`<div class="muted small">${esc(i.since)}</div>`:''}`+
       `<div class="q-drawbtns">${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'')}${mBtn(i)}</div></div>`}).join('')
       :'<p class="muted small q-drawempty">지금은 확인할 건이 없어요.</p>')+qsLater(M,g)+
-    `<div class="q-drawfoot">${M&&M.checkedAt?`<span class="muted small">점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>`:'<span></span>'}<button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div></div>`}
+    `<div class="q-drawfoot">${M&&M.checkedAt?`<span class="muted small">점검 ${new Date(M.checkedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})}</span>`:'<span></span>'}<button type="button" class="mini" data-qsgo="mercury">머큐리 탭 ↗</button></div></div>`;
+  body.querySelector('.q-drawin').scrollTop=sc}
 // The open list lies over the 견적서 form card at the same size (user, 11/01). A handle on each of the four corners resizes it
 // from that corner (user, 11/01); the box a person sets (offset from the form card + size) is kept per PC.
 let qsDragEnd=0;   // a corner drag that ends outside the list must not count as a click outside it
@@ -1427,11 +1445,15 @@ $('#qSide').addEventListener('pointerdown',e=>{const g=e.target.closest('[data-g
     const f=$('.q-form').getBoundingClientRect(),sr=$('#qSide').getBoundingClientRect(),r=d.getBoundingClientRect();
     try{localStorage.setItem(QSIZE,JSON.stringify({x:Math.round(r.left-f.left),y:Math.round(r.top-f.top),w:Math.round(r.width),h:Math.round(r.height)}))}catch{}};
   addEventListener('pointermove',move);addEventListener('pointerup',up)});
+$('#qSide').addEventListener('input',e=>{if(e.target.id==='qqSearch'&&qqAll){QQ.q=e.target.value;QQ.shown=50;$('#qqList').innerHTML=qqRows(qqAll)}});   // only the rows: the box keeps focus
 $('#qSide').addEventListener('click',e=>{
   const r=e.target.closest('[data-qs]');if(r){qsOpen=qsOpen===r.dataset.qs?'':r.dataset.qs;try{localStorage.setItem(QSIDE,qsOpen)}catch{}safe(renderQSide);return}
   const mm=e.target.closest('[data-mmark]');if(mm){mSetMark(mm.dataset.mmark,true,mm.dataset.msnap);return}
   const ml=e.target.closest('[data-mlater]');if(ml){mSetMark(ml.dataset.mlater,true,(M_LATER+ml.dataset.msnap).slice(0,100));return}
   const mu=e.target.closest('[data-mundo]');if(mu){mSetMark(mu.dataset.mundo,false,'');return}
+  const qs=e.target.closest('[data-qqs]'),qd=e.target.closest('[data-qqd]');
+  if(qs||qd){if(qs)QQ.status=qs.dataset.qqs;else QQ.days=Number(qd.dataset.qqd);QQ.shown=50;safe(renderQSide);return}
+  if(e.target.closest('[data-qqmore]')){QQ.shown+=50;if(qqAll)$('#qqList').innerHTML=qqRows(qqAll);return}
   if(e.target.closest('[data-qsgo]'))setTab('mercury',true)});
 // the list floats over the form: a click elsewhere or Esc folds it back
 const qsFold=()=>{if(!qsOpen)return;qsOpen='';try{localStorage.setItem(QSIDE,'')}catch{}safe(renderQSide)};
