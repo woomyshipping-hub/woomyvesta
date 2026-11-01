@@ -1024,10 +1024,13 @@ async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
     $('#qRate').value=(Math.round(v*1.02*100)/100).toString();
     $('#qRateNote').textContent=`시장 환율 ¥100 = ₩${(v*100).toFixed(0)} × 1.02 → ¥100 = ₩${Math.round(qrate()*100)} (${new Date(r.time_last_update_unix*1e3).toLocaleDateString('ko-KR')} 기준, 지난 견적과 같은 방식). 필요하면 고쳐 주세요.`;qdoc();qsave()}
   catch{$('#qRateNote').textContent='환율을 불러오지 못했어요. 직접 넣어 주세요.'}}
+// A quote saved in this browser before 11/01 still carries the old one-line 해외배송비 비고: the page restored it as it was, so it never changed.
+function qsNoteUp(L){(L||[]).forEach(l=>{const m=String(l[3]||'').match(/^W\/T ([\d.]+)kg · ¥([\d,]+) × ([\d.]+)원\/100엔 \((\d{4}-\d\d-\d\d)/);
+  if(m)l[3]=`무게 : ${m[1]}kg\n해외배송비 : ¥${m[2]}\n환율 : ${(+m[3]).toLocaleString()}원 = 100엔\n(${m[4]})`})}
 function qinit(){if(qinit.done||!D)return;qinit.done=true;qdLoadUsd();
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
   qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,no:s.no||'',adj:{...QADJ(),...s.adj},ship:s.ship||[]});
-    $('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=['normal','biz','fix1500','fix2000'].includes(s.grade)?s.grade:'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
+    qsNoteUp(Q.lines['배송']);$('#qTo').value=s.to||'';$('#qLinks').value=s.links||'';$('#qGrade').value=['normal','biz','fix1500','fix2000'].includes(s.grade)?s.grade:'normal';Q.rateManual=!!s.rateManual;if(Q.rateManual)$('#qRate').value=s.rate||''}
   document.querySelectorAll('[data-qtype]').forEach(b=>b.classList.toggle('on',b.dataset.qtype===Q.type));qeditors();qsave();qloadRate()}
 // One link -> 접수창구, which reads most shops itself in 3–15 s (the shop's own page speed: 라쿠텐 ~10 s, 이케아 ~3 s).
 // A link it cannot read (메루카리·아마존) waits for Claude on the Mac, polled every 5 s for up to 15 minutes. While a link
