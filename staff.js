@@ -52,7 +52,7 @@ function row(o,why){   // why: Mercury's reason (own column on the right, added 
   <td>${o.alerts.length||why?`<button class="mini odbtn" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
     dm?`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`:''}</td>
   <td>${o.hbl?`<button class="mini" data-cus="${esc(o.order)}" title="통관 진행정보 보기">통관조회</button>`:''}</td>
-  <td class="mono" title="ERP: ${esc(o.order)}">${esc(adm(o))}<button class="copybtn" data-copy="${esc(adm(o))}" title="주문번호 복사" aria-label="주문번호 복사">⧉</button>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}</td>
+  <td class="mono" title="ERP: ${esc(o.order)}">${esc(adm(o))}<button class="copybtn" data-copy="${esc(adm(o))}" title="주문번호 복사" aria-label="주문번호 복사">⧉</button>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''}${o.upload?` <span class="tag" title="마르코 개별 업로드 (별도 송장 체계)">${esc(o.upload)}</span>`:''}${o.route?` <span class="tag t-air" title="나르다 ERP · ${esc(o.route)} (항공). 출발일 = 나르다 수출진행일, 진행은 CJ 송장 조회 기준">✈ 나르다</span>`:''}</td>
   <td class="mono waybill">${no}</td><td>${esc(o.name)}</td>
   <td class="clip" title="${o.writer?esc(`${o.writer.name} (${o.writer.id}) ${o.writer.box} · 신청 ${o.writer.app}`):o.writerMissing?'개별 업로드 주문이라 관리자에서 요청서를 찾을 수 없어요':''}">${o.writer?`${esc(o.writer.name)} <span class="muted small">${esc(o.writer.box)}</span>`:o.writerMissing?'<span class="k-handover">작성자 확인 필요</span>':''}</td><td class="clip" title="${esc(o.item)}">${esc(o.item)}</td>
   <td><span class="pill s${o.stage}" title="ERP: ${esc(o.erp)}">${esc(D.stages[o.stage])}</span></td>
@@ -62,7 +62,7 @@ function row(o,why){   // why: Mercury's reason (own column on the right, added 
   <td class="msgcell">${msgCell(o)}</td></tr>`;
 }
 const HEAD='<thead><tr><th title="독차 등으로 이미 나간 주문을 완료로 넘기기 · 완료 처리한 주문은 되돌리기">완료</th><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="작성자에게 지연 안내 문자 (우마이직구 관리자에서 발송)">문자</th></tr></thead>';
-const matches=(o,q)=>!q||[o.order,adm(o),o.hbl,o.courierNo,o.item,o.name,o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
+const matches=(o,q)=>!q||[o.order,adm(o),o.hbl,o.courierNo,o.item,o.name,o.route&&'나르다 항공 narda air',o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
 // 정렬: click a column title (not its border) to sort ▲, again ▼, a third time back to the default order.
 const KORDER={customs:0,handover:1,unknown:2,domestic:3};
 const SORTKEY=[o=>o.doneMark?o.doneMark.ts||'1':'',o=>o.hbl,o=>adm(o),o=>o.courierNo,o=>o.name,o=>o.writer?o.writer.name:'',o=>o.item,o=>o.stage,
@@ -82,7 +82,7 @@ document.addEventListener('click',e=>{const th=e.target.closest('th');if(!th||e.
   sortBy[table.id]=!st||st.col!==col?{col,dir:1}:st.dir>0?{col,dir:-1}:null;
   table.id==='alerts'?renderAlerts():table.id==='mTable'?safe(renderMercury):renderList()});
 function renderAlerts(){
-  const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>o.alerts.length),dn=D.orders.filter(o=>o.doneMark&&o._base.alerts.length);
+  const q=$('#gq').value.trim().toLowerCase(),al=D.orders.filter(o=>inRoute(o)&&o.alerts.length),dn=D.orders.filter(o=>inRoute(o)&&o.doneMark&&o._base.alerts.length);
   if(kindFilter==='done'&&!dn.length)kindFilter='';
   const pick=()=>kindFilter==='done'?dn.filter(o=>matches(o,q)):al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
   let shown=pick();alertHits=q?al.filter(o=>matches(o,q)).length+dn.filter(o=>matches(o,q)).length:0;
@@ -101,10 +101,10 @@ let dayFilter='',listPage=1,listKey='';const PAGE=300;
 document.addEventListener('click',e=>{const b=e.target.closest('#pager [data-page]');if(!b||b.disabled)return;
   listPage=+b.dataset.page;renderList();$('#listSec').scrollIntoView({behavior:'smooth',block:'start'})});
 function renderList(){
-  const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value;
-  const list=D.orders.filter(o=>(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
+  const q=$('#gq').value.trim().toLowerCase(),st=$('#stage').value,fl=$('#flag').value,rt=routeF;
+  const list=D.orders.filter(o=>inRoute(o)&&(!st||String(o.stage)===st)&&(!dayFilter||o.orderDate===dayFilter)&&(!fl||(fl==='alert'?o.alerts.length:o.flags.includes(fl)))&&matches(o,q));
   // 300 rows a page; a new search or filter starts again at page 1 (search and filters always look at every order)
-  const key=[q,st,fl,dayFilter].join('|');if(key!==listKey){listKey=key;listPage=1}
+  const key=[q,st,fl,rt,dayFilter].join('|');if(key!==listKey){listKey=key;listPage=1}
   const pages=Math.max(1,Math.ceil(list.length/PAGE));listPage=Math.min(listPage,pages);const from=(listPage-1)*PAGE;
   $('#count').innerHTML=(dayFilter?`<button class="daychip" data-clearday title="주문일 필터 해제">${md(dayFilter)} 주문만 ✕</button> `:'')+`${list.length.toLocaleString()}건`+
     (pages>1?` · ${(from+1).toLocaleString()}–${Math.min(from+PAGE,list.length).toLocaleString()}번째 (${listPage} / ${pages}페이지)`:'');
@@ -144,9 +144,10 @@ function applyMarks(){
     o._base??=o.manual?{alerts:o.manual.alerts,kind:o.manual.kind,stage:o.manual.stage}:{alerts:o.alerts,kind:o.kind,stage:o.stage};
     const m=oMarkOf(o);
     if(m&&m.done)Object.assign(o,{alerts:[],kind:'',stage:4,doneMark:m});else Object.assign(o,o._base,{doneMark:null})}
-  const cnt=f=>{const c={};D.orders.forEach(o=>{const k=f(o);if(k)c[k]=(c[k]||0)+1});return c};
-  D.summary=cnt(o=>D.stages[o.stage]);D.kinds=cnt(o=>o.kind);D.alerts=D.orders.filter(o=>o.alerts.length).length;
-  const by={};D.orders.forEach(o=>{const b=by[o.orderDate]??={orderDate:o.orderDate};b[D.stages[o.stage]]=(b[D.stages[o.stage]]||0)+1});
+  // the counts, 주문일별 진행 and lists follow the 운송사 bar (전체 / 팬스타 / 나르다)
+  const R=D.orders.filter(inRoute),cnt=f=>{const c={};R.forEach(o=>{const k=f(o);if(k)c[k]=(c[k]||0)+1});return c};
+  D.summary=cnt(o=>D.stages[o.stage]);D.kinds=cnt(o=>o.kind);D.alerts=R.filter(o=>o.alerts.length).length;
+  const by={};R.forEach(o=>{const b=by[o.orderDate]??={orderDate:o.orderDate};b[D.stages[o.stage]]=(b[D.stages[o.stage]]||0)+1});
   D.batches=Object.values(by).sort((a,b)=>b.orderDate.localeCompare(a.orderDate))}
 async function loadODone(){if(!D?.smsIntake)return;try{const r=await (await fetch(`${D.smsIntake}?action=orderDoneList`)).json();
   if(r.ok&&JSON.stringify(r.marks)!==JSON.stringify(OMARKS)){OMARKS=r.marks||{};render()}}catch{}}
@@ -185,6 +186,13 @@ function staleCheck(){
 setInterval(()=>{if(typeof D!=='undefined'&&D)safe(staleCheck)},5*60e3);
 // The "… 기준" line beside the logo describes the open tab: ERP data for 배송 현황, the last Kakao refresh for 카카오 누락,
 // Mercury's last check for 머큐리; 견적서 has none (it is written on the spot).
+// 운송사 bar on 배송 현황: 전체 · 팬스타 (해운) · 나르다 (항공, o.route 'NARDA AIR'); the page always opens on 전체.
+let routeF='';
+const inRoute=o=>!routeF||(routeF==='narda')===!!o.route;
+function routeBar(){const n=D.orders.filter(o=>o.route).length,all=D.orders.length;
+  $('#routeBar').innerHTML=[['','전체',all],['pansta','🚢 팬스타 · 해운',all-n],['narda','✈ 나르다 · 항공',n]]
+    .map(([k,l,c])=>`<button type="button" class="rbtn${routeF===k?' on':''}" data-route="${k}" role="tab" aria-selected="${routeF===k}">${l} <b>${c.toLocaleString()}</b></button>`).join('')}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(!b||!D)return;routeF=b.dataset.route;dayFilter='';render()});
 let curTab='ship';
 function updatedLine(){if(!D)return;
   const f=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'}),K=D.kakao,M=D.mercury;
@@ -192,16 +200,16 @@ function updatedLine(){if(!D)return;
     curTab==='kakao'?(K?`· 카카오 상담 ${f(K.updatedAt)} 새로고침 기준 · 최근 ${K.windowDays}일 상담`:''):
     curTab==='mercury'?(M&&M.checkedAt?`· 머큐리 ${f(M.checkedAt)} 점검 기준`:''):''}
 function render(){
-  applyMarks();safe(staleCheck);
+  applyMarks();safe(staleCheck);safe(routeBar);
   safe(updatedLine);
   // Cards in the order staff should look at them; each jumps to the table holding those orders.
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
-    KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
+    KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(routeF==='narda'&&D.stages[i]==='해운 출발'?'항공 출발':routeF===''&&D.stages[i]==='해운 출발'?'해운·항공 출발':D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
   $('#rules').textContent=`기준: 해운 출발 후 영업일로 +${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (+1일까지는 정상, 주말·공휴일 제외, ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
   safe(renderAlerts);safe(renderKakao);safe(renderMercury);safe(renderQSide);
   // 주문일별 진행: one stacked bar per order date (length = orders, color = stage), red badge = 확인 필요.
   const tot=b=>D.stages.reduce((a,s)=>a+(b[s]||0),0),most=Math.max(1,...D.batches.map(tot));
-  const late={};D.orders.forEach(o=>{if(o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
+  const late={};D.orders.forEach(o=>{if(inRoute(o)&&o.alerts.length)late[o.orderDate]=(late[o.orderDate]||0)+1});
   $('#blegend').innerHTML=D.stages.map((s,i)=>`<span><i class="bs${i}"></i>${esc(s)}</span>`).join('')+'<span><i class="bl"></i>확인 필요</span>';
   const BSHOW=14;$('#batches').innerHTML=D.batches.map((b,n)=>{const t=tot(b);return `<div class="brow"${n>=BSHOW?' hidden':''}><span class="bdate">${md(b.orderDate)}</span>
     <div class="btrack"><div class="bbar" style="width:${t/most*100}%">${D.stages.map((s,i)=>b[s]?`<button class="bs${i}${b[s]/most<.04?' tiny':''}" style="flex:${b[s]}" data-day="${esc(b.orderDate)}" data-st="${i}" title="${esc(md(b.orderDate))} · ${esc(s)} ${b[s]}건">${b[s]}</button>`:'').join('')}</div></div>
