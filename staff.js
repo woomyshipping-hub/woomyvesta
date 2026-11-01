@@ -356,8 +356,22 @@ function cusPlain(o){
   const isCleared=!!cleared||/수리|심사완료/.test(u.customs||'')||o.stage>=3,isOut=!!out||u.cargo==='반출완료'||o.stage>=3;
   // 나르다 (NARDA AIR) orders fly: 일본 출발 → 한국 도착 (공항) → 통관 → 국내 배송. 나르다 gives no arrival date, so a
   // CJ scan (stage ≥ 3) is what says the parcel has landed and cleared.
-  const air=!!o.route,place=air?'한국 공항':'부산항',wh=air?'공항 세관 창고':'부산 세관 창고';
+  const air=!!o.route,place=air?(/ICN|인천/.test(info['양륙항']||'')?'인천공항':'한국 공항'):'부산항',wh=air?'공항 세관 창고':'부산 세관 창고';
   const arrived=u.arrival||o.arDate||(air&&o.stage>=3?'-':''),airLate=air&&!arrived&&(o.sinceDeparture||0)>=2;
+  // 통관 신고가 멈춤: in the bonded warehouse 3+ days and still 수입신고전 (no declaration filed). Usually the goods need a
+  // full 수입신고 with taxes (담배·주류 are not cleared through the simple 목록통관) or papers, so the customer has to choose.
+  // 특송 cargo may stay in the warehouse 2 months at most (UNIPASS 부가사항), so the deadline goes in the message.
+  let stall=null;
+  const inDays=into?Math.floor((Date.now()-new Date(into.replace(' ','T')+'+09:00'))/864e5):0;
+  if(into&&/수입신고전/.test(u.customs||'')&&inDays>=3){
+    const express=/특송/.test(info['B/L유형']||'')||air,lim=new Date(new Date(into.slice(0,10)+'T00:00:00+09:00').setMonth(new Date(into.slice(0,10)).getMonth()+(express?2:6)));
+    const until=`${lim.getMonth()+1}/${lim.getDate()}`,item=`${o.item||''} ${info['품명']||''}`;
+    const hint=/cigar|tobacco|담배|iqos|heets|terea|vape|전자담배/i.test(item)?'담배는 간이 통관(목록통관)이 안 돼서, 담배 관련 세금을 내는 정식 수입신고가 필요해요.':
+      /sake|whisk|wine|beer|liquor|shochu|사케|위스키|와인|맥주|주류|소주/i.test(item)?'주류는 간이 통관(목록통관)이 안 돼서, 주세 등 세금을 내는 정식 수입신고가 필요해요.':'';
+    stall={cus:{state:'bad',title:'통관 시작 안 됨',date:mdt(into),text:`${md(into)}에 ${wh}에 들어왔지만 ${inDays}일째 수입신고가 접수되지 않아 통관이 시작되지 않았어요.`+(hint?' '+hint:'')},
+      act:{level:'need',text:hint?`진행 방법을 정해 주세요: ① 세금을 내고 정식 수입신고로 받기 ② 일본으로 반송 ③ 폐기. 세관 창고 보관 기한이 ${until}까지라 그 전에 정해 주셔야 해요. 정해 주시면 저희가 특송업체와 바로 진행할게요.`:
+        `통관에 필요한 정보가 맞는지 확인 부탁드려요: 개인통관고유부호·받는 분 이름·전화번호, 그리고 구매 영수증(인보이스). 세관 창고 보관 기한이 ${until}까지라 서둘러 확인해 주세요. 저희도 특송업체에 멈춘 이유를 확인하고 있어요.`},
+      staff:`직원 조치: ${info['특송업체']||'특송업체'}${info['입항세관']?` (${info['입항세관']})`:''}에 수입신고가 안 된 이유를 확인하고, 고객에게 ${hint?'세금 납부·반송·폐기 중 선택':'통관 정보·서류 확인'}을 받으세요. 보관 기한 ${until}.`}}
   // 통관: the plainest true sentence for where customs stands, and whether the customer must act ('need') or may be asked ('watch')
   let cus,act=null;
   const avg=(steps.find(s=>/평균 소요시간/.test(s.note||''))||{}).note;
@@ -374,6 +388,7 @@ function cusPlain(o){
     act={level:'watch',text:'지금은 기다리시면 돼요. 세관에서 구매 영수증·인보이스를 요청할 수 있으니 구매 내역을 준비해 두시면 빨라요.'}}
   else if(/심사진행|수입신고$/.test(u.customs||''))cus={state:'now',title:'통관 심사 중',date:mdt(u.customsAt),text:'수입신고를 마치고 세관에서 심사하고 있어요. 문제가 없으면 곧 통관이 끝나요.'};
   else if(/통관목록/.test(u.customs||''))cus={state:'now',title:'통관 심사 중',date:mdt(u.customsAt),text:'간이 통관 목록이 접수돼 세관 심사를 기다리고 있어요.'};
+  else if(stall)({cus,act}=stall);
   else if(into||/반입/.test(u.cargo||''))cus={state:'now',title:'통관 준비 중',date:mdt(into),text:`${wh}에 들어와 통관 신고를 기다리고 있어요.`};
   else if(arrived)cus={state:'now',title:'통관 준비 중',date:'',text:`${place}에 도착해 세관 창고로 옮겨지는 중이에요.`};
   else cus={state:'todo',title:'통관',date:'',text:`${place}에 도착하면 통관이 시작돼요.`};
@@ -391,7 +406,7 @@ function cusPlain(o){
         (isOut&&o.courierNo?` 택배사 ${o.courier||'—'} · 운송장 ${o.courierNo}`:'')}];
   const now=act&&act.level==='need'?cus:[...rows].reverse().find(r=>r.state==='now')||[...rows].reverse().find(r=>r.state==='done')||rows[0];
   const head=now===cus?cus.title:now.title==='국내 배송'?'통관 완료 · 국내 배송 중':now.title==='부산항 도착'&&now.state==='now'?'바다를 건너오는 중':now.title==='한국 도착'&&now.state==='now'?(airLate?'도착·통관 확인 중':'비행기로 오는 중'):now.title==='일본 출항'&&now.state==='now'?'일본 출항 준비 중':now.title==='일본 출발'&&now.state==='now'?'일본 출발 준비 중':now.title;
-  return {rows,act,head,tone:act?act.level:o.stage>=4||isCleared?'good':'now'};
+  return {rows,act,head,tone:act?act.level:o.stage>=4||isCleared?'good':'now',staff:stall&&stall.staff};
 }
 function plainHtml(o){
   const p=cusPlain(o),u=o.unipass||{};
@@ -415,7 +430,8 @@ $('#cusImg').addEventListener('click',async()=>{const el=$('#cusPlain'),b=$('#cu
 function openCus(order){
   const o=D.orders.find(x=>x.order===order);if(!o)return;const u=o.unipass||{};
   $('#cusPlain').innerHTML=plainHtml(o);$('#cusPlain').dataset.order=adm(o);
-  $('#cusStaff').classList.toggle('hidden',!o.alerts.length);$('#cusStaff').textContent=o.alerts.length?`직원 확인용: ${o.alerts.join(' · ')}`:'';
+  const pl=cusPlain(o),note=[o.alerts.length?`직원 확인용: ${o.alerts.join(' · ')}`:'',pl.staff||''].filter(Boolean).join('\n');
+  $('#cusStaff').classList.toggle('hidden',!note);$('#cusStaff').textContent=note;
   $('#cusHead').innerHTML=`<b>${esc(adm(o))}</b>${part(o)?` <span class="tag">${esc(part(o))}</span>`:''} <span class="muted">· H B/L ${esc(o.hbl)} · ${esc(o.name)}</span>`;
   const steps=u.steps||[];
   $('#cusSteps').innerHTML=steps.length?steps.map((s,i)=>`<li class="${i===0?'now':''}"><div class="st-head"><b>${esc(s.step||'—')}</b><span class="muted">${esc(dt(s.at))}</span></div>`+
