@@ -686,3 +686,8 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .q-qqst-1{background:var(--warn-soft);color:var(--warn)}.q-qqst-2{background:var(--blue-soft);color:var(--blue)}.q-qqst-3{background:var(--bad-soft);color:var(--bad)}
 .q-qqquote{margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .q-qqmore{width:100%;margin:10px 0 4px}
+/* 전달 멘트 예상 관부가세 근거: staff can see and correct it before it goes to the customer (user, 2026-11-01) */
+.q-duty{margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--bg);line-height:1.6}
+.q-duty.hidden{display:none}
+.q-dutyover{display:flex;align-items:center;gap:8px;margin:8px 0 0!important;font-size:12px!important;font-weight:400}
+.q-dutyover input{width:72px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}

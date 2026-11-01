@@ -686,7 +686,7 @@ $('#kChips').addEventListener('click',e=>{const b=e.target.closest('[data-k]');i
 // wait for Claude on the Mac, who fills them in. Staff can change anything; [견적서 제작] takes a shared 견적번호
 // (오늘날짜_101부터) and copies + saves the preview as a PNG. 공급자·입금 정보 and the signature come from the vault.
 // adj: staff's own 현지배송비 / 구매수수료 (엔) and their 비고; '' = the automatic value
-const QADJ=()=>({ship:'',shipNote:'',fee:'',feeNote:''});
+const QADJ=()=>({ship:'',shipNote:'',fee:'',feeNote:'',duty:''});
 const Q={type:'구매',items:[],lines:{'구매':[],'배송':[]},no:'',adj:QADJ()};
 const QLINES={'구매':[],'배송':[]};   // 배송비 견적서 lines come from [배송비 계산] (or + 항목 추가)
 const QNOTE={'구매':'우마이직구 이용 시 제품에 따라 입고비, 해외배송비, 사이즈 오버비용, 재포장비용, 국내화물 택배비 등이 추가로 발생할 수 있습니다. 상품 가격·현지배송비는 구매 시점의 판매 가격과 환율에 따라 달라질 수 있습니다.',
@@ -777,7 +777,7 @@ function qpage(o){const {I,sup,rows,from,last,blank,total,page,pages}=o;
     ${last?`<div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
     <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p></div>`:'<div class="qd-bottom"></div>'}
     ${pages>1?`<p class="qd-pageno">${page} / ${pages}</p>`:''}</div>`}
-function qdoc(){const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+x.qty*x.unit,0),sup=Object.fromEntries(I.supplier||[]);
+function qdoc(){qdutyShow();const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+x.qty*x.unit,0),sup=Object.fromEntries(I.supplier||[]);
   // measure in an off-screen copy of the preview: does this page's content still fit in one A4 sheet?
   const m=qdoc.m||(qdoc.m=Object.assign(document.createElement('div'),{className:'q-pages q-measure'}));if(!m.isConnected)document.body.appendChild(m);
   const fits=o=>{m.innerHTML=qpage({...o,pages:2});const d=m.firstElementChild;return d.scrollHeight<=QPAGE_H+1};
@@ -1079,7 +1079,7 @@ function qshort(t){t=String(t||'').replace(/【[^】]*】|\[[^\]]*\]|［[^］]*�
   let out=w.slice(0,2).join(' ');if(model&&!out.includes(model))out=(w[0]===model?model:w[0]+' '+model);
   for(const x of w.slice(2)){if((out+' '+x).length>28)break;if(out.length<14)out+=' '+x;else break}
   return out.slice(0,32)}
-function qfill(it,r){if(!Q.items.includes(it))return;Object.assign(it,{fullTitle:r.title||it.fullTitle,title:it.title||qshort(r.title),price:r.price??it.price,ship:r.ship??it.ship,shipRule:r.shipRule??it.shipRule,shop:it.url?qshopOf(it.url):r.shop||it.shop||''});
+function qfill(it,r){if(!Q.items.includes(it))return;Object.assign(it,{hs:r.hs??it.hs,fullTitle:r.title||it.fullTitle,title:it.title||qshort(r.title),price:r.price??it.price,ship:r.ship??it.ship,shipRule:r.shipRule??it.shipRule,shop:it.url?qshopOf(it.url):r.shop||it.shop||''});
   const took=it.t0?` (${mmss(Math.round((Date.now()-it.t0)/1000))})`:'';
   const moved=it.prev&&r.price&&r.price!==it.prev.price?` (지난 ${yen(it.prev.price)} → 지금 ${yen(r.price)}, 가격이 바뀌었어요)`:it.prev&&r.price?' (지난 가격과 같아요)':'';
   it.state='ok';it.msg=r.price?`✓ 현재 가격 확인${took}: ${yen(r.price)}${moved}${r.ship!=null?` · 현지배송비 ${yen(r.ship)}`:' · 현지배송비는 직접 확인해 주세요'}${r.shipNote?` (${r.shipNote})`:''}`:`가격을 찾지 못했어요. ${r.shipNote||'직접 입력해 주세요.'}`;
@@ -1130,11 +1130,43 @@ $('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel
   qeditors();qsave()});
 $('#qReset').onclick=()=>{if(confirm('입력한 내용을 지우고 새 견적을 시작할까요?'))qreset(true)};
 // [견적서 제작] copies the message staff paste in Kakao before attaching the saved image(s) (user, 2026-10-30).
-function qmsg(total,pages){const no=Q.no,amt=`₩${won(total)}`,many=pages>1?`\n견적서가 ${pages}장이라 나누어 보내드립니다.`:'';
+// 예상 관부가세 for the 구매 견적서 message (user, 2026-11-01). HS code per product, best evidence first: what Claude read on the
+// page (it.hs) -> the same product in past shipments (D.quoteHs, ERP declarations) -> words in the product name. 관세 by HS
+// (the rates staff quote in Kakao; 가구 0, 의류·신발 13, else 8), 부가세 10% on 상품가+관세, so 8% gives 18.8%. Tickets are not imported.
+const QD_RULES=[
+  [/서적|만화|화보|書籍|コミック|漫画|写真集|\bbook/i,'4901','서적'],
+  [/iphone|스마트폰|スマホ|노트북|ノートパソコン|laptop|macbook|태블릿|タブレット|ipad/i,'8471','휴대폰·노트북'],
+  [/조명|照明|ランプ|\blamp/i,'9405','조명'],
+  [/소파|ソファ|sofa|의자|チェア|椅子|\bchair|테이블|テーブル|\btable|책상|デスク|\bdesk|선반|本棚|\bshelf|収納|수납|침대|ベッド|\bbed\b|매트리스|マットレス|가구|家具|サイドボード|キャビネット|cabinet|토고|\btogo|トーゴ|stokke|트립트랩|tripp/i,'9401','가구'],
+  [/신발|운동화|구두|로퍼|スニーカー|sneaker|シューズ|\bshoes|ブーツ|\bboots|サンダル|sandal/i,'6404','신발'],
+  [/의류|자켓|재킷|ジャケット|jacket|コート|\bcoat|셔츠|シャツ|shirt|바지|パンツ|トラウザー|trouser|\bpants|니트|ニット|\bknit|후드|パーカー|hoodie|원피스|ワンピース|\bdress|スカート|skirt|양말|靴下|\bsocks/i,'6110','의류'],
+  [/피규어|フィギュア|figure|완구|おもちゃ|玩具|プラモデル|ぬいぐるみ|인형|\blego|レゴ/i,'9503','완구·피규어'],
+  [/가방|지갑|バッグ|\bbag|リュック|財布|wallet/i,'4202','가방·지갑'],
+  [/시계|腕時計|\bwatch|ウォッチ|g-shock|casio|カシオ|seiko|セイコー/i,'9102','시계'],
+  [/자전거|自転車|bicycle|ストライダー|strider/i,'8712','자전거'],
+  [/화장품|化粧|コスメ|cosmetic/i,'3304','화장품'],
+  [/과자|식품|お菓子|菓子|食品|チョコ|サプリ/i,'2106','식품']];
+const qdHsDuty=h=>/^(94(0[1-46-9]|$)|4901|9503|8517|8471)/.test(h)?0:/^(61|62|64)/.test(h)?13:8;
+const qdPct=r=>{const v=Math.round(((1+r/100)*1.1-1)*1000)/10;return `${v}%`};
+function qduty(){const fx=qrate(),own=qnum(Q.adj.duty),rows=[];
+  for(const it of Q.items){if(!qnum(it.price)||it.shop==='ticket')continue;
+    const words=[it.fullTitle,it.title,it.note].filter(Boolean).join(' '),rule=QD_RULES.find(x=>x[0].test(words)),past=it.url&&(D.quoteHs||{})[qkey(it.url)];
+    const hs=String(it.hs||past||(rule&&rule[1])||''),from=it.hs?'상품 페이지':past?'지난 출고':rule?'상품명':'미확인';
+    const duty=own!=null?own:hs?qdHsDuty(hs):8,base=Math.round(qnum(it.price)*(qnum(it.qty)||1)*fx);
+    rows.push({name:(it.title||'상품').slice(0,24),hs,what:(rule&&rule[2])||'',from,duty,base,tax:base*((1+duty/100)*1.1-1)})}
+  if(!rows.length)return null;
+  const amount=Math.round(rows.reduce((a,x)=>a+x.tax,0)/10)*10,rates=[...new Set(rows.map(x=>x.duty))].sort((a,b)=>a-b);
+  return {rows,amount,rate:rates.length===1?qdPct(rates[0]):`품목별 ${qdPct(rates[0])}~${qdPct(rates[rates.length-1])}`}}
+function qdutyShow(){const box=$('#qDuty');if(!box)return;const d=Q.type==='구매'&&D?qduty():null;box.classList.toggle('hidden',!d);if(!d)return;
+  const inp=$('#qDutyOver');if(document.activeElement!==inp)inp.value=Q.adj.duty??'';
+  $('#qDutyText').innerHTML=`<b>전달 멘트 예상 관부가세: 세율 ${esc(d.rate)} · ₩${won(d.amount)}</b> (상품가 기준)<br>`+
+    d.rows.map(x=>`${esc(x.name)} · HS ${esc(x.hs||'미확인')}${x.what?` ${esc(x.what)}`:''} · 관세 ${x.duty}% · 근거 ${esc(x.from)}`).join('<br>')}
+function qmsg(total,pages){const no=Q.no,amt=`₩${won(total)}`,many=pages>1?`\n견적서가 ${pages}장이라 나누어 보내드립니다.`:'',I=D.quoteInfo||{},d=Q.type==='구매'?qduty():null,
+    dline=d?`AI분석 예상 관세 : 세율 ${d.rate} - 금액 ${won(d.amount)}원\n(실제와 다를 수 있습니다)\n\n`:'';
   // the texts the user chose on 2026-10-30: 구매 = B 입금 안내형, 배송비 = A 입고 안내형
   return Q.type==='배송'
     ?`안녕하세요 고객님, 우마이직구입니다.\n주문하신 상품이 일본 센터에 입고되어 배송비 견적서를 전달드립니다.${many}\n\n· 견적번호: ${no}\n· 배송비 합계: ${amt}\n\n견적서 하단의 계좌로 입금해 주시면 확인 후 출고 준비를 진행하겠습니다.\n궁금하신 점은 편하게 말씀해 주세요.\n감사합니다.`
-    :`안녕하세요 고객님, 우마이직구입니다.\n요청하신 상품의 구매 견적서를 보내드립니다.${many}\n\n· 견적번호: ${no}\n· 입금하실 금액: ${amt}\n\n견적서 하단의 계좌로 입금해 주시면 확인 후 바로 구매를 진행해 드리겠습니다.\n상품 가격은 구매 시점에 따라 변동될 수 있으니 참고 부탁드립니다.\n감사합니다.`}
+    :`안녕하세요 고객님, 우마이직구입니다.\n요청하신 상품의 구매 견적서를 보내드립니다.${many}\n\n· 견적번호: ${no}\n· 입금하실 금액: ${amt}\n\n하단의 계좌로 입금해 주시면 확인 후 바로 구매를 진행해 드리겠습니다.\n\n${I.bank||''}\n예금주 : ${I.holder||''}\n\n${dline}상품 가격은 구매 시점에 따라 변동될 수 있으니 참고 부탁드립니다.\n감사합니다.`}
 $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textContent=t;
   if(!$('#qTo').value.trim()){msg('수신(고객 이름)을 먼저 넣어 주세요.');$('#qTo').focus();return}
   if(!qrows().length){msg('견적 항목이 없어요.');return}
@@ -1172,6 +1204,7 @@ $('#qMake').onclick=async()=>{const b=$('#qMake'),msg=t=>$('#qMakeMsg').textCont
   catch{give(new Blob([''],{type:'text/plain'}));msg('견적서를 만들지 못했어요. 다시 눌러 주세요.')}
   finally{b.disabled=false}};
 $('#qRate').addEventListener('change',()=>{if(!qnum($('#qRate').value))qloadRate(true)});
+$('#qDutyOver').addEventListener('input',e=>{Q.adj.duty=e.target.value.trim();qdutyShow();qsave()});
 // AI전령 머큐리 (user, 2026-10-30). 3D character in the middle of the tab (models/mercury/<pose>.glb, original character made in Blender),
 // shown in the pose that fits the situation. D.mercury (written by Mercury's checks into the vault) feeds it:
 //   {checkedAt, situations:[{id,count?,note?}], checks:[{id,state:'ok'|'warn'|'wait',summary}], items:[{kind,no,customer,amount,issue,since}]}
