@@ -354,7 +354,10 @@ function cusPlain(o){
   const all=[u.cargo,u.customs,...steps.map(s=>s.step)].join(' ');
   const into=at(/반입신고/),cleared=u.clearedAt||at(/수입신고수리|통관목록심사완료/),out=u.releasedAt||at(/반출신고/);
   const isCleared=!!cleared||/수리|심사완료/.test(u.customs||'')||o.stage>=3,isOut=!!out||u.cargo==='반출완료'||o.stage>=3;
-  const arrived=u.arrival||o.arDate;
+  // 나르다 (NARDA AIR) orders fly: 일본 출발 → 한국 도착 (공항) → 통관 → 국내 배송. 나르다 gives no arrival date, so a
+  // CJ scan (stage ≥ 3) is what says the parcel has landed and cleared.
+  const air=!!o.route,place=air?'한국 공항':'부산항',wh=air?'공항 세관 창고':'부산 세관 창고';
+  const arrived=u.arrival||o.arDate||(air&&o.stage>=3?'-':''),airLate=air&&!arrived&&(o.sinceDeparture||0)>=2;
   // 통관: the plainest true sentence for where customs stands, and whether the customer must act ('need') or may be asked ('watch')
   let cus,act=null;
   const avg=(steps.find(s=>/평균 소요시간/.test(s.note||''))||{}).note;
@@ -371,25 +374,30 @@ function cusPlain(o){
     act={level:'watch',text:'지금은 기다리시면 돼요. 세관에서 구매 영수증·인보이스를 요청할 수 있으니 구매 내역을 준비해 두시면 빨라요.'}}
   else if(/심사진행|수입신고$/.test(u.customs||''))cus={state:'now',title:'통관 심사 중',date:mdt(u.customsAt),text:'수입신고를 마치고 세관에서 심사하고 있어요. 문제가 없으면 곧 통관이 끝나요.'};
   else if(/통관목록/.test(u.customs||''))cus={state:'now',title:'통관 심사 중',date:mdt(u.customsAt),text:'간이 통관 목록이 접수돼 세관 심사를 기다리고 있어요.'};
-  else if(into||/반입/.test(u.cargo||''))cus={state:'now',title:'통관 준비 중',date:mdt(into),text:'부산 세관 창고에 들어와 통관 신고를 기다리고 있어요.'};
-  else if(arrived)cus={state:'now',title:'통관 준비 중',date:'',text:'부산항에 도착해 세관 창고로 옮겨지는 중이에요.'};
-  else cus={state:'todo',title:'통관',date:'',text:'부산항에 도착하면 통관이 시작돼요.'};
+  else if(into||/반입/.test(u.cargo||''))cus={state:'now',title:'통관 준비 중',date:mdt(into),text:`${wh}에 들어와 통관 신고를 기다리고 있어요.`};
+  else if(arrived)cus={state:'now',title:'통관 준비 중',date:'',text:`${place}에 도착해 세관 창고로 옮겨지는 중이에요.`};
+  else cus={state:'todo',title:'통관',date:'',text:`${place}에 도착하면 통관이 시작돼요.`};
   const rows=[
-    {state:o.obDate?'done':'now',title:'일본 출항',date:o.obDate?md(o.obDate):'',text:o.obDate?`${PORTS[port]?PORTS[port]+'항':'일본'}에서 배로 출발했어요.`:'아직 배에 실리기 전이에요.'},
-    {state:arrived?'done':o.obDate?'now':'todo',title:'부산항 도착',date:arrived?md(arrived):'',text:arrived?'부산항에 도착했어요.'+(into?` ${mdt(into)}에 세관 창고에 들어갔어요.`:''):o.obDate?'바다를 건너오고 있어요.':'출항 후 보통 다음 날 도착해요.'},
+    air?{state:o.obDate?'done':'now',title:'일본 출발',date:o.obDate?md(o.obDate):'',text:o.obDate?'일본에서 비행기로 출발했어요 (항공 배송).':'아직 비행기에 실리기 전이에요.'}:
+      {state:o.obDate?'done':'now',title:'일본 출항',date:o.obDate?md(o.obDate):'',text:o.obDate?`${PORTS[port]?PORTS[port]+'항':'일본'}에서 배로 출발했어요.`:'아직 배에 실리기 전이에요.'},
+    {state:arrived?'done':o.obDate?'now':'todo',title:air?'한국 도착':'부산항 도착',date:arrived&&arrived!=='-'?md(arrived):'',
+      text:arrived?`${place}에 도착했어요.`+(into?` ${mdt(into)}에 세관 창고에 들어갔어요.`:''):
+        !o.obDate?(air?'출발 후 보통 다음 날 도착해요.':'출항 후 보통 다음 날 도착해요.'):
+        airLate?'비행기는 출발했지만 아직 한국 도착·통관 기록이 확인되지 않아요. 저희가 확인하고 있어요.':
+        air?'비행기로 한국에 오고 있어요. 보통 출발 다음 날 도착해요.':'바다를 건너오고 있어요.'},
     cus,
     {state:o.stage>=4?'done':isOut?'now':'todo',title:o.stage>=4?'배송 완료':'국내 배송',date:isOut&&o.stage<4?mdt(out):'',
       text:(o.stage>=4?'국내 배송까지 모두 끝났어요.':isOut?'세관 창고에서 나와 국내 택배로 넘어갔어요.':'통관이 끝나면 국내 택배로 넘어가요.')+
         (isOut&&o.courierNo?` 택배사 ${o.courier||'—'} · 운송장 ${o.courierNo}`:'')}];
   const now=act&&act.level==='need'?cus:[...rows].reverse().find(r=>r.state==='now')||[...rows].reverse().find(r=>r.state==='done')||rows[0];
-  const head=now===cus?cus.title:now.title==='국내 배송'?'통관 완료 · 국내 배송 중':now.title==='부산항 도착'&&now.state==='now'?'바다를 건너오는 중':now.title==='일본 출항'&&now.state==='now'?'일본 출항 준비 중':now.title;
+  const head=now===cus?cus.title:now.title==='국내 배송'?'통관 완료 · 국내 배송 중':now.title==='부산항 도착'&&now.state==='now'?'바다를 건너오는 중':now.title==='한국 도착'&&now.state==='now'?(airLate?'도착·통관 확인 중':'비행기로 오는 중'):now.title==='일본 출항'&&now.state==='now'?'일본 출항 준비 중':now.title==='일본 출발'&&now.state==='now'?'일본 출발 준비 중':now.title;
   return {rows,act,head,tone:act?act.level:o.stage>=4||isCleared?'good':'now'};
 }
 function plainHtml(o){
   const p=cusPlain(o),u=o.unipass||{};
   const act=p.act?`<div class="cp-act ${p.act.level}"><b>${p.act.level==='need'?'⚠️ 화주님 조치가 필요해요':'ℹ️ 참고해 주세요'}</b><p>${esc(p.act.text)}</p></div>`:
     `<div class="cp-act ok"><b>✓ 지금은 따로 하실 일이 없어요</b><p>진행되는 대로 저희가 확인하고 있어요.</p></div>`;
-  return `<div class="cp-top"><span class="cp-brand">우마이직구 · 수입 통관 진행 안내</span><span class="cp-when">${u.checkedAt?esc(when(u.checkedAt))+' 기준':''}</span></div>`+
+  return `<div class="cp-top"><span class="cp-brand">우마이직구 · 수입 통관 진행 안내${o.route?' · ✈ 항공':''}</span><span class="cp-when">${u.checkedAt?esc(when(u.checkedAt))+' 기준':''}</span></div>`+
     `<div class="cp-id"><b>${esc(adm(o))}</b>${part(o)?` · ${esc(part(o))}`:''} · ${esc(o.item||'')}<br><span>받는 분 ${esc(o.name||'—')} · H B/L ${esc(o.hbl||'—')}</span></div>`+
     `<div class="cp-now ${p.tone}"><span>지금 상황</span><b>${esc(p.head)}</b></div>`+act+
     `<ol class="cp-steps">${p.rows.map(r=>`<li class="${r.state}"><div class="cp-h"><b>${esc(r.title)}</b><span>${esc(r.date||'')}</span></div><p>${esc(r.text)}</p></li>`).join('')}</ol>`;
