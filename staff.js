@@ -924,11 +924,38 @@ $('#qShipList').addEventListener('change',e=>{const c=e.target.closest('[data-qs
 $('#qShipCalc').addEventListener('input',e=>{const el=e.target.closest('[data-s]'),tr=el&&el.closest('[data-qsi]');if(!tr)return;Q.ship[+tr.dataset.qsi][el.dataset.s]=el.value;qsave()});
 $('#qShipCalc').addEventListener('change',e=>{const el=e.target.closest('select[data-s]'),tr=el&&el.closest('[data-qsi]');if(tr){Q.ship[+tr.dataset.qsi].region=el.value;qsave()}});
 $('#qShipAuto').onclick=qsFill;
+// 견적 항목 위의 직접수정 칸 (user): 화물마다 해외배송비 · 세변합 · 재포장비. 세변합을 바꾸면 사이즈오버 · 입고비 · 국내 택배비를 그 크기로 다시 계산한다.
+// 해당 줄만 고치므로 직원이 추가하거나 고친 다른 항목은 그대로 남는다.
+const qseTag=x=>(Q.ship||[]).length>1?` (${x.item.slice(0,14)})`:'';
+const qseDims=x=>String(x.dims).split(/[x×*,\s]+/).map(Number).filter(v=>v>0);
+function qsEdit(){const box=$('#qShipEdit');if(!box||box.contains(document.activeElement))return;const L=Q.lines['배송']||[],S=Q.type==='배송'?(Q.ship||[]):[];
+  const on=S.filter(x=>L.some(l=>l[0]==='해외배송비'+qseTag(x)));box.classList.toggle('hidden',!on.length);
+  box.innerHTML=on.length?`<table class="q-edit qs-edit"><thead><tr><th>직접 수정</th><th>해외배송비 ₩</th><th>세변합 cm</th><th>재포장비 ₩</th></tr></thead><tbody>`+on.map(x=>{const d=qseDims(x),t=qseTag(x);
+    return `<tr data-qse="${esc(x.order)}"><td class="small"><b>${esc(x.item)}</b></td><td><input data-e="sea" class="q-num" inputmode="numeric" value="${esc((L.find(l=>l[0]==='해외배송비'+t)||[])[2]??'')}"></td>`+
+      `<td><input data-e="sum" class="q-num" inputmode="numeric" value="${d.length===3?d[0]+d[1]+d[2]:''}"></td><td><input data-e="re" class="q-num" inputmode="numeric" value="${esc(x.re||0)}"></td></tr>`}).join('')+
+    '</tbody></table><p class="small muted">세변합을 고치면 사이즈오버·입고비·국내 택배비가 다시 계산돼요.</p>':''}
+function qseSet(name,tag,qty,unit,note){const L=Q.lines['배송'],full=name+tag,i=L.findIndex(l=>l[0]===full);
+  if(!unit){if(i>=0)L.splice(i,1);return}
+  if(i>=0){L[i][1]=qty;L[i][2]=unit;L[i][3]=note;return}
+  const order=['해외배송비','사이즈오버','입고비','재포장','국내화물 택배비'],at=order.indexOf(name);let k=-1;
+  for(let j=at-1;j>=0&&k<0;j--)k=L.findIndex(l=>l[0]===order[j]+tag);
+  L.splice(k+1,0,[full,qty,unit,note])}
+$('#qShipEdit').addEventListener('change',e=>{const el=e.target.closest('[data-e]'),tr=el&&el.closest('[data-qse]');if(!tr)return;
+  const x=(Q.ship||[]).find(s=>s.order===tr.dataset.qse);if(!x)return;const t=qseTag(x),v=qnum(el.value)||0,L=Q.lines['배송'],kg=qnum(x.kg)||0,n=Math.max(1,qnum(x.boxes)||1);
+  if(el.dataset.e==='sea'){const l=L.find(l=>l[0]==='해외배송비'+t);if(l)l[2]=v}
+  else if(el.dataset.e==='re'){x.re=v;qseSet('재포장',t,1,v,'포장 상태에 따라 변동 가능')}
+  else{const d=qseDims(x),old=d[0]+d[1]+d[2];if(v<30||d.length!==3){el.value=old||'';return}
+    const nd=d.map(c=>Math.max(1,Math.round(c*v/old)));nd[0]+=v-(nd[0]+nd[1]+nd[2]);x.dims=nd.join('×');x.dimsWhy='직원이 세변합을 직접 수정';
+    qseSet('사이즈오버',t,n,qsOverFee(v),`세변합 ${v}cm`);qseSet('입고비',t,n,qsIn(v),`세변합 ${v}cm (${v>=300?'300':'180'}cm 이상)`);
+    const one=qsKd(x.region,nd,kg/n);if(one!=null)qseSet('국내화물 택배비',t,1,one*n,`경동택배 경남권→${x.region} · ${n}박스 × ${won(one)}원 (박스당 ${Math.ceil(kg/n)}kg)`)}
+  qsCalc();qeditors();qsave()});
+$('#qShipEdit').addEventListener('keydown',e=>{if(e.key==='Enter')e.target.blur()});
 // The editor is laid out like the document: 구분 · 항목 (상품명) · 수량 · 단가 · 비고. 상품가·현지배송비·구매수수료 are typed
 // in 엔 (the 원 환산 column shows the 원 the document will print); added rows are in 원. Each product's reading status and
 // 비슷한 지난 견적 sit in a thin row under it.
 const qin=(f,v,o={})=>`<input data-f="${f}" value="${esc(v??'')}"${o.num?' inputmode="numeric" class="q-num"':''}${o.ph?` placeholder="${esc(o.ph)}"`:''}>`;
 function qeditors(){
+  safe(qsEdit);
   $('#qBuy').classList.toggle('hidden',Q.type!=='구매');$('#qAddItem').classList.toggle('hidden',Q.type!=='구매');
   if($('#qShipBox').classList.toggle('hidden',Q.type!=='배송')===false){qsList();qsCalc();qsLoadRates()}
   let n=0;const rows=[];

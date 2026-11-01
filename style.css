@@ -695,3 +695,42 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .q-doc .qd-items td,.q-doc .qd-items th{vertical-align:middle}
 .q-doc .qd-items td.qd-note{white-space:pre-line}
 .q-notearea{width:100%;box-sizing:border-box;font:inherit;font-size:12.5px;line-height:1.45;padding:7px 9px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);resize:vertical}
+.qs-editbox{margin:0 0 12px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg)}.qs-edit{width:100%}.qs-editbox p{margin:6px 0 0}
+/* 견적서 작성 공간 가시성 (user, 11/01): brighter help text, inputs that stand out from the card, clear section heads, bigger numbers */
+.q-form{--muted:color-mix(in srgb,var(--ink) 74%,var(--card));--q-field:color-mix(in srgb,var(--ink) 5%,var(--card));--q-edge:color-mix(in srgb,var(--ink) 30%,var(--card));font-size:14px}
+.q-form label{font-size:14px;font-weight:700;color:var(--ink)}
+.q-form label .muted{font-weight:400}
+.q-form input,.q-form select,.q-form textarea,.q-sheet textarea.q-title{background:var(--q-field);border:1px solid var(--q-edge);color:var(--ink);font-size:14px}
+.q-form input:focus,.q-form select:focus,.q-form textarea:focus{outline:2px solid var(--blue);outline-offset:0;border-color:var(--blue)}
+.q-form input::placeholder,.q-form textarea::placeholder{color:color-mix(in srgb,var(--ink) 55%,var(--card));opacity:1}
+.q-form .small,.q-form #qRateNote,.q-form #qGradeNote,.q-form #qBuy>p.small{font-size:13px;line-height:1.6}
+.q-form .q-type .chip{font-size:14px;font-weight:700;padding:9px 18px;border-color:var(--q-edge)}
+.q-form .q-type .chip.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.q-form .cus-sec{font-size:16px;color:var(--ink);padding-top:18px;border-top:1px solid var(--q-edge);margin:26px 0 12px}
+.q-form .cus-sec .small{display:block;font-size:12.5px;font-weight:400;margin-top:3px}
+.q-sheet th{font-size:13px;font-weight:700;color:var(--ink);background:color-mix(in srgb,var(--ink) 9%,var(--card));border-bottom:1px solid var(--q-edge)}
+.q-sheet td{border-bottom-color:var(--q-edge)}
+.q-sheet td.q-n{font-size:14px;color:var(--ink)}
+.q-sheet td:nth-child(2){font-size:14px}
+.q-sheet td input,.q-sheet textarea.q-title,.q-notearea{font-size:14px}
+.q-sheet td:nth-child(4) input{font-weight:700}
+.q-sheet .q-krw{font-size:13px;font-weight:600;color:var(--ink)}
+.q-sheet tr.q-sub .q-st,.q-sheet tr.q-sub .q-link,.q-past{font-size:13px}
+.q-notearea{background:var(--q-field);border-color:var(--q-edge);line-height:1.5}
+.qs-c{padding:12px 14px;border-color:var(--q-edge);border-radius:10px;font-size:14px}
+.qs-c input{width:18px;height:18px;flex:none}
+.qs-c.on{border-width:2px;padding:11px 13px}
+/* picked shipments: one labelled block each instead of a table too wide for the column */
+.qs-calc,.qs-calc tbody{display:block;width:100%}.qs-calc thead{display:none}
+.qs-calc tr{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;padding:14px;margin-bottom:10px;border:1px solid var(--q-edge);border-radius:10px}
+.qs-calc td{display:block;padding:0;min-width:0;border:0}
+.qs-calc td input,.qs-calc td select{width:100%;box-sizing:border-box;padding:10px;text-align:left}
+.qs-calc td:nth-child(1){grid-column:1/-1;font-size:14px}
+.qs-calc td:nth-child(4),.qs-calc td:nth-child(5){grid-column:1/-1}
+.qs-calc td:nth-child(n+2)::before{display:block;font-size:13px;font-weight:700;margin-bottom:5px;color:var(--ink)}
+.qs-calc td:nth-child(2)::before{content:'무게 W/T (kg)'}.qs-calc td:nth-child(3)::before{content:'박스 수'}
+.qs-calc td:nth-child(4)::before{content:'박스 크기 cm (가로×세로×높이)'}.qs-calc td:nth-child(5)::before{content:'재포장 (원)'}.qs-calc td:nth-child(6)::before{content:'도착 권역'}
+.qs-calc td:nth-child(6){grid-column:3;grid-row:2}
+.qs-calc .small{max-width:none;margin-top:5px}
+.q-form .bad{color:var(--bad)}
+.q-sheet .q-notearea{font-size:13px;min-height:118px}
