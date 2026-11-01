@@ -61,7 +61,7 @@ function row(o,why){   // why: Mercury's reason (own column on the right, added 
   <td>${esc(o.courier||'미정')}</td>
   <td class="msgcell">${msgCell(o)}</td></tr>`;
 }
-const HEAD='<thead><tr><th title="독차 등으로 이미 나간 주문을 완료로 넘기기 · 완료 처리한 주문은 되돌리기">완료</th><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점<small class="thnote">(+N일)은 영업일 · 통관은 해운 출발부터, 택배 인계는 통관 완료부터 센 날</small></th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="작성자에게 지연 안내 문자 (우마이직구 관리자에서 발송)">문자</th></tr></thead>';
+const HEAD='<thead><tr><th title="독차 등으로 이미 나간 주문을 완료로 넘기기 · 완료 처리한 주문은 되돌리기">완료</th><th>통관</th><th>주문번호</th><th>운송장번호</th><th>받는 분</th><th title="알림 대상: 우마이직구 요청서 작성자 (구매대행 사업자 또는 본인)">작성자</th><th>상품</th><th>단계</th><th>확인할 점</th><th>특송업체 픽업</th><th>해운 출발</th><th>국내 도착</th><th title="해운 출발 후 지난 영업일 (+1일까지 정상, +2일부터 확인)">경과</th><th>택배사</th><th title="작성자에게 지연 안내 문자 (우마이직구 관리자에서 발송)">문자</th></tr></thead>';
 const matches=(o,q)=>!q||[o.order,adm(o),o.hbl,o.courierNo,o.item,o.name,o.route&&'나르다 항공 narda air',o.writer&&o.writer.name,o.writer&&o.writer.id,o.writer&&o.writer.box,o.courier,D.stages[o.stage],o.alerts.join(' ')].some(v=>String(v||'').toLowerCase().includes(q));
 // 정렬: click a column title (not its border) to sort ▲, again ▼, a third time back to the default order.
 const KORDER={customs:0,handover:1,unknown:2,domestic:3};
@@ -210,7 +210,7 @@ function render(){
   // Cards in the order staff should look at them; each jumps to the table holding those orders.
   $('#kpis').innerHTML=`<button class="kpi alert" data-go="alert"><span>확인 필요</span><b>${D.alerts.toLocaleString()}</b></button>`+
     KPI_ORDER.map(s=>D.stages.indexOf(s)).filter(i=>i>=0).map(i=>`<button class="kpi" data-go="${i}"><span>${esc(D.stages[i]==='해운 출발'?'해운·항공 출발':D.stages[i])}</span><b>${(D.summary[D.stages[i]]||0).toLocaleString()}</b></button>`).join('');
-  $('#rules').textContent=`기준: 해운 출발 후 영업일로 +${D.alertDays}일이 지나도 실제로 배송완료가 안 된 주문 (+1일까지는 정상, 주말·공휴일 제외, ERP에 반영 안 됐어도 택배사에서 배송완료면 제외). 확인할 점은 택배사 조회(CJ·경동·일양) → 없으면 유니패스 통관 상태 순서로 판단해요.`;
+  $('#rules').textContent='';
   safe(renderAlerts);safe(renderKakao);safe(renderMercury);safe(renderQSide);
   // 주문일별 진행: one stacked bar per order date (length = orders, color = stage), red badge = 확인 필요.
   const tot=b=>D.stages.reduce((a,s)=>a+(b[s]||0),0),most=Math.max(1,...D.batches.map(tot));
@@ -442,7 +442,7 @@ function openCus(order){
   $('#cusSteps').innerHTML=steps.length?steps.map((s,i)=>`<li class="${i===0?'now':''}"><div class="st-head"><b>${esc(s.step||'—')}</b><span class="muted">${esc(dt(s.at))}</span></div>`+
       `${s.placeName||s.inOut?`<div class="small muted">${esc([s.placeName,s.inOut].filter(Boolean).join(' · '))}</div>`:''}`+
       `${s.note?`<div class="small st-note">${esc(s.note)}</div>`:''}</li>`).join(''):
-    `<li class="muted small">${o.unipass?'처리단계 기록이 아직 없어요. 다음 갱신 때 함께 가져와요.':'아직 유니패스 조회 기록이 없어요. 해운 출발 후 영업일 +2일이 지나 확인 대상이 되면 다음 갱신 때 조회돼요.'}</li>`;
+    `<li class="muted small">${o.unipass?'처리단계 기록이 아직 없어요.':'아직 유니패스 조회 기록이 없어요.'}</li>`;
   const key=[['진행상태',u.cargo],['통관진행상태',u.customs],['처리일시',dt(u.customsAt)],['입항일',u.arrival],
     ['수입신고수리',dt(u.clearedAt)],['반출신고',dt(u.releasedAt)],['관리대상검사',u.inspect==='Y'?'검사 대상':u.inspect==='N'?'아님':u.inspect],['확인할 점',o.alerts.join(' · ')]];
   $('#cusCards').innerHTML=key.map(([k,v])=>`<div class="cus-card${k==='확인할 점'?' wide':''}"><span>${esc(k)}</span><b>${esc(v||'—')}</b></div>`).join('');
@@ -510,14 +510,14 @@ function renderKakao(){
   if(kFilter!=='done')shown.sort((a,b)=>mAngryIds().has(b.id)-mAngryIds().has(a.id));   // 머큐리가 화난 고객으로 본 상담은 가장 위 (user, 2026-10-31); sort is stable
   $('#kakaoBadge').textContent=open.length||'';
   $('#kCount').innerHTML=(shown.length===all.length?`${all.length}건`:`${shown.length} / ${all.length}건`)+(kTopic?` · <button class="chip on" id="kTopicClear" title="유형 필터 해제">${esc(kTopic.name)} ✕</button>`:'');
-  $('#kRules').textContent=`${new Date(K.updatedAt).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 · 최근 ${K.windowDays}일 안에 움직인 상담만 봐요. 메시지가 오래된 순서(오래 기다린 순서)로 보여 줘요. 고객이 "감사합니다·네 알겠습니다"처럼 인사로 끝낸 대화는 빼요. 챗봇 대화는 따로 떼어 보고, 그 위의 직원·고객 대화로 판단해요.`;
+  $('#kRules').textContent='';
   $('#kChips').innerHTML=`<button class="chip${kFilter?'':' on'}" data-k="">전체 ${open.length}</button>`+
     Object.entries(KTYPE).map(([k,[label,cls,tip]])=>`<button class="chip ${cls}${kFilter===k?' on':''}" data-k="${k}" title="${esc(tip)}">${esc(label)} ${cnt(k)}</button>`).join('')+
     `<button class="chip k-delivered${kFilter==='done'?' on':''}" data-k="done" title="직원이 처리완료로 체크했거나 카카오에서 답변돼 정리된 상담 (새 메시지가 오면 다시 누락 탭으로 돌아가요)">✓ 처리완료 ${done.length}</button>`;
   const rows=shown.map(kRowHtml).map((h,i)=>mAngryIds().has(shown[i].id)?h.replace('<tr class="','<tr class="k-angry '):h);
   $('#kTable').innerHTML='<thead><tr><th title="처리완료로 넘기기 · 처리완료 탭에서는 되돌리기">완료</th><th>구분</th><th>채팅방</th><th>기다린 시간</th><th>마지막 메시지</th><th></th><th>메모</th><th>진행 단계</th><th>서비스</th><th>처음 문의</th><th>담당</th></tr></thead><tbody>'+
     (rows.join('')||`<tr><td colspan="11" class="muted">${$('#gq').value.trim()?noneMsg():kFilter==='done'?'처리완료로 옮긴 상담이 없어요.':'누락된 상담이 없어요.'}</td></tr>`)+'</tbody>';
-  $('#kNote').textContent=(K.historyAsOf?`진행 단계·서비스는 ${new Date(K.historyAsOf).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'numeric',minute:'2-digit'})} 기준 상담 기록이에요. `:'')+`늦음: 기다린 시간 2시간부터 (주말 포함 실제 경과 시간).`;
+  $('#kNote').textContent='';
   renderInsight();
 }
 const AUTOCLS={'높음':'k-delivered','중간':'k-handover','낮음':'k-unknown'};
@@ -592,7 +592,7 @@ function openChat(id){const x=itemOf(id),th=(D.kakaoThreads||{})[id];if(!x)retur
   $('#kcText').value='';const d=$('#kChatDlg');d.showModal();$('#kcBrief').closest('.kmerge-right').scrollTop=0;const log=$('#kcLog');log.scrollTop=log.scrollHeight;fillPhotos()}
 // 맥락 brief in the staff's handover style (kakao_drafts.py): what to do, a dashed line, then the sections.
 function briefHtml(d){
-  if(!d)return '<p class="muted">아직 맥락 요약이 없어요. 다음 전체 업데이트(매시 정각) 때 만들어져요.</p>';
+  if(!d)return '<p class="muted">아직 맥락 요약이 없어요.</p>';
   if(!d.situation)return `<p class="kb-p">${esc(d.summary||'')}</p>`;   // older drafts
   const ol=a=>`<ol>${a.map(t=>`<li>${esc(t)}</li>`).join('')}</ol>`,sec=(t,b)=>`<div class="kb-sec"><b>(${t})</b>${b}</div>`;
   const facts=d.facts&&d.facts.length?`<div class="kb-facts"><b>답변에 쓸 정보</b><table>${d.facts.map(f=>{const miss=/^못 찾음/.test(f.a);
@@ -911,10 +911,10 @@ function qsFixed(r){const url=String(r.url||''),one=s=>{const P=String(s||'').sp
 const QAREA=['수도권','경남권','경북권','전남권','충청권','강원권','전북권','제주권'];
 function qsList(){const box=$('#qShipList'),C=qsCands();Q.ship=Q.ship||[];
   if(SQ().recent){const keep=Q.ship.filter(x=>C.some(r=>r.order===x.order));if(keep.length!==Q.ship.length){Q.ship=keep;qsCalc();qsave()}}   // a pick from the customer before must not ride along
-  if(!SQ().recent){box.innerHTML='<p class="small bad">배송비 데이터가 아직 없어요 (Claude가 ERP 기록을 모으면 나와요).</p>';return}
+  if(!SQ().recent){box.innerHTML='<p class="small bad">배송비 데이터가 아직 없어요.</p>';return}
   if(!qsNames($('#qTo').value).length){box.innerHTML='';return}
-  if(!C.length){box.innerHTML=`<p class="small muted">"${esc($('#qTo').value.trim())}" 이름으로 최근 75일 ERP 화물을 찾지 못했어요. 이름을 ERP 수취인과 같게 넣어 보세요.</p>`;return}
-  box.innerHTML=`<p class="small"><b>${C.length}건</b> · ERP 수취인 이름이 같은 화물 (최근 순) — 견적이 필요한 것을 고르세요</p>`+C.map(r=>{const on=Q.ship.some(x=>x.order===r.order);
+  if(!C.length){box.innerHTML=`<p class="small muted">"${esc($('#qTo').value.trim())}" 이름으로 찾은 화물이 없어요.</p>`;return}
+  box.innerHTML=`<p class="small"><b>${C.length}건</b> · 견적이 필요한 화물을 고르세요</p>`+C.map(r=>{const on=Q.ship.some(x=>x.order===r.order);
     return `<label class="qs-c${on?' on':''}"><input type="checkbox" data-qs="${esc(r.order)}"${on?' checked':''}><span><b>${esc(r.buyItem||r.item)}</b>${r.buyItem?` <span class="muted">(${esc(r.item)})</span>`:''}<br>`+
       `<span class="small muted">${esc(r.date.slice(5))} 주문 · ${esc(r.order)} · ${r.kg}kg · ${r.boxes}박스 · ${esc(r.status)}${r.region?' · '+esc(r.region):''}</span></span></label>`}).join('')}
 function qsPick(order,on){const r=(SQ().recent||[]).find(x=>x.order===order);if(!r)return;Q.ship=(Q.ship||[]).filter(x=>x.order!==order);
@@ -930,7 +930,7 @@ function qsCalc(){const S=Q.ship||[];$('#qShipAuto').classList.toggle('hidden',!
       `<td><select data-s="region">${QAREA.map(a=>`<option${a===x.region?' selected':''}>${a}</option>`).join('')}</select></td><td>${qsFixCell(x)}</td></tr>`).join('')+'</tbody></table></div>':''}
 function qsFixCell(x){const F=x.fix||[],sel=(k,j)=>`<select data-fx="${j}"><option value="">${j<F.length?'빼기':'정액 품목 추가'}</option>${Object.entries(QS_FIXED).map(([id,[t,p]])=>`<option value="${id}"${id===k?' selected':''}>${t} · ${won(p)}원</option>`).join('')}</select>`;
   return F.map((e,j)=>`<div class="qs-fix">${sel(e.k,j)}<input data-fn="${j}" class="q-num" inputmode="numeric" value="${esc(e.n)}" aria-label="수량"></div>`).join('')+`<div class="qs-fix">${sel('',F.length)}</div>`+
-    (F.length?'<div class="small muted">정해진 배송비라 해외배송비만 넣어요.</div>':'')}
+    ''}
 async function qsFill(){const S=Q.ship||[],msg=t=>$('#qShipMsg').textContent=t;if(!S.length)return;
   const b=$('#qShipAuto');b.disabled=true;msg('계산하는 중…');await qsLoadRates();
   const lines=[],many=S.length>1,tag=x=>many?` (${x.item.slice(0,14)})`:'';
@@ -970,7 +970,7 @@ function qsEdit(){const box=$('#qShipEdit');if(!box||box.contains(document.activ
   box.innerHTML=on.length?`<table class="q-edit qs-edit"><thead><tr><th>직접 수정</th><th>해외배송비 ₩</th><th>세변합 cm</th><th>재포장비 ₩</th></tr></thead><tbody>`+on.map(x=>{const d=qseDims(x),t=qseTag(x);
     return `<tr data-qse="${esc(x.order)}"><td class="small"><b>${esc(x.item)}</b></td><td><input data-e="sea" class="q-num" inputmode="numeric" value="${esc((L.find(l=>l[0]==='해외배송비'+t)||[])[2]??'')}"></td>`+
       `<td class="qs-boxes">${d.length===3?qseSums(x).map((v,b,a)=>`<label>${a.length>1?`<span class="small muted">박스${b+1}</span>`:''}<input data-e="sum" data-b="${b}" class="q-num" inputmode="numeric" value="${v}"></label>`).join(''):''}</td><td><input data-e="re" class="q-num" inputmode="numeric" value="${esc(x.re||0)}"></td></tr>`}).join('')+
-    '</tbody></table><p class="small muted">세변합을 고치면 사이즈오버·입고비·국내 택배비가 다시 계산돼요.</p>':''}
+    '</tbody></table>':''}
 function qseSet(name,tag,qty,unit,note){const L=Q.lines['배송'],full=name+tag,i=L.findIndex(l=>l[0]===full);
   if(!unit){if(i>=0)L.splice(i,1);return}
   if(i>=0){L[i][1]=qty;L[i][2]=unit;L[i][3]=note;return}
@@ -1000,7 +1000,7 @@ function qeditors(){
     Q.items.forEach((it,i)=>{rows.push(`<tr data-qi="${i}"><td class="q-n">${++n}</td><td><textarea data-f="title" rows="2" class="q-title" placeholder="상품명">${esc(it.title||'')}</textarea></td><td>${qin('qty',it.qty??1,{num:1})}</td><td><span class="q-cur">¥</span>${qin('price',it.price,{num:1,ph:'1개 가격'})}<div class=\"q-krw\" data-krw=\"${'p'+i}\"></div></td><td>${qin('note',it.note,{ph:qnum(it.price)?yen(it.price):'비고'})}</td><td><button type="button" class="mini" data-qdel="${i}" aria-label="삭제">✕</button></td></tr>`);
       const st=it.state?`<div class="small q-st ${it.state==='fail'?'bad':it.state==='wait'?'wait':''}">${esc(it.msg||'')}</div>`:'',past=qpast(it,i);
       if(st||past||it.url)rows.push(`<tr class="q-sub" data-qi="${i}"><td></td><td colspan="5">${it.url?`<a class="small muted q-link" href="${esc(it.url)}" target="_blank" rel="noopener">${esc(it.url.replace(/^https?:\/\/(www\.)?/,'').slice(0,60))} ↗</a>`:''}${st}${past}</td></tr>`)});
-    if(!Q.items.length)rows.push('<tr><td></td><td colspan="5" class="muted small">링크를 넣고 [자동 견적]을 누르거나, [+ 상품 추가]로 직접 넣으세요.</td></tr>');
+    if(!Q.items.length)rows.push('<tr><td></td><td colspan="5" class="muted small">상품이 없어요.</td></tr>');
     const sh=qship(),f=qfee();
     rows.push(`<tr data-qa="ship" class="q-fixed"><td class="q-n">${++n}</td><td>현지배송비</td><td>1</td><td><span class="q-cur">¥</span>${qin('ship',Q.adj.ship,{num:1,ph:Q.items.some(it=>qnum(it.ship)!=null)?'자동 '+sh.auto.toLocaleString():'모름'})}<div class=\"q-krw\" data-krw=\"${'ship'}\"></div></td><td>${qin('shipNote',Q.adj.shipNote,{ph:sh.autoNote})}</td><td>${Q.adj.ship||Q.adj.shipNote?'<button type="button" class="mini" data-qauto="ship" title="자동 값으로">↺</button>':''}</td></tr>`);
     rows.push(`<tr data-qa="fee" class="q-fixed"><td class="q-n">${++n}</td><td>구매수수료</td><td>1</td><td><span class="q-cur">¥</span>${qin('fee',Q.adj.fee,{num:1,ph:f.auto?'자동 '+f.auto.toLocaleString():'자동'})}<div class=\"q-krw\" data-krw=\"${'fee'}\"></div></td><td>${qin('feeNote',Q.adj.feeNote,{ph:f.autoNote||'상품 가격을 넣으면 계산돼요'})}</td><td>${Q.adj.fee||Q.adj.feeNote?'<button type="button" class="mini" data-qauto="fee" title="자동 값으로">↺</button>':''}</td></tr>`)}
@@ -1022,7 +1022,7 @@ async function qloadRate(force){if(!force&&qnum($('#qRate').value))return;
   // 적용 환율 = 시장 환율 × 1.02: what 2026 quotes used (applied ÷ market, monthly median 1.018–1.021 since August)
   try{const r=await (await fetch('https://open.er-api.com/v6/latest/JPY')).json();const v=r.rates&&r.rates.KRW;if(!v)throw 0;
     $('#qRate').value=(Math.round(v*1.02*100)/100).toString();
-    $('#qRateNote').textContent=`시장 환율 ¥100 = ₩${(v*100).toFixed(0)} × 1.02 → ¥100 = ₩${Math.round(qrate()*100)} (${new Date(r.time_last_update_unix*1e3).toLocaleDateString('ko-KR')} 기준, 지난 견적과 같은 방식). 필요하면 고쳐 주세요.`;qdoc();qsave()}
+    $('#qRateNote').textContent='';qdoc();qsave()}
   catch{$('#qRateNote').textContent='환율을 불러오지 못했어요. 직접 넣어 주세요.'}}
 // A quote saved in this browser before 11/01 still carries the old one-line 해외배송비 비고: the page restored it as it was, so it never changed.
 function qsNoteUp(L){(L||[]).forEach(l=>{const m=String(l[3]||'').match(/^W\/T ([\d.]+)kg · ¥([\d,]+) × ([\d.]+)원\/100엔 \((\d{4}-\d\d-\d\d)/);
@@ -1198,7 +1198,7 @@ $('#qAuto').onclick=()=>{const urls=[...new Set($('#qLinks').value.split(/\s+/).
   if(!urls.length){$('#qAutoMsg').textContent='http로 시작하는 상품 링크를 넣어 주세요.';return}
   Q.items=urls.map(u=>({url:u,title:'',qty:1,price:'',ship:'',shop:qshopOf(u)}));Q.lines['구매']=[];Q.no='';Q.adj=QADJ();$('#qMakeMsg').textContent='';
   const todo=Q.items;
-  $('#qAutoMsg').textContent=`새 견적서 · 링크 ${urls.length}개를 확인해요. 라쿠텐 같은 큰 쇼핑몰은 10초쯤 걸려요.`;
+  $('#qAutoMsg').textContent=`링크 ${urls.length}개 확인 중…`;
   todo.filter(it=>!qprefill(it)).forEach(qfetchLink);qeditors();qsave();if(!qtick.t)qtick.t=setInterval(qtick,1000);qtick()};
 $('#qAddItem').onclick=()=>{Q.items.push({url:'',title:'',qty:1,price:'',ship:'',shop:''});qeditors();qsave()};
 $('#qAddLine').onclick=()=>{Q.lines[Q.type].push(['',1,'','']);qeditors();qsave()};
@@ -1221,14 +1221,14 @@ function qguess(){const to=$('#qTo').value.trim(),C=D.quoteCustomers||[],note=$(
   if(box&&hits.some(e=>e.box===box))hits=hits.filter(e=>e.box===box);   // 사서함 in 수신 picks the person
   note.className='small q-gradenote';
   if(!hits.length){$('#qGrade').value='normal';
-    note.textContent='관리자 회원·카카오 채널·구매 정리 시트에서 이 이름을 못 찾아 일반으로 두었어요. 다르면 골라 주세요.';return}
+    note.textContent='회원을 못 찾아 일반으로 두었어요.';return}
   // staff tags (카카오 "/사업자", 시트 회사명) win over the site level; otherwise the admin level, 동명이인 noted
   const tagged=hits.find(e=>!e.src[0].startsWith('관리자')),admins=hits.filter(e=>e.src[0].startsWith('관리자'));
   const cnt={};admins.forEach(e=>cnt[e.lv]=(cnt[e.lv]||0)+1);
   const pick=tagged||admins.find(e=>e.lv==='biz')&&admins.length===1&&admins[0]||admins.slice().sort((x,y)=>(cnt[y.lv]||0)-(cnt[x.lv]||0))[0];
   $('#qGrade').value=pick.lv==='biz'?'biz':'normal';note.className='small q-gradenote hit';
-  note.textContent=`추정: ${QLV[pick.lv||'normal']} · 근거: ${pick.src[0]}${tagged&&admins.length?` · 관리자 등급 ${[...new Set(admins.map(e=>QLV[e.lv]))].join('/')}`:''}`+
-    (admins.length>1?` · 관리자에 같은 이름 ${admins.length}명 (${Object.entries(cnt).map(([k,v])=>QLV[k]+' '+v).join(', ')}) — 수신에 사서함 번호(OF/WO)를 넣으면 정확해요`:'')}
+  note.textContent=`추정: ${QLV[pick.lv||'normal']}${tagged&&admins.length?` · 관리자 등급 ${[...new Set(admins.map(e=>QLV[e.lv]))].join('/')}`:''}`+
+    (admins.length>1?` · 관리자에 같은 이름 ${admins.length}명 (${Object.entries(cnt).map(([k,v])=>QLV[k]+' '+v).join(', ')})`:'')}
 $('#tabQuote').addEventListener('click',e=>{const b=e.target.closest('[data-qdel],[data-qldel],[data-qtype],[data-qship],[data-qauto]');if(!b)return;
   if(b.dataset.qship!=null){Q.adj.ship=b.dataset.qship;Q.adj.shipNote=`${yen(b.dataset.qship)} · 예상 금액 (비슷한 지난 견적), 판매자 확인 후 변동 가능`;qeditors();qsave();return}
   if(b.dataset.qauto){Q.adj[b.dataset.qauto]='';Q.adj[b.dataset.qauto+'Note']='';qeditors();qsave();return}
@@ -1445,7 +1445,7 @@ function mSheetRow(i,heads,p){
   return `<tr class="warnrow"><td>${mBtn(i)}</td><td>${mLink(sh.url,sh.found?`${sh.tab} ${sh.row}행`:sh.tab?`${sh.tab} 탭`:'시트')}</td>`+heads.map(h=>`<td class="clip" title="${esc(c[h]||'')}">${esc(c[h]||'')}</td>`).join('')+mWhy(i)+'</tr>'}
 function mCard(id,title,desc,links,thead,rows){
   return `<section class="card m-card" id="${id}"><div class="cardhead"><h2>${title} <span class="muted small">· ${rows.length}건</span></h2><div class="m-links">${links}</div></div>`+
-    `<p class="muted small">${desc}</p><div class="tablewrap sheet"><table class="sheet"><thead><tr>${thead}</tr></thead><tbody>${rows.join('')}</tbody></table></div></section>`}
+    `<div class="tablewrap sheet"><table class="sheet"><thead><tr>${thead}</tr></thead><tbody>${rows.join('')}</tbody></table></div></section>`}
 // the reason says what was wrong, not how often a Slack reminder repeats (also for marks saved before the rule text was removed)
 const mClean=t=>String(t||'').split(' · ').filter(p=>!/3시간마다|12시·18시|알림|다음 /.test(p)).join(' · ').replace('슬랙 요청 후 ','');
 const mTh=a=>a.map(h=>`<th>${esc(h)}</th>`).join('');
@@ -1487,7 +1487,7 @@ function mRenderCards(M){
     rows.push({t:v.ts,kind:kind||'확인 완료',who:who||'',no:no||'',why:why||'',undo:`<button class="mini" data-mundo="${esc(k)}">되돌리기</button>`})}
   rows.sort((a,b)=>String(b.t||'').localeCompare(String(a.t||'')));
   out.push(`<section class="card m-card" id="mc-done"><div class="cardhead"><h2>확인 완료한 건 <span class="muted small">· ${rows.length}건</span></h2></div>`+
-    `<p class="muted small">머큐리 목록에서 확인 완료로 옮긴 건이에요. 아직 해결이 안 됐으면 되돌리기로 다시 목록에 올려요 (점검이 더 이상 문제로 보지 않는 건은 되돌려도 목록에 나오지 않아요).</p>`+
+    
     (rows.length?`<div class="tablewrap sheet"><table class="sheet"><thead><tr><th>확인 시각</th><th>구분</th><th>고객</th><th>번호</th><th>이유</th><th></th></tr></thead><tbody>`+
       rows.slice(0,80).map(r=>`<tr><td class="num">${r.t?esc(when(r.t)):''}</td><td>${esc(r.kind)}</td><td>${esc(r.who)}</td><td class="mono">${esc(r.no)}</td><td class="m-why">${esc(mClean(r.why))}</td><td>${r.undo}</td></tr>`).join('')+`</tbody></table></div>`
       :'<p class="muted">아직 확인 완료한 건이 없어요.</p>')+'</section>');
@@ -1591,7 +1591,7 @@ let qsDragEnd=0;   // a corner drag that ends outside the list must not count as
 // 임시 확인 under each list: what was parked with 내일 다시, when it comes back, and 지금 되돌리기
 const mLeftTxt=mk=>{const m=Math.max(0,Math.round(mLaterLeft(mk)/60e3));return m>=60?`${Math.floor(m/60)}시간 ${m%60}분 뒤`:`${m}분 뒤`};
 function qsLater(M,g){const L=((M&&M.later)||[]).filter(i=>i.kind===g.kind);if(!L.length)return '';
-  return `<div class="q-latersec"><div class="q-drawhead"><b>임시 확인</b><span class="muted small">${L.length}건 · 내일까지 그대로면 다시 알려요</span></div>`+
+  return `<div class="q-latersec"><div class="q-drawhead"><b>임시 확인</b><span class="muted small">${L.length}건</span></div>`+
     L.map(i=>`<div class="q-drawrow q-laterrow"><div class="q-drawtop"><b>${esc(i.no||'')}</b><span>${esc(i.customer||'')}</span><span class="muted small num">${mLeftTxt(i.mark)} 다시 알림</span></div>`+
       `<div class="small muted">${esc(i.issue||'')}</div><div class="q-drawbtns"><button type="button" class="mini" data-mundo="${esc(i.key)}" title="지금 바로 목록으로 돌려보내요">지금 되돌리기</button></div></div>`).join('')+'</div>'}
 const QSIZE='woomyvesta-qside-size',QS_GRIPS=['nw','ne','sw','se'].map(c=>`<span class="q-grip q-grip-${c}" data-grip="${c}" aria-hidden="true"></span>`).join('');
