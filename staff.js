@@ -47,7 +47,7 @@ function row(o,why){   // why: Mercury's reason (own column on the right, added 
   const cp=n=>`<button class="copybtn" data-copy="${esc(n)}" title="운송장번호 복사" aria-label="운송장번호 복사">⧉</button>`;
   const no=o.courierNo?o.courierNo.split(/\s+/).map(n=>(link?`<a href="${link(n)}" target="_blank" rel="noopener">${esc(n)}</a>`:esc(n))+cp(n)).join('<br>'):'—';
   const since=o.sinceDeparture!=null&&o.stage<4?`+${o.sinceDeparture}일`:'';
-  const dm=o.doneMark,alerts=dm?['✓ 완료 처리',...new Set([ODMEMO[dm.how]??dm.how,dm.memo].filter(Boolean)),dm.ts&&when(dm.ts)].filter(Boolean).join(' · '):o.alerts.join(' · ');
+  const dm=o.doneMark,nf=!dm&&!o.alerts.length&&o.notified,alerts=nf?`💬 ${md(nf.at)} 카카오 안내: "${nf.quote}" · ${nf.alert}`:dm?['✓ 완료 처리',...new Set([ODMEMO[dm.how]??dm.how,dm.memo].filter(Boolean)),dm.ts&&when(dm.ts)].filter(Boolean).join(' · '):o.alerts.join(' · ');
   return `<tr${o.alerts.length||why?' class="warnrow"':''}>
   <td>${o.alerts.length||why?`<button class="mini odbtn" data-od="${esc(o.order)}" title="독차 등으로 이미 나간 주문을 완료로 넘기기">완료</button>`:
     dm?`<button class="mini" data-odundo="${esc(o.order)}" title="완료 처리를 취소하고 원래 상태로">되돌리기</button>`:''}</td>
@@ -91,20 +91,23 @@ function routeBar(el,scope,cur,rows){const n=rows.filter(o=>o.route).length,all=
 document.addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(!b||!D)return;
   if(b.dataset.rscope==='alert'){alertRoute=b.dataset.route;renderAlerts()}else{listRoute=b.dataset.route;renderList()}});
 function renderAlerts(){
-  const q=$('#gq').value.trim().toLowerCase(),allAl=D.orders.filter(o=>o.alerts.length),al=allAl.filter(o=>inRoute(alertRoute,o)),dn=D.orders.filter(o=>inRoute(alertRoute,o)&&o.doneMark&&o._base.alerts.length);
+  const q=$('#gq').value.trim().toLowerCase(),allAl=D.orders.filter(o=>o.alerts.length),al=allAl.filter(o=>inRoute(alertRoute,o)),dn=D.orders.filter(o=>inRoute(alertRoute,o)&&o.doneMark&&o._base.alerts.length),nt=D.orders.filter(o=>inRoute(alertRoute,o)&&o.notified&&!o.doneMark);
   routeBar('#alertRoute','alert',alertRoute,allAl);
   const kinds={};al.forEach(o=>{if(o.kind)kinds[o.kind]=(kinds[o.kind]||0)+1});
-  if(kindFilter&&kindFilter!=='done'&&!kinds[kindFilter])kindFilter='';
+  if(kindFilter&&!['done','told'].includes(kindFilter)&&!kinds[kindFilter])kindFilter='';
+  if(kindFilter==='told'&&!nt.length)kindFilter='';
   if(kindFilter==='done'&&!dn.length)kindFilter='';
-  const pick=()=>kindFilter==='done'?dn.filter(o=>matches(o,q)):al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
-  let shown=pick();alertHits=q?al.filter(o=>matches(o,q)).length+dn.filter(o=>matches(o,q)).length:0;
+  const pick=()=>kindFilter==='told'?nt.filter(o=>matches(o,q)):kindFilter==='done'?dn.filter(o=>matches(o,q)):al.filter(o=>(!kindFilter||o.kind===kindFilter)&&matches(o,q));
+  let shown=pick();alertHits=q?al.filter(o=>matches(o,q)).length+dn.filter(o=>matches(o,q)).length+nt.filter(o=>matches(o,q)).length:0;
   // a search hit hidden by the chip filter: switch to the chip that holds it instead of saying "no results"
-  if(q&&!shown.length&&alertHits){kindFilter=al.some(o=>matches(o,q))?'':'done';shown=pick()}
+  if(q&&!shown.length&&alertHits){kindFilter=al.some(o=>matches(o,q))?'':dn.some(o=>matches(o,q))?'done':'told';shown=pick()}
   $('#alertCount').textContent=shown.length===al.length?`${al.length}건`:`${shown.length} / ${al.length}건`;
   $('#kindChips').innerHTML=`<button class="chip${kindFilter?'':' on'}" data-kind="">전체 ${al.length}</button>`+
     Object.entries(KIND).filter(([k])=>kinds[k]).map(([k,[label,cls]])=>`<button class="chip ${cls}${kindFilter===k?' on':''}" data-kind="${k}">${esc(label)} ${kinds[k]}</button>`).join('')+
-    (dn.length?`<button class="chip k-done${kindFilter==='done'?' on':''}" data-kind="done" title="독차 등으로 직원이 완료로 넘긴 주문">✓ 완료 처리 ${dn.length}</button>`:'');
+    (dn.length?`<button class="chip k-done${kindFilter==='done'?' on':''}" data-kind="done" title="독차 등으로 직원이 완료로 넘긴 주문">✓ 완료 처리 ${dn.length}</button>`:'')+
+    (nt.length?`<button class="chip k-done${kindFilter==='told'?' on':''}" data-kind="told" title="카카오에서 고객에게 상황을 이미 전달한 주문. 사유가 바뀌거나 14일이 지나면 다시 올라와요">💬 카카오 안내됨 ${nt.length}</button>`:'');
   if(kindFilter==='done')$('#alertCount').textContent=`완료 처리 ${shown.length}건`;
+  if(kindFilter==='told')$('#alertCount').textContent=`카카오 안내됨 ${shown.length}건`;
   shownAlerts=sorted(shown,'alerts');
   $('#alerts').innerHTML=HEAD+'<tbody>'+(shownAlerts.map(row).join('')||`<tr><td colspan="15" class="muted">${noneMsg()}</td></tr>`)+'</tbody>';
   searchLayout();
@@ -1360,7 +1363,7 @@ const M_SIT={
   parcel:{label:'배송 확인',pose:'parcel',pri:6,line:'배송현황 탭 확인이 필요해요!',to:'mItems'},
   shipunpaid:{label:'배송비 미입금',pose:'magnifier',pri:7.5,line:'이미 출고됐는데 배송비 입금 확인이 안 된 가구 건이 있어요.',to:'mc-shipfee'},
   usc:{label:'대표님 결제 확인',pose:'magnifier',pri:7,line:'대표님 결제 건 중 USC 구매 탭 기록이 빠졌거나 진행 확인이 필요한 건이 있어요.',to:'mc-usc'},
-  buy:{label:'구매 대기',pose:'run',pri:6.5,line:'구매대행 요청 후 3시간이 넘도록 구매가 안 된 건이 있어요.',to:'mc-buy'},
+  buy:{label:'구매 대기',pose:'run',pri:6.5,line:'구매대행 요청 후 6시간이 넘도록 구매가 안 된 건이 있어요.',to:'mc-buy'},
   question:{label:'확인 요청',pose:'ask',pri:7,line:'제가 판단하기 어려운 건이에요. 확인해 주세요.',to:'mItems'},
   deposit:{label:'입금 확인',pose:'magnifier',pri:8,line:'입금이 맞지 않는 건을 찾았어요.',to:'mc-payb'},
   late:{label:'오래 기다린 상담',pose:'run',pri:9,line:'오래 기다린 고객님이 계세요. 서둘러 주세요!',to:'mItems'},
@@ -1374,7 +1377,7 @@ const M_CHECKS=[
   // (배송비 입금 · 출고된 가구 건 is not a Mercury alert any more: the 견적서 tab's side panel shows it, user 2026-10-31)
   // purchase_nudge.py (user, 10/31): the same rules the purchase-nudge task uses to reply in the Slack request thread
   // (대표님 결제 · USC 구매 탭 is not a Mercury alert: usc_check.py only pulls missing 구매완료 marks into that tab, user 2026-10-31)
-  {id:'nudge',name:'구매대행 요청 · 구매 진행',desc:'슬랙 #일본-구매대행-요청에 올라온 요청 중 구매 정리 시트에 제품 구매일자가 없는 건이에요. 요청 3시간 뒤부터 3시간마다 그 요청 글에 댓글로 알려요 (0~9시 제외). 대표님 결제·구매처 직권 취소·구매처 답변처럼 외부를 기다리는 건과 주말에는 12시·18시에만 알려요.'}];
+  {id:'nudge',name:'구매대행 요청 · 구매 진행',desc:'슬랙 #일본-구매대행-요청에 올라온 요청 중 구매 정리 시트에 제품 구매일자가 없는 건이에요. 요청 6시간 뒤부터 6시간마다 마르코를 멘션해 그 요청 글에 댓글로 알려요 (0~9시 제외). 대표님 결제·구매처 직권 취소·구매처 답변처럼 외부를 기다리는 건과 주말에는 12시·18시에만 알려요.'}];
 const M_STATE={ok:['이상 없음','ok'],warn:['확인 필요','warn'],wait:['준비 중','wait']};
 const M_ANGRY_VIDEO=false;   // the customer-and-Sailor-Mercury scene video is retired with the original Mercury (2026-10-31); the angry situation uses her bow loop
 let mPreviewId=null;
@@ -1455,14 +1458,14 @@ function mCard(id,title,desc,links,thead,rows){
   return `<section class="card m-card" id="${id}"><div class="cardhead"><h2>${title} <span class="muted small">· ${rows.length}건</span></h2><div class="m-links">${links}</div></div>`+
     `<div class="tablewrap sheet"><table class="sheet"><thead><tr>${thead}</tr></thead><tbody>${rows.join('')}</tbody></table></div></section>`}
 // the reason says what was wrong, not how often a Slack reminder repeats (also for marks saved before the rule text was removed)
-const mClean=t=>String(t||'').split(' · ').filter(p=>!/3시간마다|12시·18시|알림|다음 /.test(p)).join(' · ').replace('슬랙 요청 후 ','');
+const mClean=t=>String(t||'').split(' · ').filter(p=>!/6시간마다|12시·18시|알림|다음 /.test(p)).join(' · ').replace('슬랙 요청 후 ','');
 const mTh=a=>a.map(h=>`<th>${esc(h)}</th>`).join('');
 function mRenderCards(M){
   const items=(M&&M.items)||[],of=k=>items.filter(i=>i.kind===k),out=[];
   const sheetCard=(id,title,desc,list,heads,p,sheetKey)=>{if(!list.length)return;const sh=list.find(i=>i.sheet)||{},tabs=[...new Set(list.map(i=>i.sheet&&i.sheet.tab).filter(Boolean))];
     out.push(mCard(id,title,desc,tabs.length?tabs.map(t=>mLink((list.find(i=>i.sheet&&i.sheet.tab===t).sheet.url||'').replace(/&range=.*/,''),`${sheetKey} ${t} 탭 열기`)).join(' '):'',
       `<th>확인</th><th>시트 위치</th>${mTh(heads)}<th class="m-whyhead">머큐리가 알리는 이유</th>`,list.map(i=>mSheetRow(i,heads,p))))};
-  sheetCard('mc-buy','구매대행 미구매','슬랙에 요청이 올라온 뒤 3시간 넘게 구매 정리 시트에 제품 구매일자가 없는 건이에요. 시트 위치를 누르면 그 달 탭의 그 행으로 가요.',of('구매대행 미구매'),P_HEADS,true,'구매 정리');
+  sheetCard('mc-buy','구매대행 미구매','슬랙에 요청이 올라온 뒤 6시간 넘게 구매 정리 시트에 제품 구매일자가 없는 건이에요. 시트 위치를 누르면 그 달 탭의 그 행으로 가요.',of('구매대행 미구매'),P_HEADS,true,'구매 정리');
   sheetCard('mc-payb','구매대행 견적 미입금','견적서를 보낸 지 30분이 넘었는데 페이액션 입금 확인이 안 된 건이에요 (구매 정리 시트 형태).',of('구매대행 입금 확인'),P_HEADS,true,'구매 정리');
   sheetCard('mc-pays','배송비 견적 미입금','배송비 견적서를 보낸 지 30분이 넘었는데 페이액션 입금 확인이 안 된 건이에요 (출고정리 시트 형태).',of('배송비 입금 확인'),S_HEADS,false,'출고정리');
   sheetCard('mc-shipfee','배송비 미입금 · 이미 출고된 가구','팬스타에서 이미 출고됐는데 26년가구 출고정리의 결제여부가 y가 아닌 건이에요.',of('배송비 미입금'),S_HEADS,false,'출고정리');
