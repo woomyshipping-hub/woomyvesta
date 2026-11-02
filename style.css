@@ -856,3 +856,4 @@ table.sheet td.alertline.k-customs,table.sheet td.alertline.k-handover{font-weig
 .sg-name{font-weight:600}.sg-val{text-align:right;white-space:nowrap}.sg-val b.bad{color:var(--bad)}#stageNote{margin:12px 0 0}
 @media(max-width:620px){.sg-row{grid-template-columns:minmax(0,1fr) auto}.sg-bar{grid-column:1/-1;grid-row:2}}
 .manybtn{display:flex;width:100%;justify-content:flex-start;margin-top:8px;font-size:var(--fs-sm,14px)}.manybtn.on{border-color:var(--blue);color:var(--blue)}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}.links .btn{flex:1 1 180px}.btn.kakao{display:flex;width:100%;margin:14px 0;background:#fee500;border-color:#fee500;color:#191600;font-weight:700}.btn.kakao:hover{filter:brightness(.97)}#result .cus-plain{margin-top:0}
