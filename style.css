@@ -855,3 +855,4 @@ table.sheet td.alertline.k-customs,table.sheet td.alertline.k-handover{font-weig
 .sg-bar{display:flex;gap:2px;height:20px}.sg-bar i{display:block;min-width:4px;border-radius:4px}.sg-ok{background:var(--good-solid,var(--good))}.sg-late{background:var(--bad-solid,var(--bad))}.sg-none{flex:1;background:var(--line)}
 .sg-name{font-weight:600}.sg-val{text-align:right;white-space:nowrap}.sg-val b.bad{color:var(--bad)}#stageNote{margin:12px 0 0}
 @media(max-width:620px){.sg-row{grid-template-columns:minmax(0,1fr) auto}.sg-bar{grid-column:1/-1;grid-row:2}}
+.manybtn{display:flex;width:100%;justify-content:flex-start;margin-top:8px;font-size:var(--fs-sm,14px)}.manybtn.on{border-color:var(--blue);color:var(--blue)}
