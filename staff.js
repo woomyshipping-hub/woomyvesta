@@ -1468,7 +1468,7 @@ function mRenderCards(M){
   sheetCard('mc-buy','구매대행 미구매','슬랙에 요청이 올라온 뒤 6시간 넘게 구매 정리 시트에 제품 구매일자가 없는 건이에요. 시트 위치를 누르면 그 달 탭의 그 행으로 가요.',of('구매대행 미구매'),P_HEADS,true,'구매 정리');
   sheetCard('mc-payb','구매대행 견적 미입금','견적서를 보낸 지 24시간이 넘었는데 입금 내역도 카카오 입금 메시지도 없는 건이에요 (구매 정리 시트 형태).',of('구매대행 입금 확인'),P_HEADS,true,'구매 정리');
   sheetCard('mc-pays','배송비 견적 미입금','배송비 견적서를 보낸 지 24시간이 넘었는데 입금 내역도 카카오 입금 메시지도 없는 건이에요 (출고정리 시트 형태).',of('배송비 입금 확인'),S_HEADS,false,'출고정리');
-  sheetCard('mc-shipfee','배송비 미입금 · 이미 출고된 가구','팬스타에서 이미 출고됐는데 26년가구 출고정리의 결제여부가 y가 아닌 건이에요.',of('배송비 미입금'),S_HEADS,false,'출고정리');
+  sheetCard('mc-shipfee','배송비 미입금 · 이미 출고된 가구','팬스타에서 이미 출고됐는데 26년가구 출고정리의 결제여부가 YES가 아닌 건이에요.',of('배송비 미입금'),S_HEADS,false,'출고정리');
   const usc=of('대표님 결제 (USC)');
   if(usc.length)out.push(mCard('mc-usc','대표님 결제 · USC 구매 탭','대표님(USC) 결제 건이 USC 구매 (목표 : 소비세환급) 탭에 기록되어 흰색 → 회색 → 파랑 → 초록으로 진행되는지 봐요. 소비세 환급 때 이 기록을 써요.',
     mLink('https://docs.google.com/spreadsheets/d/1J9LlRpO923782F7_CpDpMUweogocdvRPY67KfpPmK_4/edit#gid=261309109','USC 구매 탭 열기'),'<th>확인</th><th>번호</th><th>고객</th><th>USC 행</th><th class="m-whyhead">머큐리가 알리는 이유</th>',
