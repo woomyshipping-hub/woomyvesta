@@ -907,6 +907,7 @@ function qsList(){const box=$('#qShipList'),C=qsCands();Q.ship=Q.ship||[];
     return `<label class="qs-c${on?' on':''}"><input type="checkbox" data-qs="${esc(r.order)}"${on?' checked':''}><span><b>${esc(r.buyItem||r.item)}</b>${r.buyItem?` <span class="muted">(${esc(r.item)})</span>`:''}<br>`+
       `<span class="small muted">${esc(r.date.slice(5))} 주문 · ${esc(r.order)} · ${r.kg}kg · ${r.boxes}박스 · ${esc(r.status)}${r.region?' · '+esc(r.region):''}</span></span></label>`}).join('')}
 function qsPick(order,on){const r=(SQ().recent||[]).find(x=>x.order===order);if(!r)return;Q.ship=(Q.ship||[]).filter(x=>x.order!==order);
+  Q.no='';   // another shipment = another quote: with the old number the 2-second sync wrote the old quote's lines onto this shipment's row (11/04)
   if(on){const bx=qsBox(r),rp=qsRepack(r);Q.ship.push({order,date:r.date,item:r.buyItem||r.item,kg:r.kg,boxes:r.boxes||1,dims:bx.d.join('×'),dimsWhy:bx.why,
     re:rp.v,reWhy:rp.why,region:r.region||'수도권',hbl:r.hbl||'',courier:r.courier||'',courierNo:r.courierNo||'',fix:qsFixed(r)})}
   if(!Q.ship.length){Q.lines['배송']=[];Q.no='';qeditors()}   // nothing picked: the sample quote holds nothing either
