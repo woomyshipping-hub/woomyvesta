@@ -769,7 +769,7 @@ function qpage(o){const {I,sup,rows,from,last,blank,total,page,pages}=o;
     <table class="qd-items"><thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>비고</th></tr></thead><tbody>${body}${
       '<tr class="qd-blank"><td></td><td></td><td></td><td></td><td></td></tr>'.repeat(blank)}${
       last?`<tr class="qd-total"><td colspan="2">총 합계</td><td colspan="2">₩${won(total)}</td><td>입금하실 금액</td></tr>`:''}</tbody></table>
-    ${last?`<div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(I.bank||'')}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
+    ${last?`<div class="qd-bottom"><div class="qd-foot"><div class="qd-bank"><b>입금안내</b><span>${esc(/[가-힣]/.test(I.bank||'')?I.bank:'국민은행 '+(I.bank||''))}<br>예금주 : ${esc(I.holder||'')}</span></div></div>
     <p class="qd-fine">※ ${esc(QNOTE[Q.type])}</p></div>`:'<div class="qd-bottom"></div>'}
     ${pages>1?`<p class="qd-pageno">${page} / ${pages}</p>`:''}</div>`}
 function qdoc(){qdutyShow();const I=D.quoteInfo||{},rows=qrows(),total=rows.reduce((a,x)=>a+x.qty*x.unit,0),sup=Object.fromEntries(I.supplier||[]);
