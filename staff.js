@@ -994,7 +994,7 @@ function qeditors(){
     const sh=qship(),f=qfee();
     rows.push(`<tr data-qa="ship" class="q-fixed"><td class="q-n">${++n}</td><td>현지배송비</td><td>1</td><td><span class="q-cur">¥</span>${qin('ship',Q.adj.ship,{num:1,ph:Q.items.some(it=>qnum(it.ship)!=null)?'자동 '+sh.auto.toLocaleString():'모름'})}<div class=\"q-krw\" data-krw=\"${'ship'}\"></div></td><td>${qin('shipNote',Q.adj.shipNote,{ph:sh.autoNote})}</td><td>${Q.adj.ship||Q.adj.shipNote?'<button type="button" class="mini" data-qauto="ship" title="자동 값으로">↺</button>':''}</td></tr>`);
     rows.push(`<tr data-qa="fee" class="q-fixed"><td class="q-n">${++n}</td><td>구매수수료</td><td>1</td><td><span class="q-cur">¥</span>${qin('fee',Q.adj.fee,{num:1,ph:f.auto?'자동 '+f.auto.toLocaleString():'자동'})}<div class=\"q-krw\" data-krw=\"${'fee'}\"></div></td><td>${qin('feeNote',Q.adj.feeNote,{ph:f.autoNote||'상품 가격을 넣으면 계산돼요'})}</td><td>${Q.adj.fee||Q.adj.feeNote?'<button type="button" class="mini" data-qauto="fee" title="자동 값으로">↺</button>':''}</td></tr>`)}
-  Q.lines[Q.type].forEach((l,i)=>rows.push(`<tr data-ql="${i}"><td class="q-n">${++n}</td><td>${qin('0',l[0],{ph:'항목'})}</td><td>${qin('1',l[1],{num:1})}</td><td><span class="q-cur">₩</span>${qin('2',l[2],{num:1,ph:'비우면 제외'})}<div class=\"q-krw\" data-krw=\"${'l'+i}\"></div></td><td>${String(l[3]||'').includes('\n')?`<textarea data-f="3" class="q-notearea" rows="${String(l[3]).split('\n').length}">${esc(l[3])}</textarea>`:qin('3',l[3],{ph:'비고'})}</td><td><button type="button" class="mini" data-qldel="${i}" aria-label="삭제">✕</button></td></tr>`));
+  Q.lines[Q.type].forEach((l,i)=>rows.push(`<tr data-ql="${i}"><td class="q-n">${++n}</td><td>${qin('0',l[0],{ph:'항목'})}</td><td>${qin('1',l[1],{num:1})}</td><td><span class="q-cur">₩</span>${qin('2',l[2],{num:1,ph:'비우면 제외'})}<div class=\"q-krw\" data-krw=\"${'l'+i}\"></div></td><td><textarea data-f="3" class="q-notearea" placeholder="비고" rows="${String(l[3]||'').split('\n').length}">${esc(l[3]||'')}</textarea></td><td><button type="button" class="mini" data-qldel="${i}" aria-label="삭제">✕</button></td></tr>`));
   $('#qTable').innerHTML='<thead><tr><th>구분</th><th>항목</th><th>수량</th><th>단가</th><th>비고</th><th></th></tr></thead><tbody>'+rows.join('')+'</tbody>';
   qdoc()}
 // 원 환산 cells follow every keystroke without redrawing the inputs.
@@ -1021,6 +1021,8 @@ function qsNoteUp(L){(L||[]).forEach(l=>{const m=String(l[3]||'').match(/^W\/T (
 function qsShipUp(S){(S||[]).forEach(x=>{const r=(SQ().recent||[]).find(y=>y.order===x.order);if(!r)return;
   Object.assign(x,{hbl:r.hbl||x.hbl||'',courier:r.courier||x.courier||'',courierNo:r.courierNo||x.courierNo||''});if(!x.fix)x.fix=qsFixed(r);
   if(/상품 사이즈를 몰라 박스당 무게/.test(x.dimsWhy||'')){const b=qsBox(r);x.dims=b.d.join('×');x.dimsWhy=b.why;x.sums=null}})}
+// 비고: staff break lines themselves with Enter and the quote prints them the same (user, 11/04); the box grows with its lines
+$('#qTable').addEventListener('input',e=>{const t=e.target;if(t.matches?.('textarea.q-notearea'))t.rows=t.value.split('\n').length});
 function qinit(){if(qinit.done||!D)return;qinit.done=true;qdLoadUsd();
   let s=null;try{s=JSON.parse(localStorage.getItem(QKEY)||'null')}catch{}
   qreset();if(s){Object.assign(Q,{type:s.type||'구매',items:s.items||[],lines:s.lines||Q.lines,no:s.no||'',adj:{...QADJ(),...s.adj},ship:s.ship||[]});

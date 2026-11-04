@@ -710,7 +710,7 @@ tr.k-angry td{background:color-mix(in srgb,var(--bad-soft) 75%,transparent)}tr.k
 .qs-calc td:nth-child(6){grid-column:3;grid-row:2}
 .qs-calc .small{max-width:none;margin-top:5px}
 .q-form .bad{color:var(--bad)}
-.q-sheet .q-notearea{font-size:var(--fs-sm);min-height:118px}
+.q-sheet .q-notearea{font-size:var(--fs-sm);min-height:40px}
 /* 운송사 buttons sit on one row with the other filters, same size as the chips */
 /* ===== 가시성 공통 규칙 (user, 2026-11-01): one rule per component, using the tokens at the top of this file. Later rules should use these tokens too. ===== */
 :root{color-scheme:light dark}:root[data-theme="light"]{color-scheme:light}:root[data-theme="dark"]{color-scheme:dark}
